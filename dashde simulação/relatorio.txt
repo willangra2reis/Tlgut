@@ -1,0 +1,55 @@
+# Relatório de Unit Economics — Diário Intestinal
+Gerado em: 13/06/2026 às 16:22:08
+
+## 1. Configurações Gerais
+* **Câmbio USD → BRL:** R$ 5.05
+* **Horizonte de Projeção:** 12 meses
+
+## 2. Custos de Infraestrutura (Voz e LLM)
+* **STT (Transcrição):** USD $0.003000/min | Áudio: 1.33 min/dia
+* **LLM (IA):** Entrada: USD $1.00/1M | Saída: USD $5.00/1M
+* **Volume de Tokens/Semana:** Entrada: 3000 | Saída: 800
+* **Custo Total de Infra por Usuário/Mês:** USD $0.1497 (R$ 0.76)
+
+## 3. Aquisição de Clientes (CAC)
+* **Modo de Entrada:** Calculado por Anúncio
+* **CAC Unitário:** R$ 10.00
+* **Volume Diário (se aplicável):**
+  * Verba Diária: R$ 30.00
+  * CPC Médio: R$ 0.80
+  * Conversão de Cliques: 8%
+  * Novos Cadastros/Dia: 3.00
+
+## 4. Custos Fixos e Retenção
+* **Custos Fixos Mensais (Plataformas, etc.):** R$ 150.00
+* **Taxas de Vendas + Impostos:** 12%
+* **Outros Custos Variáveis por Usuário:** R$ 0.00
+* **Churn de Uso Geral do App:** 5% ao mês
+* **Conversão de Gratuitos para Pago:** 100%
+
+## 5. Esteira de Produtos Cadastrados
+| Produto | Tipo | Preço BRL | Conversão (Take Rate) | Churn do Produto |
+| :--- | :--- | :--- | :--- | :--- |
+| Assinatura Premium (mensal) | Recorrente | R$ 19.90 | 10% | 8% |
+| Relatório PDF de Saúde | Único | R$ 14.90 | 15% | N/A |
+
+## 6. Principais Resultados de Economia Unitária
+* **LTV (Lifetime Value) Total por Usuário:** R$ 16.45
+* **CAC:** R$ 10.00
+* **Relação LTV : CAC:** 1.65x (Meta saudável >= 3x)
+* **Lucro Líquido por Usuário no Período:** R$ -0.91
+* **Payback (Recuperação do CAC):** > 12 meses
+* **Margem de Contribuição por Usuário Ativo/Mês:** R$ 1.00
+* **Ponto de Equilíbrio (Usuários Ativos para cobrir custos fixos):** 151 usuários
+
+## 7. Simulação de Meta de Recorrência (MRR)
+* **Meta de Faturamento Recorrente Mensal (MRR) Desejada:** R$ 10000.00
+* **Novos Cadastros (Clientes) Necessários por Mês:** 457
+* **Investimento Mensal de Marketing Estimado:** R$ 4568.30
+* **Estrutura da Base em Regime de Equilíbrio:**
+  * Assinantes Ativos Totais: 571
+  * Usuários Ativos Totais no Aplicativo: 9.137
+  * Custo Mensal da Infraestrutura da Base: R$ 6907.13
+
+---
+*Relatório gerado pelo Diário Intestinal Economics Simulator.*

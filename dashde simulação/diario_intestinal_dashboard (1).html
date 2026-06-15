@@ -1,0 +1,2247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unit Economics — Diário Intestinal</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0B0F14;
+      --surface: #131820;
+      --surface-2: #1A2130;
+      --surface-3: #212C3A;
+      --border: #263040;
+      --border-hi: #3A4D62;
+      --text: #E4E8EE;
+      --text-dim: #7A8FA6;
+      --text-faint: #455468;
+      --accent: #4ECDC4;
+      --accent-2: #FF6B6B;
+      --gold: #FFD166;
+      --positive: #06D6A0;
+      --negative: #EF476F;
+      --warning: #FFD166;
+      --blue: #118AB2;
+      --purple: #9B72CF;
+      --gut-green: #2EC99A;
+
+      --r: 12px;
+      --r-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--surface);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-hi);
+      border-radius: 3px;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--gut-green), var(--accent));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .brand h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+
+    .brand p {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin: 0;
+    }
+
+    .topbar-controls {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+
+    .topbar-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .topbar-field label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-faint);
+      font-weight: 600;
+    }
+
+    .topbar-field input {
+      width: 120px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 5px 8px;
+      color: var(--text);
+      font-size: 12px;
+      font-family: inherit;
+    }
+
+    .topbar-field input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* ── MAIN ── */
+    .app {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 64px);
+    }
+
+    @media (max-width: 1024px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      max-height: calc(100vh - 64px);
+      position: sticky;
+      top: 64px;
+    }
+
+    .section-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    .field label {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .field-row .field {
+      margin-bottom: 0;
+    }
+
+    .field-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .field-row-3 .field {
+      margin-bottom: 0;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select {
+      background: var(--surface-3);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 7px 9px;
+      font-size: 12px;
+      width: 100%;
+      font-family: inherit;
+      transition: border-color .15s;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    input:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .result-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 8px;
+      width: 100%;
+    }
+
+    .result-pill strong {
+      color: var(--accent);
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 12px;
+    }
+
+    /* ── SCENARIO BUTTONS ── */
+    .scenario-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 6px;
+    }
+
+    .scenario-btn {
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 8px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+      font-family: inherit;
+    }
+
+    .scenario-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .scenario-btn.active {
+      background: var(--accent);
+      color: #051814;
+      border-color: var(--accent);
+    }
+
+    .scenario-btn.ghost {
+      color: var(--text-faint);
+      font-weight: 400;
+    }
+
+    .scenario-badge {
+      font-size: 9px;
+      display: block;
+      font-weight: 400;
+      margin-top: 2px;
+      opacity: 0.7;
+    }
+
+    /* ── TOGGLE GROUP ── */
+    .toggle-group {
+      display: flex;
+      gap: 4px;
+      background: var(--surface-3);
+      border-radius: var(--r-sm);
+      padding: 3px;
+      border: 1px solid var(--border);
+    }
+
+    .toggle-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+
+    .toggle-btn.active {
+      background: var(--accent);
+      color: #051814;
+    }
+
+    /* ── PRODUCT TABLE ── */
+    .product-wrap {
+      overflow-x: auto;
+    }
+
+    table.ptable {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 480px;
+      font-size: 11px;
+    }
+
+    table.ptable th {
+      text-align: left;
+      color: var(--text-faint);
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0 4px 6px;
+    }
+
+    table.ptable td {
+      padding: 3px 4px;
+    }
+
+    table.ptable input,
+    table.ptable select {
+      padding: 5px 6px;
+      font-size: 11px;
+    }
+
+    .remove-btn {
+      background: none;
+      border: none;
+      color: var(--negative);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 4px;
+      line-height: 1;
+      border-radius: 4px;
+      transition: background .1s;
+    }
+
+    .remove-btn:hover {
+      background: rgba(239, 71, 111, 0.12);
+    }
+
+    .add-row-btn {
+      width: 100%;
+      margin-top: 8px;
+      background: none;
+      border: 1px dashed var(--border);
+      border-radius: var(--r-sm);
+      padding: 7px;
+      color: var(--text-dim);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: inherit;
+    }
+
+    .add-row-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-x: hidden;
+    }
+
+    /* ── KPI GRID ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 1400px) {
+      .kpi-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+
+    .kpi::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 2px;
+      background: var(--kpi-color, var(--border));
+      border-radius: var(--r) var(--r) 0 0;
+    }
+
+    .kpi-label {
+      font-size: 10px;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .kpi-val {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: 'SF Mono', Consolas, monospace;
+      line-height: 1.15;
+    }
+
+    .kpi-val.pos {
+      color: var(--positive);
+    }
+
+    .kpi-val.neg {
+      color: var(--negative);
+    }
+
+    .kpi-val.warn {
+      color: var(--warning);
+    }
+
+    .kpi-sub {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* ── INFRA COST TABLE ── */
+    .infra-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .infra-table th {
+      text-align: left;
+      color: var(--text-faint);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0 8px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .infra-table td {
+      padding: 5px 8px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--surface-3);
+    }
+
+    .infra-table td:first-child {
+      color: var(--text);
+    }
+
+    .infra-table tr.highlight td {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .infra-table .mono {
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    /* ── CHART CONTAINERS ── */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px 18px;
+    }
+
+    .chart-card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .chart-wrap {
+      position: relative;
+    }
+
+    .chart-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .chart-2col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-3col {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 1100px) {
+      .chart-3col {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .chart-3col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── BREAKEVEN ── */
+    .be-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .be-card {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .be-card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 10px;
+      grid-column: 1 / -1;
+    }
+
+    .be-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .be-label {
+      font-size: 11px;
+      color: var(--text-faint);
+    }
+
+    .be-value {
+      font-size: 18px;
+      font-weight: 700;
+      font-family: 'SF Mono', Consolas, monospace;
+      color: var(--accent);
+    }
+
+    .be-desc {
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .be-desc strong {
+      color: var(--text);
+      font-family: 'SF Mono', Consolas, monospace;
+    }
+
+    /* ── INSIGHT BOX ── */
+    .insight {
+      background: rgba(78, 205, 196, 0.06);
+      border: 1px solid rgba(78, 205, 196, 0.2);
+      border-radius: var(--r);
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .insight strong {
+      color: var(--accent);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      padding: 16px;
+      color: var(--text-faint);
+      font-size: 11px;
+      border-top: 1px solid var(--border);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* ── RANGE VALUE DISPLAY ── */
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .range-row input[type="range"] {
+      flex: 1;
+    }
+
+    .range-val {
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 12px;
+      color: var(--accent);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    .export-btn {
+      background: linear-gradient(135deg, var(--gut-green), var(--accent));
+      border: none;
+      border-radius: var(--r-sm);
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #051814;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity .15s;
+      font-family: inherit;
+      height: 28px;
+    }
+
+    .export-btn:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">🫀</div>
+      <div>
+        <h1>Diário Intestinal</h1>
+        <p>Simulador de Unit Economics</p>
+      </div>
+    </div>
+    <div class="topbar-controls">
+      <div class="topbar-field">
+        <label>Câmbio USD → BRL</label>
+        <input type="number" id="fx" step="0.05" min="1" value="5.05">
+      </div>
+      <div class="topbar-field">
+        <label>Horizonte</label>
+        <div class="range-row" style="width:200px">
+          <input type="range" id="horizon" min="3" max="36" step="1" value="12">
+          <span class="range-val" id="horizonVal">12 m</span>
+        </div>
+      </div>
+      <button class="export-btn" id="exportBtn">📥 Exportar Cenário</button>
+    </div>
+  </header>
+
+  <div class="app">
+
+    <!-- ============================== SIDEBAR ============================== -->
+    <aside class="sidebar">
+
+      <!-- CENÁRIOS -->
+      <div>
+        <div class="section-title">Cenários</div>
+        <div class="scenario-row">
+          <button class="scenario-btn" data-s="bootstrap">Lançamento<span
+              class="scenario-badge">beta/gratuito</span></button>
+          <button class="scenario-btn" data-s="conservador">Conservador<span class="scenario-badge">low
+              ticket</span></button>
+          <button class="scenario-btn active" data-s="moderado">Moderado<span
+              class="scenario-badge">base</span></button>
+          <button class="scenario-btn" data-s="agressivo">Agressivo<span class="scenario-badge">esteira
+              full</span></button>
+        </div>
+      </div>
+
+      <!-- INFRAESTRUTURA -->
+      <div>
+        <div class="section-title">① Infraestrutura por usuário/mês</div>
+        <div class="card">
+          <div class="field">
+            <label>STT — Transcrição de Voz</label>
+            <select id="sttPreset">
+              <option value="0.000667">Groq Whisper Turbo — US$0.00067/min ⚡ mais barato</option>
+              <option value="0.0025">AssemblyAI (batch) — US$0.0025/min</option>
+              <option value="0.003" selected>OpenAI gpt-4o-mini-transcribe — US$0.003/min</option>
+              <option value="0.0043">Deepgram Nova-3 — US$0.0043/min</option>
+              <option value="0.006">OpenAI Whisper — US$0.006/min</option>
+              <option value="custom">Personalizado…</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>US$/min (STT)</label>
+              <input type="number" id="sttPrice" step="0.0001" min="0" value="0.003">
+            </div>
+            <div class="field">
+              <label>Áudio min/dia</label>
+              <input type="number" id="audioMin" step="0.1" min="0" value="1.33">
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <label>LLM — Resumo semanal + perguntas ao médico</label>
+            <select id="llmPreset">
+              <option value="0.10,0.40">Gemini 2.5 Flash-Lite — US$0.10 / US$0.40 por 1M ⚡</option>
+              <option value="0.10,0.40">GPT-4.1 nano — US$0.10 / US$0.40 por 1M</option>
+              <option value="0.30,2.50">Gemini 2.5 Flash — US$0.30 / US$2.50 por 1M</option>
+              <option value="1.00,5.00" selected>Claude Haiku 4.5 — US$1.00 / US$5.00 por 1M</option>
+              <option value="custom">Personalizado…</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>US$ / 1M input</label>
+              <input type="number" id="llmIn" step="0.01" min="0" value="1.00">
+            </div>
+            <div class="field">
+              <label>US$ / 1M output</label>
+              <input type="number" id="llmOut" step="0.01" min="0" value="5.00">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Tokens entrada/semana</label>
+              <input type="number" id="tokIn" step="100" min="0" value="3000">
+            </div>
+            <div class="field">
+              <label>Tokens saída/semana</label>
+              <input type="number" id="tokOut" step="50" min="0" value="800">
+            </div>
+          </div>
+
+          <div class="result-pill">
+            STT: <strong id="sttMonthlyUSD">—</strong> &nbsp;|&nbsp; LLM: <strong id="llmMonthlyUSD">—</strong>
+            &nbsp;|&nbsp; Total: <strong id="infraTotalUSD">—</strong> (<strong id="infraTotalBRL">—</strong>)
+          </div>
+        </div>
+      </div>
+
+      <!-- CAC -->
+      <div>
+        <div class="section-title">② Aquisição — CAC (Meta Ads)</div>
+        <div class="card">
+          <div class="toggle-group" id="cacModeGroup" style="margin-bottom:10px">
+            <button class="toggle-btn active" data-m="calc">Calcular por anúncio</button>
+            <button class="toggle-btn" data-m="direct">Inserir CAC direto</button>
+          </div>
+
+          <div id="cacCalcFields">
+            <div class="field-row">
+              <div class="field">
+                <label>Verba diária (R$)</label>
+                <input type="number" id="adSpend" step="5" min="0" value="30">
+              </div>
+              <div class="field">
+                <label>CPC médio (R$)</label>
+                <input type="number" id="cpc" step="0.05" min="0.01" value="0.80">
+              </div>
+            </div>
+            <div class="field">
+              <label>Conversão clique → cadastro (%)</label>
+              <div class="range-row">
+                <input type="range" id="signupRate" min="0.5" max="30" step="0.5" value="8">
+                <span class="range-val" id="signupRateVal">8%</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="cacDirectFields" class="hidden">
+            <div class="field">
+              <label>CAC direto (R$ / cadastro)</label>
+              <input type="number" id="cacDirect" step="0.50" min="0" value="10">
+            </div>
+          </div>
+
+          <div class="result-pill">
+            CAC: <strong id="cacOut">—</strong> &nbsp;|&nbsp; Cadastros/dia: <strong id="signupsDay">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- CUSTOS FIXOS -->
+      <div>
+        <div class="section-title">③ Custos fixos & taxas</div>
+        <div class="card">
+          <div class="field">
+            <label>Infra fixa/mês (R$) — Supabase, domínio, Cloudflare, etc.</label>
+            <input type="number" id="fixedCost" step="10" min="0" value="150">
+          </div>
+          <div class="field">
+            <label>Taxas de plataforma + impostos sobre vendas (%)</label>
+            <div class="range-row">
+              <input type="range" id="feesPct" min="0" max="40" step="0.5" value="12">
+              <span class="range-val" id="feesPctVal">12%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>Outros custos variáveis/usuário/mês (R$) — suporte, etc.</label>
+            <input type="number" id="otherVar" step="0.50" min="0" value="0">
+          </div>
+        </div>
+      </div>
+
+      <!-- ESTEIRA DE PRODUTOS -->
+      <div>
+        <div class="section-title">④ Esteira de produtos</div>
+        <div class="card">
+          <div class="product-wrap">
+            <table class="ptable" id="productTable">
+              <thead>
+                <tr>
+                  <th style="width:35%">Produto</th>
+                  <th style="width:15%">Tipo</th>
+                  <th style="width:15%">R$</th>
+                  <th style="width:13%">% conv.</th>
+                  <th style="width:13%">Churn %</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="productBody"></tbody>
+            </table>
+          </div>
+          <button class="add-row-btn" id="addProduct">+ Adicionar produto</button>
+        </div>
+      </div>
+
+      <!-- RETENÇÃO -->
+      <div>
+        <div class="section-title">⑤ Retenção do app</div>
+        <div class="card">
+          <div class="field">
+            <label>Churn de uso do app (%/mês) — usuários que param de usar</label>
+            <div class="range-row">
+              <input type="range" id="churnGeral" min="0" max="40" step="0.5" value="5">
+              <span class="range-val" id="churnGeralVal">5%</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>% usuários gratuitos → pagantes (funil interno)</label>
+            <div class="range-row">
+              <input type="range" id="freeToPaid" min="0" max="100" step="1" value="100">
+              <span class="range-val" id="freeToPaidVal">100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="scenario-btn ghost" data-s="reset" style="width:100%">↺ Resetar tudo</button>
+
+    </aside>
+
+    <!-- ============================== MAIN CONTENT ============================== -->
+    <main class="main">
+
+      <!-- VIEW MODE TOGGLE -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 12px; background: var(--surface); border: 1px solid var(--border); padding: 10px 16px; border-radius: var(--r);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); font-weight: 700;">Modo do Dashboard:</span>
+          <div class="toggle-group" id="viewModeGroup" style="width: 380px;">
+            <button class="toggle-btn active" data-v="unit">Unitário (Métricas por Cliente)</button>
+            <button class="toggle-btn" data-v="volume">Volume (Projeção Total da Base)</button>
+          </div>
+        </div>
+        
+        <!-- VOLUME MODE CONTROLS -->
+        <div id="volumeControls" style="display: none; align-items: center; gap: 8px;">
+          <label for="monthlyAcquisitions" style="font-size: 11px; color: var(--text-dim); font-weight: 600;">Novos cadastros/mês:</label>
+          <input type="number" id="monthlyAcquisitions" value="100" min="1" step="10" style="width: 90px; padding: 5px 8px; font-size: 12px; font-weight: 700; font-family: 'SF Mono', Consolas, monospace; color: var(--accent); background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--r-sm);">
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid">
+        <div class="kpi" style="--kpi-color: var(--positive)">
+          <span class="kpi-label">LTV Total</span>
+          <span class="kpi-val" id="kpiLtv">—</span>
+          <span class="kpi-sub">receita/cliente no horizonte</span>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--negative)">
+          <span class="kpi-label">CAC</span>
+          <span class="kpi-val" id="kpiCac">—</span>
+          <span class="kpi-sub">custo de aquisição</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-label">LTV : CAC</span>
+          <span class="kpi-val" id="kpiRatio">—</span>
+          <span class="kpi-sub">meta saudável ≥ 3×</span>
+        </div>
+        <div class="kpi" style="--kpi-color: var(--blue)">
+          <span class="kpi-label">Custo infra total</span>
+          <span class="kpi-val" id="kpiInfra">—</span>
+          <span class="kpi-sub">STT + LLM no período</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-label">Lucro líquido/cliente</span>
+          <span class="kpi-val" id="kpiProfit">—</span>
+          <span class="kpi-sub">LTV − CAC − infra − fixo</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-label">Payback</span>
+          <span class="kpi-val" id="kpiPayback">—</span>
+          <span class="kpi-sub">meses para recuperar CAC</span>
+        </div>
+      </div>
+
+      <!-- INSIGHT -->
+      <div class="insight" id="insightBox">—</div>
+
+      <!-- GRÁFICO ACUMULADO -->
+      <div class="chart-card">
+        <h3 id="chartCumTitle">Receita acumulada vs. Custo acumulado por cliente (R$)</h3>
+        <div class="chart-wrap" style="height:260px"><canvas id="chartCum"></canvas></div>
+      </div>
+
+      <!-- 2 GRÁFICOS -->
+      <div class="chart-2col">
+        <div class="chart-card">
+          <h3 id="chartMonthlyTitle">Lucro líquido por mês/cliente (R$)</h3>
+          <div class="chart-wrap" style="height:220px"><canvas id="chartMonthly"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3 id="chartProductsTitle">Composição de receita por produto (LTV, R$)</h3>
+          <div class="chart-wrap" style="height:220px"><canvas id="chartProducts"></canvas></div>
+        </div>
+      </div>
+
+      <!-- TABELA DE CUSTOS DE INFRA COMPARATIVA -->
+      <div class="chart-card">
+        <h3>Comparativo de custo de infraestrutura — STT + LLM por perfil de uso</h3>
+        <div style="overflow-x:auto">
+          <table class="infra-table" id="infraTable">
+            <thead>
+              <tr>
+                <th>Perfil</th>
+                <th>Áudio/dia</th>
+                <th>STT</th>
+                <th>LLM</th>
+                <th>Total/usuário/mês (USD)</th>
+                <th>Total/usuário/mês (BRL)</th>
+              </tr>
+            </thead>
+            <tbody id="infraTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PONTO DE EQUILÍBRIO -->
+      <div class="be-card">
+        <h3>Ponto de equilíbrio dos custos fixos</h3>
+        <div class="be-stat">
+          <span class="be-label">Contribuição líquida/usuário ativo/mês</span>
+          <span class="be-value" id="beContrib">—</span>
+          <span class="be-desc">Receita recorrente blendada − infra variável − outros custos variáveis</span>
+        </div>
+        <div class="be-stat">
+          <span class="be-label">Usuários ativos necessários para cobrir custos fixos</span>
+          <span class="be-value" id="beUsers">—</span>
+          <span class="be-desc" id="beDesc">—</span>
+        </div>
+      </div>
+
+      <!-- META DE RECORRÊNCIA -->
+      <div class="be-card">
+        <h3>Simulador de Meta de Recorrência (MRR)</h3>
+        <div class="be-stat"
+          style="grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; background: var(--surface-2); padding: 12px; border-radius: var(--r-sm); border: 1px solid var(--border);">
+          <div style="flex: 1;">
+            <span class="be-label" style="font-size: 11px; font-weight: 600; color: var(--text);">Quanto você quer
+              receber mensalmente de recorrência?</span>
+            <span class="be-desc" style="display: block; margin-top: 4px;">Defina sua meta de faturamento recorrente
+              mensal (MRR).</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; width: 180px;">
+            <span
+              style="font-family: 'SF Mono', Consolas, monospace; font-weight: 600; color: var(--text-dim);">R$</span>
+            <input type="number" id="targetMRR" value="10000" step="1000" min="0"
+              style="width: 100%; text-align: right; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; font-weight: 700; color: var(--accent); padding: 5px 8px;">
+          </div>
+        </div>
+
+        <div class="be-stat">
+          <span class="be-label">Novos clientes (cadastros) / mês</span>
+          <span class="be-value" id="mrrAcquisitions">—</span>
+          <span class="be-desc">Clientes que você precisa adquirir mensalmente para manter a meta sob churn.</span>
+        </div>
+        <div class="be-stat">
+          <span class="be-label">Orçamento mensal de marketing (Ads)</span>
+          <span class="be-value" id="mrrBudget" style="color: var(--accent-2);">—</span>
+          <span class="be-desc" id="mrrBudgetDesc">Investimento estimado em anúncios com base no seu CAC atual.</span>
+        </div>
+
+        <div class="be-stat"
+          style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px;">
+          <span class="be-label">Estrutura da Base em Regime de Equilíbrio</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+            <div
+              style="background: var(--surface-3); padding: 8px 12px; border-radius: var(--r-sm); border: 1px solid var(--border);">
+              <span class="be-label" style="font-size: 10px;">Assinantes Ativos</span>
+              <div class="be-value" id="mrrActiveSubs" style="font-size: 16px; margin-top: 2px;">—</div>
+            </div>
+            <div
+              style="background: var(--surface-3); padding: 8px 12px; border-radius: var(--r-sm); border: 1px solid var(--border);">
+              <span class="be-label" style="font-size: 10px;">Usuários Ativos no App</span>
+              <div class="be-value" id="mrrActiveUsers" style="font-size: 16px; margin-top: 2px; color: var(--text);">—
+              </div>
+            </div>
+          </div>
+          <span class="be-desc" id="mrrAdvice"
+            style="display: block; margin-top: 8px; font-size: 11px; line-height: 1.6; color: var(--text-dim);">—</span>
+        </div>
+      </div>
+
+      <!-- MARGEM DE CONTRIBUIÇÃO POR TICKET -->
+      <div class="chart-3col">
+        <div class="chart-card">
+          <h3>Margem por faixa de preço (assinatura mensal)</h3>
+          <div class="chart-wrap" style="height:200px"><canvas id="chartMargin"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Sensibilidade: churn vs. LTV (R$)</h3>
+          <div class="chart-wrap" style="height:200px"><canvas id="chartChurnSens"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Crescimento de base — cadastros acumulados</h3>
+          <div class="chart-wrap" style="height:200px"><canvas id="chartGrowth"></canvas></div>
+        </div>
+      </div>
+
+      <footer>
+        Valores para planejamento interno · câmbio e preços de API variam — ajuste conforme necessário ·
+        não considera tempo do fundador, retrabalho de produto ou custo de suporte ao usuário.
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════
+
+    const makeDefault = () => ({
+      fx: 5.05,
+      horizonMonths: 12,
+      viewMode: 'unit',
+      monthlyAcquisitions: 100,
+      // STT
+      sttPricePerMin: 0.003,
+      audioMinPerDay: 1.33,
+      // LLM
+      llmInPrice: 1.00,
+      llmOutPrice: 5.00,
+      tokensInWeek: 3000,
+      tokensOutWeek: 800,
+      // CAC
+      cacMode: 'calc',
+      adSpendDaily: 30,
+      cpc: 0.80,
+      signupRate: 8,
+      cacDirect: 10,
+      // Fixed
+      fixedMonthlyBRL: 150,
+      feesPct: 12,
+      otherVarBRL: 0,
+      // Retention
+      churnGeral: 5,
+      freeToPaid: 100,
+      // Target MRR
+      targetMRR: 10000,
+      // Products
+      products: [
+        { name: 'Assinatura Premium (mensal)', type: 'recurring', price: 19.90, takeRate: 10, churn: 8 },
+        { name: 'Relatório PDF de Saúde', type: 'onetime', price: 14.90, takeRate: 15, churn: 0 },
+      ],
+    });
+
+    const SCENARIOS = {
+      bootstrap: {
+        adSpendDaily: 10,
+        cpc: 1.20,
+        signupRate: 5,
+        churnGeral: 15,
+        freeToPaid: 5,
+        fixedMonthlyBRL: 80,
+        feesPct: 0,
+        sttPricePerMin: 0.000667,
+        llmInPrice: 0.10,
+        llmOutPrice: 0.40,
+        products: [
+          { name: 'Acesso Premium (mensal)', type: 'recurring', price: 9.90, takeRate: 5, churn: 20 },
+        ],
+      },
+      conservador: {
+        adSpendDaily: 20,
+        cpc: 1.10,
+        signupRate: 4,
+        churnGeral: 10,
+        freeToPaid: 60,
+        fixedMonthlyBRL: 150,
+        feesPct: 12,
+        sttPricePerMin: 0.0025,
+        llmInPrice: 0.10,
+        llmOutPrice: 0.40,
+        products: [
+          { name: 'Assinatura Premium (mensal)', type: 'recurring', price: 14.90, takeRate: 6, churn: 15 },
+          { name: 'Relatório PDF de Saúde', type: 'onetime', price: 9.90, takeRate: 8, churn: 0 },
+        ],
+      },
+      moderado: {},  // filled from default
+      agressivo: {
+        adSpendDaily: 80,
+        cpc: 0.55,
+        signupRate: 12,
+        churnGeral: 3,
+        freeToPaid: 100,
+        fixedMonthlyBRL: 350,
+        feesPct: 14,
+        sttPricePerMin: 0.000667,
+        llmInPrice: 0.30,
+        llmOutPrice: 2.50,
+        products: [
+          { name: 'Assinatura Premium (mensal)', type: 'recurring', price: 29.90, takeRate: 18, churn: 5 },
+          { name: 'Plano Anual (12× com desconto)', type: 'recurring', price: 19.90, takeRate: 8, churn: 2 },
+          { name: 'Relatório PDF de Saúde', type: 'onetime', price: 19.90, takeRate: 30, churn: 0 },
+          { name: 'Curso Saúde Intestinal', type: 'onetime', price: 97.00, takeRate: 5, churn: 0 },
+          { name: 'Consulta de Dados c/ Nutricionista', type: 'onetime', price: 149.00, takeRate: 2, churn: 0 },
+        ],
+      },
+    };
+
+    let S = makeDefault();
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FORMATTERS
+    // ═══════════════════════════════════════════════════════════════════
+    const R$ = (v) => isFinite(v) ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—';
+    const fmtBRL = R$;  // alias used in templates where $ in identifier could confuse minifiers
+    const US$ = (v) => isFinite(v) ? '$' + v.toFixed(4) : '—';
+    const N = (v, d = 1) => isFinite(v) ? v.toFixed(d).replace('.', ',') : '—';
+    const PCT = (v) => isFinite(v) ? N(v) + '%' : '—';
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CALCULATIONS
+    // ═══════════════════════════════════════════════════════════════════
+    function calcInfra(s) {
+      const sttMonthlyUSD = s.audioMinPerDay * s.sttPricePerMin * 30;
+      const llmWeeklyUSD = (s.tokensInWeek / 1e6) * s.llmInPrice + (s.tokensOutWeek / 1e6) * s.llmOutPrice;
+      const llmMonthlyUSD = llmWeeklyUSD * (30 / 7);
+      const totalUSD = sttMonthlyUSD + llmMonthlyUSD;
+      return { sttMonthlyUSD, llmMonthlyUSD, totalUSD, totalBRL: totalUSD * s.fx };
+    }
+
+    function calcCAC(s) {
+      if (s.cacMode === 'direct') return s.cacDirect;
+      return s.cpc / (Math.max(s.signupRate, 0.01) / 100);
+    }
+
+    function calcSignupsPerDay(s) {
+      if (s.cacMode !== 'calc') return null;
+      return (s.adSpendDaily / Math.max(s.cpc, 0.001)) * (s.signupRate / 100);
+    }
+
+    function project(s) {
+      const infra = calcInfra(s);
+      const infraBRL = infra.totalBRL;
+      const varCostBRL = infraBRL + (s.otherVarBRL || 0);
+      const fee = 1 - s.feesPct / 100;
+      const cac = calcCAC(s);
+      const churnG = s.churnGeral / 100;
+      const ftpFactor = (s.freeToPaid || 100) / 100;
+      const months = s.horizonMonths;
+      const prods = s.products; // FIX: use s.products not S.products
+
+      const revMonth = [];
+      const costMonth = [];
+      const profitMonth = [];
+      const cumRev = [];
+      const cumCost = [];
+      const cumProfit = [];
+
+      for (let m = 0; m <= months; m++) {
+        const active = Math.pow(1 - churnG, m);
+        let rev = 0;
+
+        prods.forEach((p) => {
+          const netPrice = p.price * fee * ftpFactor;
+          const tr = p.takeRate / 100;
+          if (p.type === 'recurring') {
+            const retP = Math.pow(1 - (p.churn || 0) / 100, m);
+            rev += netPrice * tr * retP;
+          } else if (m === 0) {
+            rev += netPrice * tr;
+          }
+        });
+
+        const cost = varCostBRL * active + (m === 0 ? cac : 0);
+        revMonth.push(rev);
+        costMonth.push(cost);
+        profitMonth.push(rev - cost);
+
+        // cumulative: index m corresponds to month m
+        if (m === 0) {
+          cumRev.push(rev);
+          cumCost.push(cost);
+          cumProfit.push(rev - cost);
+        } else {
+          cumRev.push(cumRev[m - 1] + rev);
+          cumCost.push(cumCost[m - 1] + cost);
+          cumProfit.push(cumRev[m] - cumCost[m]);
+        }
+      }
+
+      const ltv = cumRev[months];
+      const netProfit = cumProfit[months];
+      const ltvCac = cac > 0 ? ltv / cac : Infinity;
+
+      let payback = null;
+      for (let m = 0; m <= months; m++) {
+        if (cumProfit[m] >= 0) { payback = m; break; }
+      }
+
+      // Contribution margin per active user at month 0
+      let blendedRecurring = 0;
+      prods.forEach((p) => {
+        if (p.type === 'recurring') {
+          blendedRecurring += p.price * fee * ftpFactor * (p.takeRate / 100);
+        }
+      });
+      const contribution = blendedRecurring - varCostBRL;
+      const breakEvenUsers = contribution > 0 ? Math.ceil(s.fixedMonthlyBRL / contribution) : null;
+
+      return {
+        revMonth, costMonth, profitMonth,
+        cumRev, cumCost, cumProfit,
+        ltv, netProfit, ltvCac, payback, cac,
+        infraBRL, varCostBRL, contribution, breakEvenUsers, blendedRecurring,
+      };
+    }
+
+    function productLTVs(s) {
+      const fee = 1 - s.feesPct / 100;
+      const ftpFactor = (s.freeToPaid || 100) / 100;
+      const prods = s.products; // FIX: use s.products not S.products
+      return prods.map((p) => {
+        const netPrice = p.price * fee * ftpFactor;
+        const tr = p.takeRate / 100;
+        let total = 0;
+        if (p.type === 'recurring') {
+          for (let m = 0; m <= s.horizonMonths; m++) {
+            total += netPrice * tr * Math.pow(1 - (p.churn || 0) / 100, m);
+          }
+        } else {
+          total = netPrice * tr;
+        }
+        return { name: p.name || '(sem nome)', total: Math.max(total, 0) };
+      });
+    }
+
+    function projectVolume(s, n) {
+      const infra = calcInfra(s);
+      const varCostBRL = infra.totalBRL + (s.otherVarBRL || 0);
+      const fee = 1 - s.feesPct / 100;
+      const ftpFactor = (s.freeToPaid || 100) / 100;
+      const cac = calcCAC(s);
+      const churnG = s.churnGeral / 100;
+      const months = s.horizonMonths;
+      const prods = s.products;
+
+      const revMonth = Array(months + 1).fill(0);
+      const costMonth = Array(months + 1).fill(0);
+      const profitMonth = Array(months + 1).fill(0);
+      const cumRev = Array(months + 1).fill(0);
+      const cumCost = Array(months + 1).fill(0);
+      const cumProfit = Array(months + 1).fill(0);
+
+      for (let m = 0; m <= months; m++) {
+        let monthRevenue = 0;
+        let monthVarCost = 0;
+        let monthCacCost = 0;
+
+        for (let i = 0; i <= m; i++) {
+          const k = m - i;
+          const activeFraction = Math.pow(1 - churnG, k);
+          
+          let userRev = 0;
+          prods.forEach(p => {
+            const netPrice = p.price * fee * ftpFactor;
+            const tr = p.takeRate / 100;
+            if (p.type === 'recurring') {
+              const retP = Math.pow(1 - (p.churn || 0) / 100, k);
+              userRev += netPrice * tr * retP;
+            } else if (k === 0) {
+              userRev += netPrice * tr;
+            }
+          });
+
+          monthRevenue += n * userRev;
+          monthVarCost += n * varCostBRL * activeFraction;
+          
+          if (k === 0) {
+            monthCacCost += n * cac;
+          }
+        }
+
+        const totalMonthCost = monthVarCost + monthCacCost + s.fixedMonthlyBRL;
+        const totalMonthProfit = monthRevenue - totalMonthCost;
+
+        revMonth[m] = monthRevenue;
+        costMonth[m] = totalMonthCost;
+        profitMonth[m] = totalMonthProfit;
+
+        if (m === 0) {
+          cumRev[0] = monthRevenue;
+          cumCost[0] = totalMonthCost;
+          cumProfit[0] = totalMonthProfit;
+        } else {
+          cumRev[m] = cumRev[m - 1] + monthRevenue;
+          cumCost[m] = cumCost[m - 1] + totalMonthCost;
+          cumProfit[m] = cumRev[m] - cumCost[m];
+        }
+      }
+
+      const totalRevenue = cumRev[months];
+      const totalCost = cumCost[months];
+      const netProfit = cumProfit[months];
+      const roi = totalCost > 0 ? totalRevenue / totalCost : 0;
+
+      let monthlyBreakevenMonth = null;
+      for (let m = 0; m <= months; m++) {
+        if (profitMonth[m] >= 0) {
+          monthlyBreakevenMonth = m;
+          break;
+        }
+      }
+
+      let cumBreakevenMonth = null;
+      for (let m = 0; m <= months; m++) {
+        if (cumProfit[m] >= 0) {
+          cumBreakevenMonth = m;
+          break;
+        }
+      }
+
+      return {
+        revMonth, costMonth, profitMonth,
+        cumRev, cumCost, cumProfit,
+        totalRevenue, totalCost, netProfit, roi,
+        monthlyBreakevenMonth, cumBreakevenMonth,
+        varCostBRL
+      };
+    }
+
+    function productVolumeTotalRevenues(s, n) {
+      const fee = 1 - s.feesPct / 100;
+      const ftpFactor = (s.freeToPaid || 100) / 100;
+      const prods = s.products;
+      const months = s.horizonMonths;
+      
+      return prods.map(p => {
+        let total = 0;
+        const netPrice = p.price * fee * ftpFactor;
+        const tr = p.takeRate / 100;
+
+        for (let i = 0; i <= months; i++) {
+          const cohortAgeMax = months - i;
+          let cohortLtv = 0;
+          if (p.type === 'recurring') {
+            for (let m = 0; m <= cohortAgeMax; m++) {
+              cohortLtv += netPrice * tr * Math.pow(1 - (p.churn || 0) / 100, m);
+            }
+          } else {
+            cohortLtv = netPrice * tr;
+          }
+          total += n * cohortLtv;
+        }
+        return { name: p.name || '(sem nome)', total: Math.max(total, 0) };
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // CHARTS SETUP
+    // ═══════════════════════════════════════════════════════════════════
+    Chart.defaults.color = '#7A8FA6';
+    Chart.defaults.borderColor = '#263040';
+    Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    Chart.defaults.font.size = 11;
+
+    const PAL = ['#4ECDC4', '#FFD166', '#FF6B6B', '#06D6A0', '#118AB2', '#9B72CF', '#F4A261', '#2EC99A'];
+
+    const mkChart = (id, type, datasets, options = {}) =>
+      new Chart(document.getElementById(id), { type, data: { labels: [], datasets }, options: { responsive: true, maintainAspectRatio: false, ...options } });
+
+    const GRID_OPTS = { color: '#263040' };
+    const Y_OPTS = (prefix = 'R$') => ({
+      grid: GRID_OPTS,
+      ticks: { callback: (v) => prefix + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) }
+    });
+
+    const chartCum = mkChart('chartCum', 'line', [
+      { label: 'Receita acumulada', data: [], borderColor: '#06D6A0', backgroundColor: 'rgba(6,214,160,0.08)', fill: true, tension: 0.3, pointRadius: 2 },
+      { label: 'Custo acumulado (CAC + infra)', data: [], borderColor: '#EF476F', backgroundColor: 'rgba(239,71,111,0.05)', fill: true, tension: 0.3, pointRadius: 2 },
+    ], {
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 16 } } },
+      scales: { x: { grid: GRID_OPTS, title: { display: true, text: 'Mês' } }, y: Y_OPTS() },
+    });
+
+    const chartMonthly = mkChart('chartMonthly', 'bar', [
+      { label: 'Lucro/mês por cliente', data: [], backgroundColor: [], borderRadius: 4 },
+    ], {
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false }, title: { display: true, text: 'Mês' } }, y: Y_OPTS() },
+    });
+
+    const chartProducts = mkChart('chartProducts', 'bar', [
+      { label: 'LTV no horizonte', data: [], backgroundColor: PAL, borderRadius: 4 },
+    ], {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: Y_OPTS(), y: { grid: { display: false } } },
+    });
+
+    const chartMargin = mkChart('chartMargin', 'line', [
+      { label: 'Lucro líquido por assinante (mensal)', data: [], borderColor: '#4ECDC4', backgroundColor: 'rgba(78,205,196,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+    ], {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: GRID_OPTS, title: { display: true, text: 'Preço mensal R$' } },
+        y: Y_OPTS(),
+      },
+    });
+
+    const chartChurnSens = mkChart('chartChurnSens', 'line', [
+      { label: 'LTV (R$)', data: [], borderColor: '#FFD166', backgroundColor: 'rgba(255,209,102,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+    ], {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: GRID_OPTS, title: { display: true, text: 'Churn do produto %' } },
+        y: Y_OPTS(),
+      },
+    });
+
+    const chartGrowth = mkChart('chartGrowth', 'bar', [
+      { label: 'Novos cadastros', data: [], backgroundColor: 'rgba(78,205,196,0.4)', borderRadius: 3 },
+      { label: 'Base acumulada', data: [], type: 'line', borderColor: '#4ECDC4', backgroundColor: 'transparent', tension: 0.3, pointRadius: 2, yAxisID: 'y2' },
+    ], {
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12 } } },
+      scales: {
+        x: { grid: { display: false }, title: { display: true, text: 'Mês' } },
+        y: { grid: GRID_OPTS, title: { display: true, text: 'Novos' }, position: 'left' },
+        y2: { grid: { display: false }, title: { display: true, text: 'Acumulado' }, position: 'right' },
+      },
+    });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // INFRA COMPARISON TABLE
+    // ═══════════════════════════════════════════════════════════════════
+    const INFRA_PROFILES = [
+      { label: 'Leve (beta)', audio: 0.5 },
+      { label: 'Moderado', audio: 1.33 },
+      { label: 'Intenso', audio: 4.0 },
+    ];
+    const STT_OPTIONS = [
+      { name: 'Groq Whisper Turbo', price: 0.000667 },
+      { name: 'AssemblyAI', price: 0.0025 },
+      { name: 'gpt-4o-mini-transcribe', price: 0.003 },
+      { name: 'Deepgram Nova-3', price: 0.0043 },
+      { name: 'OpenAI Whisper', price: 0.006 },
+    ];
+    const LLM_OPTIONS = [
+      { name: 'Gemini 2.5 Flash-Lite', inP: 0.10, outP: 0.40 },
+      { name: 'Claude Haiku 4.5', inP: 1.00, outP: 5.00 },
+    ];
+
+    function renderInfraTable() {
+      const tbody = document.getElementById('infraTableBody');
+      const rows = [];
+      const tokIn = S.tokensInWeek, tokOut = S.tokensOutWeek;
+
+      INFRA_PROFILES.forEach((prof) => {
+        STT_OPTIONS.forEach((stt) => {
+          LLM_OPTIONS.forEach((llm) => {
+            const sttUSD = prof.audio * stt.price * 30;
+            const llmUSD = ((tokIn / 1e6) * llm.inP + (tokOut / 1e6) * llm.outP) * (30 / 7);
+            const totalUSD = sttUSD + llmUSD;
+            const totalBRL = totalUSD * S.fx;
+            rows.push({ prof: prof.label, audio: prof.audio, stt: stt.name, llm: llm.name, totalUSD, totalBRL });
+          });
+        });
+      });
+
+      // sort by totalUSD
+      rows.sort((a, b) => a.totalUSD - b.totalUSD);
+
+      tbody.innerHTML = rows.map((r, i) => `
+    <tr ${i === 0 ? 'class="highlight"' : ''}>
+      <td>${r.prof}</td>
+      <td class="mono">${r.audio} min/dia</td>
+      <td>${r.stt}</td>
+      <td>${r.llm}</td>
+      <td class="mono">$${r.totalUSD.toFixed(4)}</td>
+      <td class="mono">${fmtBRL(r.totalBRL)}</td>
+    </tr>`).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PRODUCT TABLE RENDER
+    // ═══════════════════════════════════════════════════════════════════
+    function renderProducts() {
+      document.getElementById('productBody').innerHTML = S.products.map((p, i) => `
+    <tr>
+      <td><input type="text" data-i="${i}" data-f="name" value="${p.name}"></td>
+      <td>
+        <select data-i="${i}" data-f="type">
+          <option value="recurring" ${p.type === 'recurring' ? 'selected' : ''}>Recorrente</option>
+          <option value="onetime" ${p.type === 'onetime' ? 'selected' : ''}>Único</option>
+        </select>
+      </td>
+      <td><input type="number" step="0.10" min="0" data-i="${i}" data-f="price" value="${p.price}"></td>
+      <td><input type="number" step="0.5" min="0" max="100" data-i="${i}" data-f="takeRate" value="${p.takeRate}"></td>
+      <td><input type="number" step="0.5" min="0" max="100" data-i="${i}" data-f="churn" value="${p.churn}" ${p.type === 'onetime' ? 'disabled' : ''}></td>
+      <td><button class="remove-btn" data-i="${i}">×</button></td>
+    </tr>`).join('');
+    }
+
+    document.getElementById('productBody').addEventListener('input', (e) => {
+      const i = +e.target.dataset.i, f = e.target.dataset.f;
+      if (f === 'name') S.products[i].name = e.target.value;
+      else S.products[i][f] = parseFloat(e.target.value) || 0;
+      recalc();
+    });
+    document.getElementById('productBody').addEventListener('change', (e) => {
+      const i = +e.target.dataset.i;
+      if (e.target.dataset.f === 'type') {
+        S.products[i].type = e.target.value;
+        e.target.closest('tr').querySelector('[data-f="churn"]').disabled = (e.target.value === 'onetime');
+        recalc();
+      }
+    });
+    document.getElementById('productBody').addEventListener('click', (e) => {
+      if (e.target.classList.contains('remove-btn')) {
+        S.products.splice(+e.target.dataset.i, 1);
+        renderProducts(); recalc();
+      }
+    });
+    document.getElementById('addProduct').addEventListener('click', () => {
+      S.products.push({ name: 'Novo produto', type: 'onetime', price: 0, takeRate: 0, churn: 0 });
+      renderProducts(); recalc();
+    });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MAIN RECALC
+    // ═══════════════════════════════════════════════════════════════════
+    function recalc() {
+      const infra = calcInfra(S);
+      document.getElementById('sttMonthlyUSD').textContent = US$(infra.sttMonthlyUSD);
+      document.getElementById('llmMonthlyUSD').textContent = US$(infra.llmMonthlyUSD);
+      document.getElementById('infraTotalUSD').textContent = US$(infra.totalUSD);
+      document.getElementById('infraTotalBRL').textContent = fmtBRL(infra.totalBRL);
+
+      const cac = calcCAC(S);
+      const spd = calcSignupsPerDay(S);
+      document.getElementById('cacOut').textContent = fmtBRL(cac);
+      document.getElementById('signupsDay').textContent = spd !== null ? N(spd) : '—';
+
+      const isVolume = S.viewMode === 'volume';
+
+      // Update volume controls visibility
+      document.getElementById('volumeControls').style.display = isVolume ? 'flex' : 'none';
+
+      // Determine acquisitions per month
+      let acqPerMonth = S.monthlyAcquisitions;
+      if (S.cacMode === 'calc') {
+        acqPerMonth = Math.round((spd || 0) * 30);
+        document.getElementById('monthlyAcquisitions').value = acqPerMonth;
+        document.getElementById('monthlyAcquisitions').disabled = true;
+      } else {
+        document.getElementById('monthlyAcquisitions').disabled = false;
+      }
+
+      const r = project(S);
+      const vol = projectVolume(S, acqPerMonth);
+      const months = S.horizonMonths;
+      const labels = Array.from({ length: months + 1 }, (_, m) => 'M' + m);
+
+      // KPIs DOM elements references
+      const kpis = {
+        ltvLabel: document.querySelector('.kpi:nth-child(1) .kpi-label'),
+        ltvVal: document.getElementById('kpiLtv'),
+        ltvSub: document.querySelector('.kpi:nth-child(1) .kpi-sub'),
+        
+        cacLabel: document.querySelector('.kpi:nth-child(2) .kpi-label'),
+        cacVal: document.getElementById('kpiCac'),
+        cacSub: document.querySelector('.kpi:nth-child(2) .kpi-sub'),
+        
+        ratioLabel: document.querySelector('.kpi:nth-child(3) .kpi-label'),
+        ratioVal: document.getElementById('kpiRatio'),
+        ratioSub: document.querySelector('.kpi:nth-child(3) .kpi-sub'),
+        
+        infraLabel: document.querySelector('.kpi:nth-child(4) .kpi-label'),
+        infraVal: document.getElementById('kpiInfra'),
+        infraSub: document.querySelector('.kpi:nth-child(4) .kpi-sub'),
+        
+        profitLabel: document.querySelector('.kpi:nth-child(5) .kpi-label'),
+        profitVal: document.getElementById('kpiProfit'),
+        profitSub: document.querySelector('.kpi:nth-child(5) .kpi-sub'),
+        
+        paybackLabel: document.querySelector('.kpi:nth-child(6) .kpi-label'),
+        paybackVal: document.getElementById('kpiPayback'),
+        paybackSub: document.querySelector('.kpi:nth-child(6) .kpi-sub'),
+      };
+
+      if (isVolume) {
+        kpis.ltvLabel.textContent = 'Faturamento Bruto';
+        kpis.ltvVal.textContent = fmtBRL(vol.totalRevenue);
+        kpis.ltvSub.textContent = 'receita total acumulada da base';
+
+        kpis.cacLabel.textContent = 'Investimento Mkt';
+        const totalMarketingSpend = acqPerMonth * months * cac;
+        kpis.cacVal.textContent = fmtBRL(totalMarketingSpend);
+        kpis.cacSub.textContent = 'verba total de Ads no período';
+
+        kpis.ratioLabel.textContent = 'ROI de Marketing';
+        const roi = totalMarketingSpend > 0 ? vol.totalRevenue / totalMarketingSpend : 0;
+        kpis.ratioVal.textContent = isFinite(roi) ? `${roi.toFixed(2)}×` : '∞';
+        kpis.ratioVal.className = 'kpi-val ' + (roi >= 3 ? 'pos' : roi >= 1 ? 'warn' : 'neg');
+        kpis.ratioSub.textContent = 'faturamento ÷ custo de marketing';
+
+        // Variable infra cost of entire base
+        let totalInfraVol = 0;
+        for (let m = 0; m <= months; m++) {
+          let activeUsersInMonth = 0;
+          for (let i = 0; i <= m; i++) {
+            activeUsersInMonth += acqPerMonth * Math.pow(1 - S.churnGeral/100, m - i);
+          }
+          totalInfraVol += activeUsersInMonth * infra.totalBRL;
+        }
+        kpis.infraLabel.textContent = 'Custo Infra Total';
+        kpis.infraVal.textContent = fmtBRL(totalInfraVol);
+        kpis.infraSub.textContent = 'STT + LLM da base no período';
+
+        kpis.profitLabel.textContent = 'Lucro Líquido';
+        kpis.profitVal.textContent = fmtBRL(vol.netProfit);
+        kpis.profitVal.className = 'kpi-val ' + (vol.netProfit > 0 ? 'pos' : 'neg');
+        kpis.profitSub.textContent = 'receita − todos custos (inc. fixos)';
+
+        kpis.paybackLabel.textContent = 'Equilíbrio Mensal';
+        kpis.paybackVal.textContent = vol.monthlyBreakevenMonth !== null ? `Mês ${vol.monthlyBreakevenMonth}` : `Sem Lucro`;
+        kpis.paybackVal.className = 'kpi-val ' + (vol.monthlyBreakevenMonth !== null && vol.monthlyBreakevenMonth <= 6 ? 'pos' : vol.monthlyBreakevenMonth !== null ? 'warn' : 'neg');
+        kpis.paybackSub.textContent = 'mês de fluxo de caixa mensal positivo';
+      } else {
+        kpis.ltvLabel.textContent = 'LTV Total';
+        kpis.ltvVal.textContent = fmtBRL(r.ltv);
+        kpis.ltvSub.textContent = 'receita/cliente no horizonte';
+
+        kpis.cacLabel.textContent = 'CAC';
+        kpis.cacVal.textContent = fmtBRL(r.cac);
+        kpis.cacSub.textContent = 'custo de aquisição';
+
+        kpis.ratioLabel.textContent = 'LTV : CAC';
+        const ratio = isFinite(r.ltvCac) ? r.ltvCac : 0;
+        kpis.ratioVal.textContent = isFinite(r.ltvCac) ? `${ratio.toFixed(2)}×` : '∞';
+        kpis.ratioVal.className = 'kpi-val ' + (ratio >= 3 ? 'pos' : ratio >= 1 ? 'warn' : 'neg');
+        kpis.ratioSub.textContent = 'meta saudável ≥ 3×';
+
+        const infraTotal = infra.totalBRL * r.revMonth.reduce((acc, _, m) => acc + Math.pow(1 - S.churnGeral / 100, m), 0);
+        kpis.infraLabel.textContent = 'Custo infra total';
+        kpis.infraVal.textContent = fmtBRL(infraTotal);
+        kpis.infraSub.textContent = 'STT + LLM no período';
+
+        kpis.profitLabel.textContent = 'Lucro líquido/cliente';
+        kpis.profitVal.textContent = fmtBRL(r.netProfit);
+        kpis.profitVal.className = 'kpi-val ' + (r.netProfit > 0 ? 'pos' : 'neg');
+        kpis.profitSub.textContent = 'LTV − CAC − infra − fixo';
+
+        kpis.paybackLabel.textContent = 'Payback';
+        kpis.paybackVal.textContent = r.payback !== null ? `${r.payback} ${r.payback === 1 ? 'mês' : 'meses'}` : `> ${months} m`;
+        kpis.paybackVal.className = 'kpi-val ' + (r.payback !== null && r.payback <= 6 ? 'pos' : r.payback !== null ? 'warn' : 'neg');
+        kpis.paybackSub.textContent = 'meses para recuperar CAC';
+      }
+
+      // Insight box
+      const insightEl = document.getElementById('insightBox');
+      if (isVolume) {
+        const breakEvenText = vol.monthlyBreakevenMonth !== null
+          ? `Sua operação atinge o ponto de equilíbrio de fluxo de caixa mensal no <strong>Mês ${vol.monthlyBreakevenMonth}</strong>.`
+          : `A operação não atinge o equilíbrio de caixa mensal dentro do horizonte de ${months} meses com as taxas atuais.`;
+        
+        const cumBreakEvenText = vol.cumBreakevenMonth !== null
+          ? `O payback acumulado total do investimento inicial (lucro acumulado positivo) ocorre no <strong>Mês ${vol.cumBreakevenMonth}</strong>.`
+          : `O payback acumulado total não é atingido no período de ${months} meses.`;
+
+        insightEl.innerHTML = `
+          <strong>Visão de Volume:</strong> Projetando a aquisição de <strong>${Math.round(acqPerMonth).toLocaleString('pt-BR')}</strong> novos cadastros/mês. 
+          Faturamento bruto acumulado de <strong>${fmtBRL(vol.totalRevenue)}</strong> contra um custo acumulado de <strong>${fmtBRL(vol.totalCost)}</strong> (incluindo fixos e marketing). 
+          Lucro líquido acumulado no período de <strong>${fmtBRL(vol.netProfit)}</strong>. 
+          ${breakEvenText} ${cumBreakEvenText}
+        `;
+      } else {
+        const ratio = isFinite(r.ltvCac) ? r.ltvCac : 0;
+        const sttPct = infra.sttMonthlyUSD / Math.max(infra.totalUSD, 0.0001) * 100;
+        const dominantCost = sttPct > 80 ? 'STT (transcrição)' : 'LLM';
+        const grossRecurring = S.products.reduce((a, p) => a + (p.type === 'recurring' ? p.price * (S.freeToPaid / 100) * (p.takeRate / 100) : 0), 0);
+        const infraSharePct = grossRecurring > 0 ? infra.totalBRL / grossRecurring * 100 : 0;
+        insightEl.innerHTML = `
+          <strong>${N(sttPct)}%</strong> do custo de infra vem do <strong>${dominantCost}</strong> —
+          custo total por usuário: <strong>${fmtBRL(infra.totalBRL)}/mês</strong>
+          (${N(infraSharePct)}% da receita recorrente bruta).
+          ${ratio >= 3
+                ? `LTV:CAC de <strong>${N(ratio, 2)}×</strong> — zona saudável ✅`
+                : ratio >= 1
+                  ? `LTV:CAC de <strong>${N(ratio, 2)}×</strong> — abaixo da meta de 3×, ajuste preço ou CAC ⚠️`
+                  : `LTV:CAC de <strong>${N(ratio, 2)}×</strong> — abaixo de 1×, negócio não sustentável ❌`}
+          · ${r.payback !== null ? `Payback em <strong>${r.payback} meses</strong>.` : `Payback não alcançado em ${months} meses.`}
+        `;
+      }
+
+      // Update titles dynamically
+      document.getElementById('chartCumTitle').textContent = isVolume
+        ? 'Caixa Acumulado: Receita Acumulada vs. Custo Acumulado Total (R$)'
+        : 'Receita acumulada vs. Custo acumulado por cliente (R$)';
+
+      document.getElementById('chartMonthlyTitle').textContent = isVolume
+        ? 'Fluxo de Caixa Líquido Mensal (R$)'
+        : 'Lucro líquido por mês/cliente (R$)';
+
+      document.getElementById('chartProductsTitle').textContent = isVolume
+        ? 'Receita Acumulada por Produto no Período (R$)'
+        : 'Composição de receita por produto (LTV, R$)';
+
+      // Chart cumulative
+      chartCum.data.labels = labels;
+      if (isVolume) {
+        chartCum.data.datasets[0].data = vol.cumRev.map(v => +v.toFixed(2));
+        chartCum.data.datasets[1].data = vol.cumCost.map(v => +v.toFixed(2));
+      } else {
+        chartCum.data.datasets[0].data = r.cumRev.map(v => +v.toFixed(2));
+        chartCum.data.datasets[1].data = r.cumCost.map(v => +v.toFixed(2));
+      }
+      chartCum.update('none');
+
+      // Chart monthly profit
+      chartMonthly.data.labels = labels;
+      if (isVolume) {
+        chartMonthly.data.datasets[0].data = vol.profitMonth.map(v => +v.toFixed(2));
+        chartMonthly.data.datasets[0].backgroundColor = vol.profitMonth.map(v => v >= 0 ? '#06D6A0' : '#EF476F');
+      } else {
+        chartMonthly.data.datasets[0].data = r.profitMonth.map(v => +v.toFixed(2));
+        chartMonthly.data.datasets[0].backgroundColor = r.profitMonth.map(v => v >= 0 ? '#06D6A0' : '#EF476F');
+      }
+      chartMonthly.update('none');
+
+      // Chart products LTV
+      const ltvsArr = isVolume ? productVolumeTotalRevenues(S, acqPerMonth) : productLTVs(S);
+      chartProducts.data.labels = ltvsArr.map(p => p.name.length > 22 ? p.name.slice(0, 22) + '…' : p.name);
+      chartProducts.data.datasets[0].data = ltvsArr.map(p => +p.total.toFixed(2));
+      chartProducts.data.datasets[0].backgroundColor = PAL.slice(0, ltvsArr.length);
+      chartProducts.update('none');
+
+      // Break-even
+      document.getElementById('beContrib').textContent = isFinite(r.contribution) ? fmtBRL(r.contribution) : '—';
+      if (r.breakEvenUsers !== null) {
+        document.getElementById('beUsers').textContent = r.breakEvenUsers + ' usuários';
+        document.getElementById('beDesc').innerHTML = `Com custos fixos de <strong>${fmtBRL(S.fixedMonthlyBRL)}/mês</strong> e contribuição de <strong>${fmtBRL(r.contribution)}/usuário/mês</strong>, você precisa de <strong>${r.breakEvenUsers} usuários ativos</strong> para cobrir os fixos.`;
+      } else {
+        document.getElementById('beUsers').textContent = '∞';
+        document.getElementById('beDesc').innerHTML = `A receita recorrente por usuário (<strong>${fmtBRL(r.blendedRecurring)}</strong>) não cobre o custo variável por usuário (<strong>${fmtBRL(r.varCostBRL)}</strong>). Ajuste preços ou reduza custos de infra.`;
+      }
+
+      // Margin sensitivity by price
+      {
+        const prices = Array.from({ length: 20 }, (_, i) => (i + 1) * 5); // 5 to 100
+        const fee = 1 - S.feesPct / 100;
+        const ftp = S.freeToPaid / 100;
+        const margins = prices.map(pr => (pr * fee * ftp) - r.varCostBRL);
+        chartMargin.data.labels = prices.map(p => 'R$' + p);
+        chartMargin.data.datasets[0].data = margins.map(v => +v.toFixed(2));
+        chartMargin.update('none');
+      }
+
+      // Churn sensitivity (varying subscription churn)
+      {
+        const churns = Array.from({ length: 20 }, (_, i) => i * 2); // 0..38%
+        const ltvs = churns.map(ch => {
+          let acc = 0;
+          const fee = 1 - S.feesPct / 100, ftp = S.freeToPaid / 100;
+          for (let m = 0; m <= months; m++) {
+            S.products.forEach(p => {
+              if (p.type === 'recurring') {
+                acc += p.price * fee * ftp * (p.takeRate / 100) * Math.pow(1 - ch / 100, m);
+              } else if (m === 0) {
+                acc += p.price * fee * ftp * (p.takeRate / 100);
+              }
+            });
+          }
+          return +acc.toFixed(2);
+        });
+        chartChurnSens.data.labels = churns.map(c => c + '%');
+        chartChurnSens.data.datasets[0].data = ltvs;
+        chartChurnSens.update('none');
+      }
+
+      // Target MRR simulation
+      {
+        const targetMRR = S.targetMRR || 0;
+        let lifetimeRecurringPerAcquisition = 0;
+        const fee = 1 - S.feesPct / 100;
+        const ftp = S.freeToPaid / 100;
+
+        S.products.forEach(p => {
+          if (p.type === 'recurring') {
+            const netMonthlyPrice = p.price * fee * ftp * (p.takeRate / 100);
+            const churnRate = (p.churn || 0) / 100;
+            if (churnRate > 0) {
+              lifetimeRecurringPerAcquisition += netMonthlyPrice / churnRate;
+            } else {
+              lifetimeRecurringPerAcquisition += netMonthlyPrice * S.horizonMonths;
+            }
+          }
+        });
+
+        if (lifetimeRecurringPerAcquisition > 0) {
+          const acquisitionsPerMonth = targetMRR / lifetimeRecurringPerAcquisition;
+          const monthlyBudget = acquisitionsPerMonth * cac;
+
+          let activeSubscribers = 0;
+          S.products.forEach(p => {
+            if (p.type === 'recurring') {
+              const churnRate = (p.churn || 0) / 100;
+              const lifetime = churnRate > 0 ? 1 / churnRate : S.horizonMonths;
+              activeSubscribers += acquisitionsPerMonth * ftp * (p.takeRate / 100) * lifetime;
+            }
+          });
+
+          const activeUsers = acquisitionsPerMonth / (S.churnGeral / 100);
+          const monthlyInfraBRL = activeUsers * r.varCostBRL;
+
+          document.getElementById('mrrAcquisitions').textContent = Math.round(acquisitionsPerMonth).toLocaleString('pt-BR') + ' cadastros';
+          document.getElementById('mrrBudget').textContent = fmtBRL(monthlyBudget);
+          document.getElementById('mrrActiveSubs').textContent = Math.round(activeSubscribers).toLocaleString('pt-BR') + ' assinantes';
+          document.getElementById('mrrActiveUsers').textContent = Math.round(activeUsers).toLocaleString('pt-BR') + ' ativos';
+          document.getElementById('mrrAdvice').innerHTML = `
+            Para faturar <strong>${fmtBRL(targetMRR)}</strong> recorrentes por mês, você precisa atrair <strong>${Math.round(acquisitionsPerMonth).toLocaleString('pt-BR')}</strong> novos cadastros mensalmente. 
+            Com um CAC de <strong>${fmtBRL(cac)}</strong>, o investimento estimado em anúncios é de <strong>${fmtBRL(monthlyBudget)}/mês</strong>. 
+            Sua base se estabilizará em <strong>${Math.round(activeSubscribers).toLocaleString('pt-BR')} assinantes ativos</strong> e <strong>${Math.round(activeUsers).toLocaleString('pt-BR')} usuários ativos no app</strong>, gerando um custo variável de infraestrutura de <strong>${fmtBRL(monthlyInfraBRL)}/mês</strong>.
+          `;
+        } else {
+          document.getElementById('mrrAcquisitions').textContent = '—';
+          document.getElementById('mrrBudget').textContent = '—';
+          document.getElementById('mrrActiveSubs').textContent = '—';
+          document.getElementById('mrrActiveUsers').textContent = '—';
+          document.getElementById('mrrAdvice').innerHTML = `
+            <span style="color: var(--negative);">Adicione pelo menos um produto do tipo <strong>Recorrente</strong> com preço e taxa de conversão maiores que zero para simular.</span>
+          `;
+        }
+      }
+
+      // Growth chart
+      {
+        const signupsDay = spd || (S.adSpendDaily / Math.max(S.cpc, 0.001)) * (S.signupRate / 100);
+        const newPerMonth = signupsDay * 30;
+        const growthLabels = Array.from({ length: months + 1 }, (_, m) => 'M' + m);
+        const newArr = growthLabels.map(() => Math.round(newPerMonth));
+        let cumBase = 0;
+        const cumArr = growthLabels.map(() => { cumBase += newPerMonth; return Math.round(cumBase); });
+        chartGrowth.data.labels = growthLabels;
+        chartGrowth.data.datasets[0].data = newArr;
+        chartGrowth.data.datasets[1].data = cumArr;
+        chartGrowth.update('none');
+      }
+
+      renderInfraTable();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // UI WIRING
+    // ═══════════════════════════════════════════════════════════════════
+    function bindNum(id, key) {
+      document.getElementById(id).addEventListener('input', (e) => {
+        S[key] = parseFloat(e.target.value) || 0;
+        recalc();
+      });
+    }
+    function bindRange(id, key, displayId, suffix = '') {
+      const el = document.getElementById(id);
+      const disp = document.getElementById(displayId);
+      el.addEventListener('input', () => {
+        S[key] = parseFloat(el.value);
+        disp.textContent = S[key].toFixed(1).replace('.', ',') + suffix;
+        recalc();
+      });
+    }
+
+    // Top bar
+    bindNum('fx', 'fx');
+    document.getElementById('horizon').addEventListener('input', (e) => {
+      S.horizonMonths = parseInt(e.target.value);
+      document.getElementById('horizonVal').textContent = S.horizonMonths + ' m';
+      recalc();
+    });
+
+    // STT preset
+    document.getElementById('sttPreset').addEventListener('change', (e) => {
+      if (e.target.value === 'custom') return;
+      S.sttPricePerMin = parseFloat(e.target.value);
+      document.getElementById('sttPrice').value = S.sttPricePerMin;
+      recalc();
+    });
+    bindNum('sttPrice', 'sttPricePerMin');
+    bindNum('audioMin', 'audioMinPerDay');
+
+    // LLM preset
+    document.getElementById('llmPreset').addEventListener('change', (e) => {
+      if (e.target.value === 'custom') return;
+      const [inP, outP] = e.target.value.split(',').map(Number);
+      S.llmInPrice = inP; S.llmOutPrice = outP;
+      document.getElementById('llmIn').value = inP;
+      document.getElementById('llmOut').value = outP;
+      recalc();
+    });
+    bindNum('llmIn', 'llmInPrice');
+    bindNum('llmOut', 'llmOutPrice');
+    bindNum('tokIn', 'tokensInWeek');
+    bindNum('tokOut', 'tokensOutWeek');
+
+    // CAC mode
+    document.querySelectorAll('#cacModeGroup .toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        S.cacMode = btn.dataset.m;
+        document.querySelectorAll('#cacModeGroup .toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+        document.getElementById('cacCalcFields').classList.toggle('hidden', S.cacMode !== 'calc');
+        document.getElementById('cacDirectFields').classList.toggle('hidden', S.cacMode !== 'direct');
+        recalc();
+      });
+    });
+    bindNum('adSpend', 'adSpendDaily');
+    bindNum('cpc', 'cpc');
+    bindRange('signupRate', 'signupRate', 'signupRateVal', '%');
+    bindNum('cacDirect', 'cacDirect');
+
+    // Fixed costs
+    bindNum('fixedCost', 'fixedMonthlyBRL');
+    bindRange('feesPct', 'feesPct', 'feesPctVal', '%');
+    bindNum('otherVar', 'otherVarBRL');
+
+    // Retention
+    bindRange('churnGeral', 'churnGeral', 'churnGeralVal', '%');
+    bindRange('freeToPaid', 'freeToPaid', 'freeToPaidVal', '%');
+
+    // Target MRR
+    bindNum('targetMRR', 'targetMRR');
+
+    // View mode toggle
+    document.querySelectorAll('#viewModeGroup .toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        S.viewMode = btn.dataset.v;
+        document.querySelectorAll('#viewModeGroup .toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+        recalc();
+      });
+    });
+
+    // Monthly acquisitions input
+    document.getElementById('monthlyAcquisitions').addEventListener('input', (e) => {
+      S.monthlyAcquisitions = parseInt(e.target.value) || 0;
+      recalc();
+    });
+
+    // Scenarios
+    document.querySelectorAll('[data-s]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sc = btn.dataset.s;
+        if (sc === 'reset') {
+          S = makeDefault();
+        } else {
+          const base = makeDefault();
+          const ov = SCENARIOS[sc] || {};
+          Object.assign(base, ov);
+          if (ov.products) base.products = JSON.parse(JSON.stringify(ov.products));
+          S = base;
+        }
+        document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+        if (sc !== 'reset') btn.classList.add('active');
+        else document.querySelector('[data-s="moderado"]').classList.add('active');
+        syncUI();
+        recalc();
+      });
+    });
+
+    function syncUI() {
+      document.getElementById('fx').value = S.fx;
+      document.getElementById('horizon').value = S.horizonMonths;
+      document.getElementById('horizonVal').textContent = S.horizonMonths + ' m';
+
+      document.getElementById('sttPrice').value = S.sttPricePerMin;
+      document.getElementById('audioMin').value = S.audioMinPerDay;
+      document.getElementById('llmIn').value = S.llmInPrice;
+      document.getElementById('llmOut').value = S.llmOutPrice;
+      document.getElementById('tokIn').value = S.tokensInWeek;
+      document.getElementById('tokOut').value = S.tokensOutWeek;
+
+      document.getElementById('adSpend').value = S.adSpendDaily;
+      document.getElementById('cpc').value = S.cpc;
+      document.getElementById('signupRate').value = S.signupRate;
+      document.getElementById('signupRateVal').textContent = N(S.signupRate) + '%';
+      document.getElementById('cacDirect').value = S.cacDirect;
+
+      document.getElementById('fixedCost').value = S.fixedMonthlyBRL;
+      document.getElementById('feesPct').value = S.feesPct;
+      document.getElementById('feesPctVal').textContent = N(S.feesPct) + '%';
+      document.getElementById('otherVar').value = S.otherVarBRL;
+
+      document.getElementById('churnGeral').value = S.churnGeral;
+      document.getElementById('churnGeralVal').textContent = N(S.churnGeral) + '%';
+      document.getElementById('freeToPaid').value = S.freeToPaid;
+      document.getElementById('freeToPaidVal').textContent = N(S.freeToPaid) + '%';
+
+      document.getElementById('targetMRR').value = S.targetMRR;
+      document.getElementById('monthlyAcquisitions').value = S.monthlyAcquisitions;
+      document.querySelectorAll('#viewModeGroup .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.v === S.viewMode));
+      document.getElementById('volumeControls').style.display = S.viewMode === 'volume' ? 'flex' : 'none';
+
+      // CAC mode
+      document.querySelectorAll('#cacModeGroup .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.m === S.cacMode));
+      document.getElementById('cacCalcFields').classList.toggle('hidden', S.cacMode !== 'calc');
+      document.getElementById('cacDirectFields').classList.toggle('hidden', S.cacMode !== 'direct');
+
+      renderProducts();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // EXPORT
+    // ═══════════════════════════════════════════════════════════════════
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const infra = calcInfra(S);
+      const cac = calcCAC(S);
+      const spd = calcSignupsPerDay(S);
+      const r = project(S);
+      const targetMRR = S.targetMRR || 0;
+
+      // Calculate target MRR stats
+      let lifetimeRecurringPerAcquisition = 0;
+      const fee = 1 - S.feesPct / 100;
+      const ftp = S.freeToPaid / 100;
+      S.products.forEach(p => {
+        if (p.type === 'recurring') {
+          const netMonthlyPrice = p.price * fee * ftp * (p.takeRate / 100);
+          const churnRate = (p.churn || 0) / 100;
+          if (churnRate > 0) {
+            lifetimeRecurringPerAcquisition += netMonthlyPrice / churnRate;
+          } else {
+            lifetimeRecurringPerAcquisition += netMonthlyPrice * S.horizonMonths;
+          }
+        }
+      });
+
+      let mrrAcq = 0, mrrBud = 0, mrrSubs = 0, mrrAct = 0, mrrInfra = 0;
+      if (lifetimeRecurringPerAcquisition > 0) {
+        mrrAcq = targetMRR / lifetimeRecurringPerAcquisition;
+        mrrBud = mrrAcq * cac;
+        S.products.forEach(p => {
+          if (p.type === 'recurring') {
+            const churnRate = (p.churn || 0) / 100;
+            const lifetime = churnRate > 0 ? 1 / churnRate : S.horizonMonths;
+            mrrSubs += mrrAcq * ftp * (p.takeRate / 100) * lifetime;
+          }
+        });
+        mrrAct = mrrAcq / (S.churnGeral / 100);
+        mrrInfra = mrrAct * r.varCostBRL;
+      }
+
+      const productsMarkdown = S.products.map(p => {
+        return `| ${p.name || '(sem nome)'} | ${p.type === 'recurring' ? 'Recorrente' : 'Único'} | R$ ${p.price.toFixed(2)} | ${p.takeRate}% | ${p.type === 'recurring' ? p.churn + '%' : 'N/A'} |`;
+      }).join('\n');
+
+      const now = new Date();
+      const formattedDate = now.toLocaleDateString('pt-BR') + ' às ' + now.toLocaleTimeString('pt-BR');
+
+      const markdown = `# Relatório de Unit Economics — Diário Intestinal
+Gerado em: ${formattedDate}
+
+## 1. Configurações Gerais
+* **Câmbio USD → BRL:** R$ ${S.fx.toFixed(2)}
+* **Horizonte de Projeção:** ${S.horizonMonths} meses
+
+## 2. Custos de Infraestrutura (Voz e LLM)
+* **STT (Transcrição):** USD $${S.sttPricePerMin.toFixed(6)}/min | Áudio: ${S.audioMinPerDay} min/dia
+* **LLM (IA):** Entrada: USD $${S.llmInPrice.toFixed(2)}/1M | Saída: USD $${S.llmOutPrice.toFixed(2)}/1M
+* **Volume de Tokens/Semana:** Entrada: ${S.tokensInWeek} | Saída: ${S.tokensOutWeek}
+* **Custo Total de Infra por Usuário/Mês:** USD $${infra.totalUSD.toFixed(4)} (R$ ${infra.totalBRL.toFixed(2)})
+
+## 3. Aquisição de Clientes (CAC)
+* **Modo de Entrada:** ${S.cacMode === 'direct' ? 'CAC Inserido Diretamente' : 'Calculado por Anúncio'}
+* **CAC Unitário:** R$ ${cac.toFixed(2)}
+* **Volume Diário (se aplicável):**
+  * Verba Diária: R$ ${S.adSpendDaily.toFixed(2)}
+  * CPC Médio: R$ ${S.cpc.toFixed(2)}
+  * Conversão de Cliques: ${S.signupRate}%
+  * Novos Cadastros/Dia: ${spd !== null ? spd.toFixed(2) : 'N/A'}
+
+## 4. Custos Fixos e Retenção
+* **Custos Fixos Mensais (Plataformas, etc.):** R$ ${S.fixedMonthlyBRL.toFixed(2)}
+* **Taxas de Vendas + Impostos:** ${S.feesPct}%
+* **Outros Custos Variáveis por Usuário:** R$ ${S.otherVarBRL.toFixed(2)}
+* **Churn de Uso Geral do App:** ${S.churnGeral}% ao mês
+* **Conversão de Gratuitos para Pago:** ${S.freeToPaid}%
+
+## 5. Esteira de Produtos Cadastrados
+| Produto | Tipo | Preço BRL | Conversão (Take Rate) | Churn do Produto |
+| :--- | :--- | :--- | :--- | :--- |
+${productsMarkdown}
+
+## 6. Principais Resultados de Economia Unitária
+* **LTV (Lifetime Value) Total por Usuário:** R$ ${r.ltv.toFixed(2)}
+* **CAC:** R$ ${cac.toFixed(2)}
+* **Relação LTV : CAC:** ${isFinite(r.ltvCac) ? r.ltvCac.toFixed(2) + 'x' : 'Infinity'} (Meta saudável >= 3x)
+* **Lucro Líquido por Usuário no Período:** R$ ${r.netProfit.toFixed(2)}
+* **Payback (Recuperação do CAC):** ${r.payback !== null ? r.payback + ' meses' : '> ' + S.horizonMonths + ' meses'}
+* **Margem de Contribuição por Usuário Ativo/Mês:** R$ ${r.contribution.toFixed(2)}
+* **Ponto de Equilíbrio (Usuários Ativos para cobrir custos fixos):** ${r.breakEvenUsers !== null ? r.breakEvenUsers + ' usuários' : 'Infinito'}
+
+## 7. Simulação de Meta de Recorrência (MRR)
+* **Meta de Faturamento Recorrente Mensal (MRR) Desejada:** R$ ${targetMRR.toFixed(2)}
+* **Novos Cadastros (Clientes) Necessários por Mês:** ${mrrAcq > 0 ? Math.round(mrrAcq).toLocaleString('pt-BR') : 'N/A'}
+* **Investimento Mensal de Marketing Estimado:** R$ ${mrrBud > 0 ? mrrBud.toFixed(2) : 'N/A'}
+* **Estrutura da Base em Regime de Equilíbrio:**
+  * Assinantes Ativos Totais: ${mrrSubs > 0 ? Math.round(mrrSubs).toLocaleString('pt-BR') : 'N/A'}
+  * Usuários Ativos Totais no Aplicativo: ${mrrAct > 0 ? Math.round(mrrAct).toLocaleString('pt-BR') : 'N/A'}
+  * Custo Mensal da Infraestrutura da Base: R$ ${mrrInfra > 0 ? mrrInfra.toFixed(2) : 'N/A'}
+
+---
+*Relatório gerado pelo Diário Intestinal Economics Simulator.*
+`;
+
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio_unit_economics_${now.toISOString().split('T')[0]}.md`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════════
+    syncUI();
+    recalc();
+  </script>
+</body>
+
+</html>

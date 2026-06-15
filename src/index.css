@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* If you need any custom base layer styles, you can add them below */
+@layer base {
+  body {
+    background-color: #EDE7DD;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+}
