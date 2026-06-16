@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
 
 /* If you need any custom base layer styles, you can add them below */
 @layer base {
@@ -6,4 +7,53 @@
     background-color: #EDE7DD;
     font-family: system-ui, -apple-system, sans-serif;
   }
+}
+
+/* ─── Temas de ambiência (Identidade_Visual_Base preservada em todos) ─────────
+   Cada tema define apenas a ambiência de fundo (--amb-bg-1/2) e a cor de texto
+   adaptativa (--amb-text) usada por rótulos exibidos diretamente sobre o fundo.
+   O conteúdo dos registros vive em cartões brancos, garantindo contraste
+   ≥ 4,5:1 em qualquer tema (RF 1.10). A tipografia serifada e a cor terracota
+   da marca permanecem inalteradas. */
+:root {
+  --amb-text: #2B2A28;
+  --fonte-registro: inherit; /* tipografia padrão */
+}
+
+[data-theme="amanhecer"] {
+  --amb-bg-1: #BFE3F2; /* azul suave */
+  --amb-bg-2: #FCE7B8; /* amarelo de bom dia */
+  --amb-text: #2B2A28; /* contraste 4,5:1+ sobre fundo claro */
+}
+
+[data-theme="tarde"] {
+  --amb-bg-1: #F8D2A6; /* quente alaranjado claro */
+  --amb-bg-2: #EFA868; /* entardecer alaranjado */
+  --amb-text: #2B2A28;
+}
+
+[data-theme="noite"] {
+  --amb-bg-1: #161E38; /* céu escuro */
+  --amb-bg-2: #2A3556;
+  --amb-text: #F2ECE3; /* texto claro, contraste 4,5:1+ sobre fundo escuro */
+}
+
+/* ─── Estilo caderno (manuscrito) ─────────────────────────────────────────────
+   A classe .notebook apenas troca a fonte dos textos dos registros via
+   --fonte-registro. Layout, cores e espaçamento permanecem definidos pelas
+   mesmas classes Tailwind (RF 2.5). A stack termina em `cursive`, garantindo
+   um fallback legível caso a fonte principal não carregue (RF 2.7). O tamanho
+   é levemente maior que o padrão para nunca ficar menor que a tipografia base
+   (RF 2.4). */
+.notebook {
+  --fonte-registro: "Caveat", "Segoe Print", "Bradley Hand", cursive;
+}
+
+.entry-text {
+  font-family: var(--fonte-registro);
+}
+
+.notebook .entry-text {
+  font-size: 1.12em; /* ≥ tamanho padrão (RF 2.4) */
+  line-height: 1.25;
 }
