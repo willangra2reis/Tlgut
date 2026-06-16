@@ -3,16 +3,82 @@ import digestiveClosedImage from './assets/sisdiges_fechado.jpg';
 import { useState, useRef, useCallback } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
+  Leaf, BookOpen,
 } from 'lucide-react';
 
 const ENTRY_TYPES = {
-  meal:     { label: 'Refeição',  icon: Utensils, color: '#C9763A', soft: '#F6E9DD' },
-  water:    { label: 'Água',      icon: Droplet,  color: '#3E8E96', soft: '#DEEFEF' },
-  sleep:    { label: 'Sono',      icon: Moon,     color: '#5D5FA0', soft: '#E6E5F4' },
-  pain:     { label: 'Dor',       icon: Flame,    color: '#BD5A4A', soft: '#F5E1DD' },
-  exercise: { label: 'Exercício', icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
-  mood:     { label: 'Humor',     icon: Smile,    color: '#9A6FA0', soft: '#EFE3EE' },
+  meal:       { label: 'Refeição',   icon: Utensils, color: '#C9763A', soft: '#F6E9DD' },
+  water:      { label: 'Água',       icon: Droplet,  color: '#3E8E96', soft: '#DEEFEF' },
+  sleep:      { label: 'Sono',       icon: Moon,     color: '#5D5FA0', soft: '#E6E5F4' },
+  pain:       { label: 'Dor',        icon: Flame,    color: '#BD5A4A', soft: '#F5E1DD' },
+  exercise:   { label: 'Exercício',  icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
+  mood:       { label: 'Humor',      icon: Smile,    color: '#9A6FA0', soft: '#EFE3EE' },
+  evacuation: { label: 'Evacuação',  icon: Leaf,     color: '#8A6D3B', soft: '#EFE7D6' },
 };
+
+// ─── Temas de ambiência (RF 1) ───────────────────────────────────────────────
+// Função TOTAL: qualquer hora fora de [0,23] ou não-inteira cai no fallback Noite.
+export function periodoDoDia(hora) {
+  if (!Number.isInteger(hora) || hora < 0 || hora > 23) return 'noite'; // RF 1.11 (fallback)
+  if (hora >= 5 && hora <= 11) return 'amanhecer';                       // RF 1.3
+  if (hora >= 12 && hora <= 17) return 'tarde';                          // RF 1.4
+  return 'noite';                                                        // RF 1.5 (18–23 e 0–4)
+}
+
+// Obtém a hora local de forma defensiva; em falha retorna NaN (→ fallback Noite).
+export function horaLocalAtual() {
+  try {
+    return new Date().getHours();
+  } catch {
+    return NaN;
+  }
+}
+
+// ─── Conteúdo factual da Escala de Bristol (guarda-corpo regulatório, RF 4.2) ─
+// Apenas atributos observáveis (forma, consistência, textura). Sem nomes de
+// condições, diagnóstico, juízo de normalidade ou recomendação.
+const BRISTOL_DESCRICOES = {
+  1: 'Pedaços duros e separados, como pequenas bolinhas',
+  2: 'Formato alongado, com superfície grumosa',
+  3: 'Formato alongado, com rachaduras na superfície',
+  4: 'Formato alongado, superfície lisa e macia',
+  5: 'Pedaços macios com bordas bem definidas',
+  6: 'Pedaços moles com bordas irregulares',
+  7: 'Totalmente líquido, sem pedaços sólidos',
+};
+
+const EVAC_CORES  = ['Marrom claro', 'Marrom', 'Marrom escuro', 'Amarelada', 'Esverdeada', 'Avermelhada', 'Escura'];
+const EVAC_ODORES = ['Leve', 'Moderado', 'Forte'];
+
+const BRISTOL_PADRAO = 4; // Valor_Padrão_Bristol (RF 3.11)
+
+// Normaliza o estado do formulário de evacuação em uma entrada válida da
+// Linha do Tempo. Aplica clamp/validação defensiva (segunda barreira além da
+// UI), o padrão Bristol=4 quando não selecionado (RF 3.11) e preserva campos
+// opcionais ausentes como null sem bloquear o salvamento (RF 3.12).
+export function buildEvacuationEntry(form) {
+  const f = form || {};
+  const bristol =
+    Number.isInteger(f.bristol) && f.bristol >= 1 && f.bristol <= 7 ? f.bristol : BRISTOL_PADRAO;
+  const cor = EVAC_CORES.includes(f.cor) ? f.cor : null;
+  const odor = EVAC_ODORES.includes(f.odor) ? f.odor : null;
+  const esforco =
+    Number.isInteger(f.esforco) && f.esforco >= 1 && f.esforco <= 5 ? f.esforco : null;
+  const tempo =
+    Number.isInteger(f.tempo) && f.tempo >= 1 && f.tempo <= 120 ? f.tempo : null;
+
+  const parts = [BRISTOL_DESCRICOES[bristol]];
+  if (cor) parts.push(`Cor: ${cor.toLowerCase()}`);
+  if (odor) parts.push(`Odor: ${odor.toLowerCase()}`);
+  if (esforco) parts.push(`Esforço ${esforco}/5`);
+  if (tempo) parts.push(`${tempo} min`);
+
+  return {
+    title: 'Evacuação',
+    description: parts.join(' · '),
+    meta: { bristol, cor, odor, esforco, tempo },
+  };
+}
 
 // ─── Digestive image (base64 webp) ───────────────────────────────────────────
 const DIGESTIVE_IMAGE = digestiveImage;
@@ -172,6 +238,89 @@ function Chip({ active, color, children, onClick }) {
       style={active ? { background: color, borderColor: color, color: '#fff' } : { borderColor: '#EDE7DD', color: '#7D766A' }}
     >
       {children}
+    </button>
+  );
+}
+
+// ─── Ambiência decorativa por tema (RF 1.6–1.8) ──────────────────────────────
+// Camada puramente decorativa, atrás do conteúdo, sem interferir em toque ou
+// leitura (aria-hidden + pointer-events none). O gradiente de fundo vem do
+// contêiner raiz; aqui ficam apenas os elementos decorativos de cada tema.
+function AmbianceLayer({ theme }) {
+  const STARS = [
+    { top: '6%', left: '14%', s: 3 },   { top: '10%', left: '38%', s: 2 },
+    { top: '8%', left: '62%', s: 2 },   { top: '14%', left: '82%', s: 3 },
+    { top: '20%', left: '24%', s: 2 },  { top: '24%', left: '54%', s: 2 },
+    { top: '18%', left: '70%', s: 2 },  { top: '30%', left: '12%', s: 3 },
+    { top: '34%', left: '88%', s: 2 },  { top: '40%', left: '44%', s: 2 },
+  ];
+  return (
+    <div className="absolute inset-0 overflow-hidden" aria-hidden="true"
+      style={{ zIndex: 0, pointerEvents: 'none' }}>
+      {theme === 'amanhecer' && (
+        <>
+          {/* Sol */}
+          <div className="absolute" style={{
+            top: '7%', right: '12%', width: 70, height: 70, borderRadius: '9999px',
+            background: 'radial-gradient(circle, #FFE38C 0%, #FFD15C 55%, rgba(255,209,92,0) 100%)',
+          }} />
+          {/* Nuvens */}
+          <svg className="absolute" style={{ top: '16%', left: '6%', width: 96, opacity: 0.92 }} viewBox="0 0 100 44">
+            <ellipse cx="30" cy="26" rx="22" ry="13" fill="#ffffff" />
+            <ellipse cx="55" cy="22" rx="18" ry="14" fill="#ffffff" />
+            <ellipse cx="45" cy="32" rx="30" ry="10" fill="#ffffff" />
+          </svg>
+          <svg className="absolute" style={{ top: '32%', right: '14%', width: 64, opacity: 0.78 }} viewBox="0 0 100 44">
+            <ellipse cx="35" cy="26" rx="20" ry="12" fill="#ffffff" />
+            <ellipse cx="58" cy="23" rx="16" ry="12" fill="#ffffff" />
+            <ellipse cx="48" cy="32" rx="26" ry="9" fill="#ffffff" />
+          </svg>
+        </>
+      )}
+
+      {theme === 'tarde' && (
+        // Brilho quente de entardecer
+        <div className="absolute" style={{
+          bottom: '14%', left: '50%', transform: 'translateX(-50%)',
+          width: 200, height: 200, borderRadius: '9999px',
+          background: 'radial-gradient(circle, rgba(255,176,84,0.55) 0%, rgba(255,176,84,0) 70%)',
+        }} />
+      )}
+
+      {theme === 'noite' && (
+        <>
+          {/* Lua (crescente via sombra interna na cor do céu) */}
+          <div className="absolute" style={{
+            top: '7%', right: '14%', width: 56, height: 56, borderRadius: '9999px',
+            background: '#F4EFD8', boxShadow: 'inset -15px 7px 0 0 #161E38',
+          }} />
+          {/* Estrelas */}
+          {STARS.map((st, i) => (
+            <span key={i} className="absolute rounded-full" style={{
+              top: st.top, left: st.left, width: st.s, height: st.s,
+              background: '#FBF7E9', opacity: 0.85,
+            }} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Controle de Estilo Caderno (RF 2) ───────────────────────────────────────
+function NotebookToggle({ value, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      aria-pressed={value}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors shrink-0"
+      style={value
+        ? { background: ENTRY_TYPES.pain.color, borderColor: ENTRY_TYPES.pain.color, color: '#fff' }
+        : { borderColor: 'rgba(150,140,120,0.4)', color: 'var(--amb-text)', background: 'rgba(255,255,255,0.4)' }}
+    >
+      <BookOpen size={14} />
+      Caderno
     </button>
   );
 }
@@ -444,6 +593,95 @@ function MoodForm({ onSave }) {
   );
 }
 
+// ─── Form: Evacuação (RF 3) ───────────────────────────────────────────────────
+function EvacuationForm({ onSave }) {
+  const [bristol, setBristol] = useState(null);  // 1–7 ou null (RF 3.3 / 3.11)
+  const [cor,     setCor]     = useState(null);  // seleção única ou null (RF 3.4)
+  const [odor,    setOdor]    = useState(null);  // seleção única ou null (RF 3.5)
+  const [esforco, setEsforco] = useState(null);  // 1–5 ou null (RF 3.6)
+  const [tempo,   setTempo]   = useState(null);  // 1–120 min ou null (RF 3.7)
+  const color = ENTRY_TYPES.evacuation.color;
+  const soft  = ENTRY_TYPES.evacuation.soft;
+
+  return (
+    <div className="space-y-5">
+      {/* Escala de Bristol — rótulos estritamente descritivos (RF 3.3 / 4.2) */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Escala de Bristol</p>
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+            <button key={n} type="button" onClick={() => setBristol(n)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors"
+              style={bristol === n ? { borderColor: color, background: soft } : { borderColor: '#EDE7DD' }}>
+              <span className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
+                style={bristol === n ? { background: color, color: '#fff' } : { background: '#F1ECE3', color: '#7D766A' }}>
+                {n}
+              </span>
+              <span className="text-sm text-[#5C5650] leading-snug">{BRISTOL_DESCRICOES[n]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Cor (seleção única, RF 3.4) */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Cor</p>
+        <div className="flex flex-wrap gap-2">
+          {EVAC_CORES.map((c) => (
+            <Chip key={c} active={cor === c} color={color} onClick={() => setCor(cor === c ? null : c)}>{c}</Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Odor (seleção única, RF 3.5) */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Odor</p>
+        <div className="flex flex-wrap gap-2">
+          {EVAC_ODORES.map((o) => (
+            <Chip key={o} active={odor === o} color={color} onClick={() => setOdor(odor === o ? null : o)}>{o}</Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Esforço para evacuar (1–5, RF 3.6) */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Esforço para evacuar</p>
+        <div className="flex gap-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <button key={i} type="button" onClick={() => setEsforco(esforco === i ? null : i)}
+              className="flex-1 h-10 rounded-xl border text-sm font-medium transition-colors"
+              style={esforco === i ? { background: color, borderColor: color, color: '#fff' } : { borderColor: '#EDE7DD', color: '#7D766A' }}>
+              {i}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tempo gasto (1–120 min, RF 3.7) — opcional, inicia vazio (RF 3.12) */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Tempo gasto para evacuar</p>
+        <div className="flex items-center justify-center gap-6">
+          <button type="button" onClick={() => setTempo((t) => Math.max(1, (t ?? 1) - 1))}
+            className="w-11 h-11 rounded-full border border-[#EDE7DD] flex items-center justify-center" style={{ color }}>
+            <Minus size={18} />
+          </button>
+          <div className="text-center min-w-[64px]">
+            <p className="text-3xl font-serif text-[#2B2A28]">{tempo ?? '—'}</p>
+            <p className="text-xs text-[#B6AE9F] mt-1">minutos</p>
+          </div>
+          <button type="button" onClick={() => setTempo((t) => Math.min(120, (t ?? 0) + 1))}
+            className="w-11 h-11 rounded-full border border-[#EDE7DD] flex items-center justify-center" style={{ color }}>
+            <Plus size={18} />
+          </button>
+        </div>
+      </div>
+
+      <SaveButton color={color}
+        onClick={() => onSave(buildEvacuationEntry({ bristol, cor, odor, esforco, tempo }))} />
+    </div>
+  );
+}
+
 // ─── Entry card ───────────────────────────────────────────────────────────────
 function EntryCard({ entry }) {
   const meta = ENTRY_TYPES[entry.type];
@@ -456,10 +694,10 @@ function EntryCard({ entry }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-medium text-[#2B2A28] text-sm">{entry.title}</p>
+          <p className="entry-text font-medium text-[#2B2A28] text-sm">{entry.title}</p>
           <span className="text-xs text-[#B6AE9F] tabular-nums shrink-0">{entry.time}</span>
         </div>
-        <p className="text-sm text-[#7D766A] mt-0.5 leading-snug">{entry.description}</p>
+        <p className="entry-text text-sm text-[#7D766A] mt-0.5 leading-snug">{entry.description}</p>
 
         {entry.type === 'pain' && entry.meta?.clouds?.length > 0 && (
           <div className="mt-2 flex items-center gap-2">
@@ -479,6 +717,18 @@ function EntryCard({ entry }) {
             <span className="text-xs text-[#B6AE9F] ml-1">qualidade {entry.meta.quality}/5</span>
           </div>
         )}
+
+        {entry.type === 'evacuation' && entry.meta && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: meta.soft, color: meta.color }}>
+              Bristol {entry.meta.bristol}
+            </span>
+            {entry.meta.tempo && (
+              <span className="text-xs text-[#B6AE9F]">{entry.meta.tempo} min</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -489,6 +739,8 @@ export default function App() {
   const [entries,    setEntries]    = useState(INITIAL_ENTRIES);
   const [sheetOpen,  setSheetOpen]  = useState(false);
   const [activeForm, setActiveForm] = useState(null);
+  const [tema]                      = useState(() => periodoDoDia(horaLocalAtual())); // RF 1.1/1.2
+  const [notebook,   setNotebook]   = useState(false);                                // RF 2.1 (padrão off)
   const idRef = useRef(100);
 
   const dayOrder  = ['hoje', 'ontem'];
@@ -509,17 +761,26 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#EDE7DD] sm:p-6 font-sans">
-      <div className="relative w-full max-w-[420px] h-screen sm:h-[844px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden bg-[#FAF7F2] flex flex-col">
+      <div
+        data-theme={tema}
+        className={`relative w-full max-w-[420px] h-screen sm:h-[844px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col ${notebook ? 'notebook' : ''}`}
+        style={{ background: 'linear-gradient(180deg, var(--amb-bg-1) 0%, var(--amb-bg-2) 100%)' }}
+      >
+        {/* Ambiência decorativa de fundo (atrás de todo o conteúdo) */}
+        <AmbianceLayer theme={tema} />
 
         {/* Header */}
-        <header className="px-5 pt-6 pb-3 shrink-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: ENTRY_TYPES.pain.color }}>Diário Intestinal</p>
-          <h1 className="text-2xl font-serif text-[#2B2A28] mt-0.5">Sexta-feira</h1>
-          <p className="text-sm text-[#B6AE9F]">12 de junho</p>
+        <header className="relative z-10 px-5 pt-6 pb-3 shrink-0 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: ENTRY_TYPES.pain.color }}>Diário Intestinal</p>
+            <h1 className="text-2xl font-serif mt-0.5" style={{ color: 'var(--amb-text)' }}>Sexta-feira</h1>
+            <p className="text-sm" style={{ color: 'var(--amb-text)', opacity: 0.65 }}>12 de junho</p>
+          </div>
+          <NotebookToggle value={notebook} onChange={setNotebook} />
         </header>
 
         {/* Day summary chips */}
-        <div className="px-5 pb-3 flex gap-2 overflow-x-auto shrink-0">
+        <div className="relative z-10 px-5 pb-3 flex gap-2 overflow-x-auto shrink-0">
           {Object.entries(ENTRY_TYPES).map(([key, meta]) => {
             const count = grouped.hoje.filter((e) => e.type === key).length;
             if (!count) return null;
@@ -535,11 +796,12 @@ export default function App() {
         </div>
 
         {/* Timeline */}
-        <main className="flex-1 overflow-y-auto px-5 pb-28">
+        <main className="relative z-10 flex-1 overflow-y-auto px-5 pb-28">
           {dayOrder.map((day) => (
             grouped[day].length > 0 && (
               <section key={day} className="mb-6">
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#B6AE9F] mb-3">{dayLabels[day]}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-3"
+                  style={{ color: 'var(--amb-text)', opacity: 0.55 }}>{dayLabels[day]}</p>
                 <div className="space-y-3">
                   {grouped[day].map((entry) => <EntryCard key={entry.id} entry={entry} />)}
                 </div>
@@ -601,6 +863,7 @@ export default function App() {
               {activeForm === 'pain'     && <PainForm     onSave={(d) => handleSave('pain',     d)} />}
               {activeForm === 'exercise' && <ExerciseForm onSave={(d) => handleSave('exercise', d)} />}
               {activeForm === 'mood'     && <MoodForm     onSave={(d) => handleSave('mood',     d)} />}
+              {activeForm === 'evacuation' && <EvacuationForm onSave={(d) => handleSave('evacuation', d)} />}
             </div>
           </div>
         </div>
