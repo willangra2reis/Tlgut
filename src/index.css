@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap');
+@import "tailwindcss";
 
 /* If you need any custom base layer styles, you can add them below */
 @layer base {
@@ -16,6 +16,15 @@
    ≥ 4,5:1 em qualquer tema (RF 1.10). A tipografia serifada e a cor terracota
    da marca permanecem inalteradas. */
 :root {
+  /* ─── Identidade Visual Verde (tokens de marca) ─────────────────────────────
+     Ponto único de verdade da paleta da marca. Calibrados a partir da
+     referência de design aprovada (RF 1.1, 1.2). */
+  --brand-deep: #1F3D2B; /* verde escuro — fundo do Cabeçalho_Hero */
+  --brand:      #2F6B43; /* verde de destaque — FAB, aba ativa, acentos */
+  --brand-soft: #E3EDE4; /* verde claro — fundos suaves de destaque */
+  --surface:    #F3F1E9; /* fundo das telas */
+  --card:       #FFFFFF; /* cartões */
+
   --amb-text: #2B2A28;
   --fonte-registro: inherit; /* tipografia padrão */
 }
@@ -27,25 +36,25 @@
 }
 
 [data-theme="tarde"] {
-  --amb-bg-1: #F8D2A6; /* quente alaranjado claro */
-  --amb-bg-2: #EFA868; /* entardecer alaranjado */
+  --amb-bg-1: #AFC4DE; /* topo: azul suave de fim de tarde */
+  --amb-bg-2: #F8C58A; /* base: laranja quente do horizonte (degradê de céu) */
   --amb-text: #2B2A28;
 }
 
 [data-theme="noite"] {
-  --amb-bg-1: #161E38; /* céu escuro */
-  --amb-bg-2: #2A3556;
+  --amb-bg-1: #0C1228; /* topo: céu bem escuro */
+  --amb-bg-2: #36426E; /* base: tom mais claro (degradê reforçado) */
   --amb-text: #F2ECE3; /* texto claro, contraste 4,5:1+ sobre fundo escuro */
 }
 
-/* ─── Estilo caderno (manuscrito) ─────────────────────────────────────────────
-   A classe .notebook apenas troca a fonte dos textos dos registros via
+/* ─── Fonte cursiva opcional (ligada por padrão) ──────────────────────────────
+   A classe .cursiva troca a fonte dos títulos e dos textos dos registros via
    --fonte-registro. Layout, cores e espaçamento permanecem definidos pelas
-   mesmas classes Tailwind (RF 2.5). A stack termina em `cursive`, garantindo
-   um fallback legível caso a fonte principal não carregue (RF 2.7). O tamanho
+   mesmas classes Tailwind (RF 4.6). A stack termina em `cursive`, garantindo
+   um fallback legível caso a fonte principal não carregue (RF 4.7). O tamanho
    é levemente maior que o padrão para nunca ficar menor que a tipografia base
-   (RF 2.4). */
-.notebook {
+   (RF 4.5). */
+.cursiva {
   --fonte-registro: "Caveat", "Segoe Print", "Bradley Hand", cursive;
 }
 
@@ -53,7 +62,13 @@
   font-family: var(--fonte-registro);
 }
 
-.notebook .entry-text {
-  font-size: 1.12em; /* ≥ tamanho padrão (RF 2.4) */
+.cursiva .entry-text {
+  font-size: 1.12em; /* ≥ tamanho padrão (RF 4.5) */
   line-height: 1.25;
+}
+
+/* Títulos da interface: recebem a cursiva apenas quando ativa, preservando a
+   tipografia serifada normal quando desligada (RF 4.2, 4.3). */
+.cursiva .titulo-cursivo {
+  font-family: var(--fonte-registro);
 }
