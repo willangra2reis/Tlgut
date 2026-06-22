@@ -467,39 +467,57 @@ function CycleToggle({ value, onChange }) {
 }
 
 // ─── Cabeçalho Hero (RF 2.1) ──────────────────────────────────────────────────
-function HeroHeader() {
+// `colapsado` recolhe o hero para uma barra de marca fininha ao rolar a timeline.
+// Os dois estados compartilham a mesma árvore (sem remontar) e animam via CSS.
+function HeroHeader({ colapsado = false }) {
   return (
-    <header className="relative z-10 shrink-0 px-5 pt-6 pb-4 overflow-hidden" style={{ background: 'var(--brand-deep)' }}>
+    <header
+      className={`relative z-10 shrink-0 px-5 overflow-hidden transition-all duration-300 ease-in-out ${colapsado ? 'pt-3 pb-2' : 'pt-6 pb-4'}`}
+      style={{ background: 'var(--brand-deep)' }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xl font-serif leading-none" style={{ color: 'rgba(255,255,255,0.95)' }}>Diário</p>
-          <p className="text-5xl leading-[1.1] mt-0.5"
+          {/* "Diário" — recolhe suavemente (altura/opacidade) no estado colapsado */}
+          <div
+            className="overflow-hidden transition-all duration-300 ease-in-out"
+            style={{ maxHeight: colapsado ? 0 : '1.75rem', opacity: colapsado ? 0 : 1 }}
+          >
+            <p className="text-xl font-serif leading-none" style={{ color: 'rgba(255,255,255,0.95)' }}>Diário</p>
+          </div>
+          <p
+            className={`leading-[1.1] transition-all duration-300 ease-in-out ${colapsado ? 'text-2xl mt-0' : 'text-5xl mt-0.5'}`}
             style={{ fontFamily: '"Caveat", "Segoe Print", "Bradley Hand", cursive', color: '#fff' }}>
             Intestinal
           </p>
-          <p className="mt-2 text-sm max-w-[58%]" style={{ color: 'rgba(255,255,255,0.8)' }}>
-            Acompanhe seu intestino, entenda seu corpo.
-          </p>
+          {/* Subtítulo — recolhe suavemente no estado colapsado */}
+          <div
+            className="overflow-hidden transition-all duration-300 ease-in-out"
+            style={{ maxHeight: colapsado ? 0 : '3rem', opacity: colapsado ? 0 : 1 }}
+          >
+            <p className="mt-2 text-sm max-w-[58%]" style={{ color: 'rgba(255,255,255,0.8)' }}>
+              Acompanhe seu intestino, entenda seu corpo.
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button type="button" aria-label="Buscar"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white"
+            className={`rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${colapsado ? 'w-8 h-8' : 'w-9 h-9'}`}
             style={{ background: 'rgba(255,255,255,0.14)' }}>
-            <Search size={18} />
+            <Search size={colapsado ? 16 : 18} />
           </button>
           <button type="button" aria-label="Menu"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white"
+            className={`rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${colapsado ? 'w-8 h-8' : 'w-9 h-9'}`}
             style={{ background: 'rgba(255,255,255,0.14)' }}>
-            <EllipsisVertical size={18} />
+            <EllipsisVertical size={colapsado ? 16 : 18} />
           </button>
         </div>
       </div>
 
-      {/* Mascote */}
+      {/* Mascote — encolhe e sobe para caber na barra fina ao colapsar */}
       <img
         src={mascoteImage}
         alt="Mascote do Diário Intestinal"
-        className="absolute right-3 top-9 w-28 h-28 object-contain select-none pointer-events-none drop-shadow-lg"
+        className={`absolute object-contain select-none pointer-events-none drop-shadow-lg transition-all duration-300 ease-in-out ${colapsado ? 'right-14 top-2 w-12 h-12' : 'right-3 top-9 w-28 h-28'}`}
         draggable={false}
       />
     </header>
@@ -507,7 +525,9 @@ function HeroHeader() {
 }
 
 // ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
-function DaySummaryCard({ dateLabel, entries, cicloAtivo = false }) {
+// `colapsado` recolhe o card para um strip fino (só o cabeçalho), ocultando
+// suavemente os chips e a linha do ciclo. Os dados permanecem montados.
+function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = false }) {
   const contagens = contarPorTipo(entries, 'hoje');
   const itens = Object.keys(ENTRY_TYPES).filter((k) => contagens[k] > 0);
 
@@ -530,9 +550,9 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false }) {
   }
 
   return (
-    <div className="relative z-20 mx-5 -mt-7 mb-0 shrink-0 rounded-2xl border border-[#EDE7DD] p-4 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]"
+    <div className={`relative z-20 mx-5 mb-0 shrink-0 rounded-2xl border border-[#EDE7DD] transition-all duration-300 ease-in-out ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)]' : 'p-4 -mt-7 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
       style={{ background: 'var(--card)' }}>
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className={`flex items-center justify-between gap-2 transition-all duration-300 ease-in-out ${colapsado ? 'mb-0' : 'mb-3'}`}>
         <button type="button" className="titulo-cursivo flex items-center gap-1 text-base font-serif text-[#2B2A28]">
           {dateLabel}
           <ChevronDown size={16} className="text-[#B6AE9F]" />
@@ -543,32 +563,36 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false }) {
         </span>
       </div>
 
-      {itens.length === 0 ? (
-        <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
-      ) : (
-        <div className="flex gap-4 overflow-x-auto">
-          {itens.map((k) => {
-            const meta = ENTRY_TYPES[k];
-            const Icon = meta.icon;
-            return (
-              <div key={k} className="flex flex-col items-center gap-1 min-w-[58px] shrink-0">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ background: meta.soft, color: meta.color }}>
-                  <Icon size={18} />
+      {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
+      <div className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1 }}>
+        {itens.length === 0 ? (
+          <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
+        ) : (
+          <div className="flex gap-4 overflow-x-auto">
+            {itens.map((k) => {
+              const meta = ENTRY_TYPES[k];
+              const Icon = meta.icon;
+              return (
+                <div key={k} className="flex flex-col items-center gap-1 min-w-[58px] shrink-0">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ background: meta.soft, color: meta.color }}>
+                    <Icon size={18} />
+                  </div>
+                  <span className="text-lg font-semibold leading-none" style={{ color: meta.color }}>{contagens[k]}</span>
+                  <span className="text-[11px] text-[#7D766A]">{CHIP_LABELS[k]}</span>
                 </div>
-                <span className="text-lg font-semibold leading-none" style={{ color: meta.color }}>{contagens[k]}</span>
-                <span className="text-[11px] text-[#7D766A]">{CHIP_LABELS[k]}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
 
-      {ciclo && (
-        <p className="mt-3 pt-3 border-t border-[#F1ECE3] text-xs text-[#7D766A]">
-          Ciclo: fase {ciclo.fase} (dia {ciclo.diaDoCiclo})
-        </p>
-      )}
+        {ciclo && (
+          <p className="mt-3 pt-3 border-t border-[#F1ECE3] text-xs text-[#7D766A]">
+            Ciclo: fase {ciclo.fase} (dia {ciclo.diaDoCiclo})
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -2017,7 +2041,12 @@ export default function App() {
   const [fontScale,  setFontScale]  = useState(100);                                  // tamanho do texto dos registros (%)
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
   const [cicloAtivo, setCicloAtivo] = useState(false);                                  // acompanhamento de ciclo opt-in (RF 16.1)
+  const [diarioScroll, setDiarioScroll] = useState(0);                                  // posição de rolagem da timeline (collapse-on-scroll)
   const idRef = useRef(100);
+
+  // Cabeçalho recolhível: ao rolar a timeline além do limiar, Hero e Resumo encolhem.
+  // O gate por aba garante que Perfil/Hábitos nunca exibam o estado recolhido.
+  const heroColapsado = abaAtiva === 'diario' && diarioScroll > 40;
 
   // Atalho oculto para a ferramenta de calibração de pontos (dev): Ctrl+Shift+K
   useEffect(() => {
@@ -2083,15 +2112,16 @@ export default function App() {
         {/* Ambiência decorativa de fundo (atrás de todo o conteúdo) */}
         <AmbianceLayer theme={tema} />
 
-        {abaAtiva !== 'insights' && <HeroHeader />}
+        {abaAtiva !== 'insights' && <HeroHeader colapsado={heroColapsado} />}
 
         {abaAtiva === 'diario' ? (
           <>
             {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
-            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} cicloAtivo={cicloAtivo} />
+            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} cicloAtivo={cicloAtivo} colapsado={heroColapsado} />
 
             {/* Timeline conectada (RF 2.4–2.8) */}
             <main className="relative z-10 flex-1 overflow-y-auto px-5 pb-28"
+              onScroll={(e) => setDiarioScroll(e.currentTarget.scrollTop)}
               style={{ fontSize: 'calc(1rem * var(--font-scale, 1))' }}>
               {dayOrder.map((day) => (
                 grouped[day].length > 0 && (
