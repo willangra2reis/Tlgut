@@ -4,7 +4,7 @@ import mascoteImage from './assets/mascote.png';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
-  Leaf, PenLine, Search, EllipsisVertical, ChevronDown, ChartColumn, Trash2,
+  Leaf, PenLine, EllipsisVertical, ChevronDown, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, Target, User, ChevronRight, Calendar, Wind, Pill, Droplets,
 } from 'lucide-react';
 import {
@@ -472,55 +472,86 @@ function CycleToggle({ value, onChange }) {
 // ─── Cabeçalho Hero (RF 2.1) ──────────────────────────────────────────────────
 // `colapsado` recolhe o hero para uma barra de marca fininha ao rolar a timeline.
 // Os dois estados compartilham a mesma árvore (sem remontar) e animam via CSS.
+const CURSIVE_STACK = '"Caveat", "Segoe Print", "Bradley Hand", cursive';
+
 function HeroHeader({ colapsado = false }) {
   return (
     <header
-      className={`relative z-10 shrink-0 px-5 overflow-hidden transition-all duration-300 ease-in-out ${colapsado ? 'pt-3 pb-2' : 'pt-6 pb-4'}`}
-      style={{ background: 'var(--brand-deep)' }}
+      className="relative z-10 shrink-0 px-5 overflow-hidden"
+      style={{
+        // Gradiente sutil + leve brilho radial no canto superior direito (atrás do
+        // mascote) para dar profundidade sem comprometer o contraste do texto branco.
+        background:
+          'radial-gradient(120% 90% at 88% 4%, rgba(120,196,140,0.22) 0%, rgba(120,196,140,0) 55%), linear-gradient(165deg, var(--brand) 0%, var(--brand-deep) 62%)',
+        paddingTop: colapsado ? '0.75rem' : '1.5rem',
+        paddingBottom: colapsado ? '0.5rem' : '1rem',
+        borderBottomLeftRadius: colapsado ? 16 : 28,
+        borderBottomRightRadius: colapsado ? 16 : 28,
+        transition: 'padding 300ms ease, border-radius 300ms ease',
+        willChange: 'padding, border-radius',
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {/* "Diário" — recolhe suavemente (altura/opacidade) no estado colapsado */}
+          {/* Título EXPANDIDO: "Diário" pequeno + "Intestinal" grande cursivo + subtítulo */}
           <div
-            className="overflow-hidden transition-all duration-300 ease-in-out"
-            style={{ maxHeight: colapsado ? 0 : '1.75rem', opacity: colapsado ? 0 : 1 }}
+            className="overflow-hidden"
+            style={{
+              maxHeight: colapsado ? 0 : '8rem',
+              opacity: colapsado ? 0 : 1,
+              transition: 'max-height 300ms ease, opacity 250ms ease',
+              willChange: 'max-height, opacity',
+            }}
           >
             <p className="text-xl font-serif leading-none" style={{ color: 'rgba(255,255,255,0.95)' }}>Diário</p>
-          </div>
-          <p
-            className={`leading-[1.1] transition-all duration-300 ease-in-out ${colapsado ? 'text-2xl mt-0' : 'text-5xl mt-0.5'}`}
-            style={{ fontFamily: '"Caveat", "Segoe Print", "Bradley Hand", cursive', color: '#fff' }}>
-            Intestinal
-          </p>
-          {/* Subtítulo — recolhe suavemente no estado colapsado */}
-          <div
-            className="overflow-hidden transition-all duration-300 ease-in-out"
-            style={{ maxHeight: colapsado ? 0 : '3rem', opacity: colapsado ? 0 : 1 }}
-          >
-            <p className="mt-2 text-sm max-w-[58%]" style={{ color: 'rgba(255,255,255,0.8)' }}>
+            <p className="text-5xl leading-[1.1] mt-0.5" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+              Intestinal
+            </p>
+            <p className="mt-2 text-sm max-w-[58%]" style={{ color: 'rgba(255,255,255,0.85)' }}>
               Acompanhe seu intestino, entenda seu corpo.
+            </p>
+          </div>
+          {/* Título COLAPSADO: "Meu diário intestinal" em cursiva, compacto */}
+          <div
+            className="overflow-hidden"
+            style={{
+              maxHeight: colapsado ? '2.5rem' : 0,
+              opacity: colapsado ? 1 : 0,
+              transition: 'max-height 300ms ease, opacity 250ms ease',
+              willChange: 'max-height, opacity',
+            }}
+          >
+            <p className="text-2xl leading-none" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+              Meu diário intestinal
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button type="button" aria-label="Buscar"
-            className={`rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${colapsado ? 'w-8 h-8' : 'w-9 h-9'}`}
-            style={{ background: 'rgba(255,255,255,0.14)' }}>
-            <Search size={colapsado ? 16 : 18} />
-          </button>
           <button type="button" aria-label="Menu"
-            className={`rounded-full flex items-center justify-center text-white transition-all duration-300 ease-in-out ${colapsado ? 'w-8 h-8' : 'w-9 h-9'}`}
-            style={{ background: 'rgba(255,255,255,0.14)' }}>
+            className="rounded-full flex items-center justify-center text-white"
+            style={{
+              background: 'rgba(255,255,255,0.14)',
+              width: colapsado ? 32 : 36,
+              height: colapsado ? 32 : 36,
+              transition: 'width 300ms ease, height 300ms ease',
+            }}>
             <EllipsisVertical size={colapsado ? 16 : 18} />
           </button>
         </div>
       </div>
 
-      {/* Mascote — encolhe e sobe para caber na barra fina ao colapsar */}
+      {/* Mascote — anima via transform (scale/translate, compositado por GPU) para
+          encolher e subir suavemente até a barra fina ao colapsar. */}
       <img
         src={mascoteImage}
         alt="Mascote do Diário Intestinal"
-        className={`absolute object-contain select-none pointer-events-none drop-shadow-lg transition-all duration-300 ease-in-out ${colapsado ? 'right-14 top-2 w-12 h-12' : 'right-3 top-9 w-28 h-28'}`}
+        className="absolute right-3 top-9 w-28 h-28 object-contain select-none pointer-events-none drop-shadow-lg"
+        style={{
+          transformOrigin: 'top right',
+          transform: colapsado ? 'translate(-44px, -28px) scale(0.43)' : 'none',
+          transition: 'transform 300ms ease, opacity 300ms ease',
+          willChange: 'transform',
+        }}
         draggable={false}
       />
     </header>
@@ -553,9 +584,10 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
   }
 
   return (
-    <div className={`relative z-20 mx-5 mb-0 shrink-0 rounded-2xl border border-[#EDE7DD] transition-all duration-300 ease-in-out ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)]' : 'p-4 -mt-7 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
-      style={{ background: 'var(--card)' }}>
-      <div className={`flex items-center justify-between gap-2 transition-all duration-300 ease-in-out ${colapsado ? 'mb-0' : 'mb-3'}`}>
+    <div className={`relative z-20 mx-5 mb-0 shrink-0 rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)]' : 'p-4 -mt-7 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
+      style={{ background: 'var(--card)', transition: 'padding 300ms ease, margin 300ms ease, box-shadow 300ms ease', willChange: 'margin, padding' }}>
+      <div className={`flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
+        style={{ transition: 'margin 300ms ease' }}>
         <button type="button" className="titulo-cursivo flex items-center gap-1 text-base font-serif text-[#2B2A28]">
           {dateLabel}
           <ChevronDown size={16} className="text-[#B6AE9F]" />
@@ -567,8 +599,8 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
       </div>
 
       {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
-      <div className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1 }}>
+      <div className="overflow-hidden"
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 300ms ease, opacity 250ms ease', willChange: 'max-height, opacity' }}>
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
@@ -1933,17 +1965,23 @@ function SilhouetteZoom({ entry, onClose }) {
   );
 }
 
-function EntryCard({ entry, onDelete, onZoom }) {
+function EntryCard({ entry, onDelete, onZoom, onEdit }) {
   const meta = ENTRY_TYPES[entry.type];
   const Icon = meta.icon;
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="relative flex-1 min-w-0 flex gap-3 bg-white rounded-2xl border border-[#EDE7DD] p-3 items-start shadow-[0_10px_22px_-8px_rgba(31,42,40,0.4)]">
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+    <div className="relative flex-1 min-w-0 flex gap-3 bg-white rounded-2xl border border-[#EDE7DD] p-3 items-start shadow-[0_10px_22px_-8px_rgba(31,42,40,0.4)] overflow-hidden">
+      {/* Marca d'água sutil do ícone do tipo (decorativa, atrás do conteúdo) */}
+      <div className="absolute -right-2 -bottom-3 pointer-events-none" aria-hidden="true"
+        style={{ color: meta.color, opacity: 0.07, zIndex: 0 }}>
+        <Icon size={88} strokeWidth={1.5} />
+      </div>
+
+      <div className="relative z-[1] w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
         style={{ background: meta.soft, color: meta.color }}>
         <Icon size={18} strokeWidth={2.2} />
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="relative z-[1] flex-1 min-w-0">
         <p className="entry-text font-medium text-[#2B2A28] text-[0.95em] break-words">{entry.title}</p>
         <p className="entry-text text-[0.95em] mt-0.5 leading-snug break-words" style={{ color: 'var(--ink, #4A443F)' }}>
           <ExpandableText text={entry.description} />
@@ -2004,7 +2042,7 @@ function EntryCard({ entry, onDelete, onZoom }) {
       </div>
 
       {/* Menu de Ações do Registro (RF 2.6, 2.7) */}
-      <div className="relative shrink-0">
+      <div className="relative z-[1] shrink-0">
         <button type="button" aria-label="Ações do registro" aria-haspopup="menu" aria-expanded={menuOpen}
           onClick={() => setMenuOpen((o) => !o)}
           className="w-7 h-7 rounded-full flex items-center justify-center text-[#B6AE9F] hover:bg-[#F1ECE3]">
@@ -2015,6 +2053,12 @@ function EntryCard({ entry, onDelete, onZoom }) {
             <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
             <div role="menu" className="absolute right-0 top-8 z-20 bg-white rounded-xl border border-[#EDE7DD] shadow-md py-1 min-w-[132px]">
               <button type="button" role="menuitem"
+                onClick={() => { setMenuOpen(false); onEdit && onEdit(entry); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#F1ECE3]"
+                style={{ color: '#4A443F' }}>
+                <Pencil size={14} /> Editar
+              </button>
+              <button type="button" role="menuitem"
                 onClick={() => { setMenuOpen(false); onDelete(entry.id); }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#F8EDEA]"
                 style={{ color: '#BD5A4A' }}>
@@ -2023,6 +2067,78 @@ function EntryCard({ entry, onDelete, onZoom }) {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Formulário de Edição de Registro (genérico, type-agnostic) ───────────────
+// Permite ajustar horário, dia, título, descrição e observação de qualquer
+// registro. Campos específicos por tipo (Bristol, silhueta, etc.) são preservados
+// intactos no objeto `meta` ao salvar.
+function EditEntryForm({ entry, onSave, onCancel }) {
+  const [time, setTime] = useState(entry.time || '');
+  const [day, setDay] = useState(entry.day || 'hoje');
+  const [title, setTitle] = useState(entry.title || '');
+  const [description, setDescription] = useState(entry.description || '');
+  const [note, setNote] = useState(entry.meta?.note || '');
+
+  const handleSave = () => {
+    onSave({ time, day, title, description, note });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Horário</label>
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white tabular-nums" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Dia</label>
+          <div className="flex gap-2">
+            {[{ k: 'hoje', l: 'Hoje' }, { k: 'ontem', l: 'Ontem' }].map(({ k, l }) => (
+              <button key={k} type="button" onClick={() => setDay(k)}
+                className="flex-1 px-3 py-2.5 rounded-2xl text-sm border transition-colors"
+                style={day === k
+                  ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
+                  : { borderColor: '#EDE7DD', color: '#7D766A' }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Título</label>
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+          className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white" />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Descrição</label>
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
+          className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white resize-none" />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Observação</label>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+          placeholder="Opcional"
+          className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white resize-none" />
+      </div>
+
+      <div className="flex gap-3 pt-1">
+        <button type="button" onClick={onCancel}
+          className="flex-1 py-3 rounded-2xl border border-[#EDE7DD] text-[#7D766A] font-medium text-sm">
+          Cancelar
+        </button>
+        <button type="button" onClick={handleSave}
+          className="flex-1 py-3 rounded-2xl text-white font-medium text-sm" style={{ background: 'var(--brand)' }}>
+          Salvar
+        </button>
       </div>
     </div>
   );
@@ -2044,8 +2160,10 @@ export default function App() {
   const [fontScale,  setFontScale]  = useState(100);                                  // tamanho do texto dos registros (%)
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
   const [cicloAtivo, setCicloAtivo] = useState(false);                                  // acompanhamento de ciclo opt-in (RF 16.1)
-  const [diarioScroll, setDiarioScroll] = useState(0);                                  // posição de rolagem da timeline (collapse-on-scroll)
+  const [colapsado,  setColapsado]  = useState(false);                                  // hero recolhido ao rolar a timeline
+  const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
   const idRef = useRef(100);
+  const rafRef = useRef(0);
 
   // Navegação por gestos (swipe horizontal entre abas, estilo Instagram).
   // Guarda o ponto inicial do toque e um flag para ignorar gestos quando há
@@ -2055,7 +2173,7 @@ export default function App() {
   const onFrameTouchStart = (e) => {
     if (e.touches.length !== 1) { swipeRef.current.ignore = true; return; }
     const t = e.touches[0];
-    const ignore = Boolean(sheetOpen || activeForm || zoom || calibrando
+    const ignore = Boolean(sheetOpen || activeForm || zoom || calibrando || editing
       || (e.target.closest && e.target.closest('[data-noswipe]')));
     swipeRef.current = { x: t.clientX, y: t.clientY, t: Date.now(), ignore };
   };
@@ -2075,9 +2193,27 @@ export default function App() {
     }
   };
 
-  // Cabeçalho recolhível: ao rolar a timeline além do limiar, Hero e Resumo encolhem.
+  // Cabeçalho recolhível: ao rolar a timeline, Hero e Resumo encolhem. Para evitar
+  // re-render a cada pixel (jank), só atualizamos o booleano ao cruzar o limiar —
+  // com histerese (recolhe acima de ~56px, expande abaixo de ~24px) e throttle por rAF.
+  const onTimelineScroll = (e) => {
+    const top = e.currentTarget.scrollTop;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setColapsado((prev) => {
+        if (!prev && top > 56) return true;
+        if (prev && top < 24) return false;
+        return prev;
+      });
+    });
+  };
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
   // O gate por aba garante que Perfil/Hábitos nunca exibam o estado recolhido.
-  const heroColapsado = abaAtiva === 'diario' && diarioScroll > 40;
+  // Reseta naturalmente ao trocar de aba.
+  const heroColapsado = abaAtiva === 'diario' && colapsado;
 
   // Atalho oculto para a ferramenta de calibração de pontos (dev): Ctrl+Shift+K
   useEffect(() => {
@@ -2091,7 +2227,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const dayOrder  = ['hoje', 'ontem'];
+  // Ordem cronológica natural: mais antigo em cima, mais recente embaixo
+  // ("ontem" acima de "hoje"). Dentro de cada dia, ascendente por horário.
+  const dayOrder  = ['ontem', 'hoje'];
   const dayLabels = { hoje: 'Registros do dia', ontem: 'Ontem' };
 
   const grouped = {};
@@ -2129,6 +2267,21 @@ export default function App() {
     setEntries((prev) => removerEntrada(prev, id)); // RF 2.7 (núcleo puro)
   }
 
+  // Edição genérica (RF 2.6): atualiza apenas time/day/title/description/meta.note,
+  // preservando os demais campos de meta (bristol, intensity, clouds, tags, inicioTs…).
+  function handleSaveEdit({ time, day, title, description, note }) {
+    if (!editing) return;
+    setEntries((prev) => prev.map((e) => {
+      if (e.id !== editing.id) return e;
+      const meta = { ...(e.meta || {}) };
+      if (note) meta.note = note; else delete meta.note;
+      const next = { ...e, time, day, title, description };
+      if (Object.keys(meta).length) next.meta = meta; else delete next.meta;
+      return next;
+    }));
+    setEditing(null);
+  }
+
   const inkL = 38 - (inkLevel / 100) * 22;            // 38% (mais claro) → 16% (mais forte)
   const inkColor = `hsl(30, 8%, ${inkL}%)`;
   const inkSoftColor = `hsl(30, 7%, ${inkL + 10}%)`;
@@ -2156,7 +2309,7 @@ export default function App() {
 
             {/* Timeline conectada (RF 2.4–2.8) */}
             <main className="relative z-10 flex-1 overflow-y-auto px-5 pb-28"
-              onScroll={(e) => setDiarioScroll(e.currentTarget.scrollTop)}
+              onScroll={onTimelineScroll}
               style={{ fontSize: 'calc(1rem * var(--font-scale, 1))' }}>
               {dayOrder.map((day) => (
                 grouped[day].length > 0 && (
@@ -2178,7 +2331,7 @@ export default function App() {
                                   {entry.time}
                                 </span>
                               </div>
-                              <EntryCard entry={entry} onDelete={handleDelete} onZoom={setZoom} />
+                              <EntryCard entry={entry} onDelete={handleDelete} onZoom={setZoom} onEdit={setEditing} />
                             </div>
                           );
                         })}
@@ -2206,6 +2359,23 @@ export default function App() {
 
         {/* Zoom da silhueta do registro de dor */}
         {zoom && <SilhouetteZoom entry={zoom} onClose={() => setZoom(null)} />}
+
+        {/* Sheet: edição genérica de registro (RF 2.6) */}
+        <div className={`absolute inset-0 transition-opacity duration-300 z-40 ${editing ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <div className="absolute inset-0 bg-black/30" onClick={() => setEditing(null)} />
+          <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl flex flex-col max-h-[92%] transition-transform duration-300 ${editing ? 'translate-y-0' : 'translate-y-full'}`}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-[#F1ECE3] shrink-0">
+              <span className="w-5" />
+              <p className="titulo-cursivo font-serif text-base text-[#2B2A28]">Editar registro</p>
+              <button onClick={() => setEditing(null)} className="text-[#B6AE9F]" aria-label="Fechar edição"><X size={20} /></button>
+            </div>
+            <div className="px-5 py-4 overflow-y-auto flex-1">
+              {editing && (
+                <EditEntryForm entry={editing} onSave={handleSaveEdit} onCancel={() => setEditing(null)} />
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Sheet: type picker */}
         <div className={`absolute inset-0 transition-opacity duration-300 z-20 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>

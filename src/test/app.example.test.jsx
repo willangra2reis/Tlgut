@@ -64,10 +64,9 @@ describe('Temas de ambiência por horário (RF 1)', () => {
 });
 
 describe('Cabeçalho Hero e Resumo do Dia (RF 2)', () => {
-  it('exibe mascote, busca e menu', () => {
+  it('exibe mascote e menu', () => {
     render(<App />);
     expect(screen.getByAltText('Mascote do Diário Intestinal')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Buscar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument();
   });
 
