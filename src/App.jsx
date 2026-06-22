@@ -484,10 +484,10 @@ function HeroHeader({ colapsado = false }) {
         background:
           'radial-gradient(120% 90% at 88% 4%, rgba(120,196,140,0.22) 0%, rgba(120,196,140,0) 55%), linear-gradient(165deg, var(--brand) 0%, var(--brand-deep) 62%)',
         paddingTop: colapsado ? '0.75rem' : '1.5rem',
-        paddingBottom: colapsado ? '0.5rem' : '1rem',
+        paddingBottom: colapsado ? '0.5rem' : '2.25rem',
         borderBottomLeftRadius: colapsado ? 16 : 28,
         borderBottomRightRadius: colapsado ? 16 : 28,
-        transition: 'padding 300ms ease, border-radius 300ms ease',
+        transition: 'padding 1000ms ease, border-radius 1000ms ease',
         willChange: 'padding, border-radius',
       }}
     >
@@ -499,7 +499,7 @@ function HeroHeader({ colapsado = false }) {
             style={{
               maxHeight: colapsado ? 0 : '8rem',
               opacity: colapsado ? 0 : 1,
-              transition: 'max-height 300ms ease, opacity 250ms ease',
+              transition: 'max-height 1000ms ease, opacity 1000ms ease',
               willChange: 'max-height, opacity',
             }}
           >
@@ -517,7 +517,7 @@ function HeroHeader({ colapsado = false }) {
             style={{
               maxHeight: colapsado ? '2.5rem' : 0,
               opacity: colapsado ? 1 : 0,
-              transition: 'max-height 300ms ease, opacity 250ms ease',
+              transition: 'max-height 1000ms ease, opacity 1000ms ease',
               willChange: 'max-height, opacity',
             }}
           >
@@ -533,7 +533,7 @@ function HeroHeader({ colapsado = false }) {
               background: 'rgba(255,255,255,0.14)',
               width: colapsado ? 32 : 36,
               height: colapsado ? 32 : 36,
-              transition: 'width 300ms ease, height 300ms ease',
+              transition: 'width 1000ms ease, height 1000ms ease',
             }}>
             <EllipsisVertical size={colapsado ? 16 : 18} />
           </button>
@@ -545,11 +545,11 @@ function HeroHeader({ colapsado = false }) {
       <img
         src={mascoteImage}
         alt="Mascote do Diário Intestinal"
-        className="absolute right-3 top-9 w-28 h-28 object-contain select-none pointer-events-none drop-shadow-lg"
+        className="absolute right-3 top-2 w-24 h-24 object-contain select-none pointer-events-none drop-shadow-lg"
         style={{
           transformOrigin: 'top right',
-          transform: colapsado ? 'translate(-44px, -28px) scale(0.43)' : 'none',
-          transition: 'transform 300ms ease, opacity 300ms ease',
+          transform: colapsado ? 'translate(-40px, -2px) scale(0.33)' : 'none',
+          transition: 'transform 1000ms ease, opacity 1000ms ease',
           willChange: 'transform',
         }}
         draggable={false}
@@ -584,10 +584,10 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
   }
 
   return (
-    <div className={`relative z-20 mx-5 mb-0 shrink-0 rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)]' : 'p-4 -mt-7 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
-      style={{ background: 'var(--card)', transition: 'padding 300ms ease, margin 300ms ease, box-shadow 300ms ease', willChange: 'margin, padding' }}>
-      <div className={`flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
-        style={{ transition: 'margin 300ms ease' }}>
+    <div className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)]' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
+      style={{ transition: 'padding 1000ms ease, margin 1000ms ease, box-shadow 1000ms ease', willChange: 'margin, padding' }}>
+      <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
+        style={{ transition: 'margin 1000ms ease' }}>
         <button type="button" className="titulo-cursivo flex items-center gap-1 text-base font-serif text-[#2B2A28]">
           {dateLabel}
           <ChevronDown size={16} className="text-[#B6AE9F]" />
@@ -599,8 +599,8 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
       </div>
 
       {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
-      <div className="overflow-hidden"
-        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 300ms ease, opacity 250ms ease', willChange: 'max-height, opacity' }}>
+      <div className="relative z-[1] overflow-hidden"
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 1000ms ease, opacity 1000ms ease', willChange: 'max-height, opacity' }}>
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
@@ -1969,12 +1969,38 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
   const meta = ENTRY_TYPES[entry.type];
   const Icon = meta.icon;
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Fecha o menu ao tocar/clicar fora dele. Usa pointerdown (+ touchstart por
+  // garantia em alguns navegadores móveis) no document — confiável no toque,
+  // diferente do backdrop fixo que falhava em mobile. O alvo dentro do menuRef
+  // (inclui o próprio botão de toggle) não dispara o fechamento.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [menuOpen]);
+
   return (
-    <div className="relative flex-1 min-w-0 flex gap-3 bg-white rounded-2xl border border-[#EDE7DD] p-3 items-start shadow-[0_10px_22px_-8px_rgba(31,42,40,0.4)] overflow-hidden">
-      {/* Marca d'água sutil do ícone do tipo (decorativa, atrás do conteúdo) */}
-      <div className="absolute -right-2 -bottom-3 pointer-events-none" aria-hidden="true"
-        style={{ color: meta.color, opacity: 0.07, zIndex: 0 }}>
-        <Icon size={88} strokeWidth={1.5} />
+    <div className="relative flex-1 min-w-0 flex gap-3 bg-white rounded-2xl border border-[#EDE7DD] p-3 items-start shadow-[0_10px_22px_-8px_rgba(31,42,40,0.4)]">
+      {/* Marca d'água sutil do ícone do tipo (decorativa, atrás do conteúdo).
+          Recortada por um contêiner próprio com overflow-hidden para não vazar
+          dos cantos arredondados, sem precisar de overflow-hidden no card raiz
+          (que recortaria o dropdown do menu em cards baixos). */}
+      <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none" aria-hidden="true"
+        style={{ zIndex: 0 }}>
+        <div className="absolute -right-2 -bottom-3" style={{ color: meta.color, opacity: 0.07 }}>
+          <Icon size={88} strokeWidth={1.5} />
+        </div>
       </div>
 
       <div className="relative z-[1] w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -2042,30 +2068,27 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
       </div>
 
       {/* Menu de Ações do Registro (RF 2.6, 2.7) */}
-      <div className="relative z-[1] shrink-0">
+      <div ref={menuRef} className="relative z-[1] shrink-0">
         <button type="button" aria-label="Ações do registro" aria-haspopup="menu" aria-expanded={menuOpen}
           onClick={() => setMenuOpen((o) => !o)}
           className="w-7 h-7 rounded-full flex items-center justify-center text-[#B6AE9F] hover:bg-[#F1ECE3]">
           <EllipsisVertical size={16} />
         </button>
         {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div role="menu" className="absolute right-0 top-8 z-20 bg-white rounded-xl border border-[#EDE7DD] shadow-md py-1 min-w-[132px]">
-              <button type="button" role="menuitem"
-                onClick={() => { setMenuOpen(false); onEdit && onEdit(entry); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#F1ECE3]"
-                style={{ color: '#4A443F' }}>
-                <Pencil size={14} /> Editar
-              </button>
-              <button type="button" role="menuitem"
-                onClick={() => { setMenuOpen(false); onDelete(entry.id); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#F8EDEA]"
-                style={{ color: '#BD5A4A' }}>
-                <Trash2 size={14} /> Remover
-              </button>
-            </div>
-          </>
+          <div role="menu" className="absolute right-0 top-8 z-20 bg-white rounded-xl border border-[#EDE7DD] shadow-md py-1 min-w-[132px]">
+            <button type="button" role="menuitem"
+              onClick={() => { setMenuOpen(false); onEdit && onEdit(entry); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#F1ECE3]"
+              style={{ color: '#4A443F' }}>
+              <Pencil size={14} /> Editar
+            </button>
+            <button type="button" role="menuitem"
+              onClick={() => { setMenuOpen(false); onDelete(entry.id); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-[#F8EDEA]"
+              style={{ color: '#BD5A4A' }}>
+              <Trash2 size={14} /> Remover
+            </button>
+          </div>
         )}
       </div>
     </div>
