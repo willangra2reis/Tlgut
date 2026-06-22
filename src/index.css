@@ -72,3 +72,18 @@
 .cursiva .titulo-cursivo {
   font-family: var(--fonte-registro);
 }
+
+/* ─── Transição entre abas (navegação por gesto / swipe) ──────────────────────
+   Fade curto + leve deslize horizontal ao trocar de aba. Aplicado via wrapper
+   com key={abaAtiva}, remontado a cada troca. Robusto: termina em
+   translateX(0)/opacity 1, sem afetar layout ou rolagem após a animação. */
+@keyframes tgAbaFade {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.tg-aba-anim {
+  animation: tgAbaFade 0.22s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tg-aba-anim { animation: none; }
+}

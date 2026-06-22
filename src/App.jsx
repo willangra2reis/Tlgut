@@ -48,6 +48,9 @@ const NAV_ITEMS = [
   { key: 'perfil',   label: 'Perfil',   icon: User },
 ];
 
+// Ordem das abas para navegação por gesto (swipe horizontal entre abas).
+const ABAS = NAV_ITEMS.map((i) => i.key);
+
 // Alimentos predefinidos (tags) — inclui gatilhos comuns. O usuário pode adicionar
 // os seus (persistidos na sessão; Supabase em fase futura).
 const FOOD_TAGS = [
@@ -569,7 +572,7 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
-          <div className="flex gap-4 overflow-x-auto">
+          <div data-noswipe className="flex gap-4 overflow-x-auto">
             {itens.map((k) => {
               const meta = ENTRY_TYPES[k];
               const Icon = meta.icon;
@@ -726,7 +729,7 @@ function TrendChart({ serie, color, hover, onHover }) {
   const y = x != null ? 100 - (serie[hover].valor / maxV) * 100 : null;
 
   return (
-    <div className="relative w-full h-20 mt-2" style={{ touchAction: 'none' }}
+    <div data-noswipe className="relative w-full h-20 mt-2" style={{ touchAction: 'none' }}
       onPointerMove={mover} onPointerDown={mover} onPointerLeave={() => onHover(null)}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full" aria-hidden="true">
         <polygon points={`0,100 ${pts} 100,100`} fill={color} opacity="0.12" />
@@ -884,7 +887,7 @@ function PainScrubber({ history }) {
   const diasJanela = Math.max(1, Math.round(janela / DIA));
 
   return (
-    <div className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
+    <div data-noswipe className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
       <div className="flex items-baseline justify-between mb-1">
         <p className="entry-text text-sm font-medium text-[#2B2A28]">Linha do tempo da dor</p>
         <span className="text-xs tabular-nums text-[#7D766A]">{fmtData(focusTs, true)}</span>
@@ -1046,7 +1049,7 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
   for (let d = 1; d <= diasNoMes; d += 1) cells.push(d);
 
   return (
-    <div className="rounded-2xl bg-white border border-[#EDE7DD] p-3 mt-2 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
+    <div data-noswipe className="rounded-2xl bg-white border border-[#EDE7DD] p-3 mt-2 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
       <div className="flex items-center justify-between mb-2">
         <button type="button" disabled={!podeVoltar} aria-label="Mês anterior"
           onClick={() => setMes(({ y, m }) => (m === 0 ? { y: y - 1, m: 11 } : { y, m: m - 1 }))}
@@ -2044,6 +2047,34 @@ export default function App() {
   const [diarioScroll, setDiarioScroll] = useState(0);                                  // posição de rolagem da timeline (collapse-on-scroll)
   const idRef = useRef(100);
 
+  // Navegação por gestos (swipe horizontal entre abas, estilo Instagram).
+  // Guarda o ponto inicial do toque e um flag para ignorar gestos quando há
+  // overlays abertos ou quando o toque começou num elemento com gesto próprio.
+  const swipeRef = useRef({ x: 0, y: 0, t: 0, ignore: false });
+
+  const onFrameTouchStart = (e) => {
+    if (e.touches.length !== 1) { swipeRef.current.ignore = true; return; }
+    const t = e.touches[0];
+    const ignore = Boolean(sheetOpen || activeForm || zoom || calibrando
+      || (e.target.closest && e.target.closest('[data-noswipe]')));
+    swipeRef.current = { x: t.clientX, y: t.clientY, t: Date.now(), ignore };
+  };
+
+  const onFrameTouchEnd = (e) => {
+    const s = swipeRef.current;
+    if (s.ignore || e.changedTouches.length !== 1) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    const dt = Date.now() - s.t;
+    if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 700) {
+      const idx = ABAS.indexOf(abaAtiva);
+      const alvo = dx < 0 ? idx + 1 : idx - 1;
+      const novo = Math.max(0, Math.min(ABAS.length - 1, alvo));
+      if (novo !== idx) setAbaAtiva(ABAS[novo]);
+    }
+  };
+
   // Cabeçalho recolhível: ao rolar a timeline além do limiar, Hero e Resumo encolhem.
   // O gate por aba garante que Perfil/Hábitos nunca exibam o estado recolhido.
   const heroColapsado = abaAtiva === 'diario' && diarioScroll > 40;
@@ -2108,12 +2139,16 @@ export default function App() {
         data-theme={tema}
         className={`relative w-full max-w-[420px] h-screen sm:h-[844px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col ${cursiva ? 'cursiva' : ''}`}
         style={{ background: 'linear-gradient(180deg, var(--amb-bg-1) 0%, var(--amb-bg-2) 100%)', '--ink': inkColor, '--ink-soft': inkSoftColor, '--font-scale': fontScale / 100 }}
+        onTouchStart={onFrameTouchStart}
+        onTouchEnd={onFrameTouchEnd}
       >
         {/* Ambiência decorativa de fundo (atrás de todo o conteúdo) */}
         <AmbianceLayer theme={tema} />
 
         {abaAtiva !== 'insights' && <HeroHeader colapsado={heroColapsado} />}
 
+        {/* Conteúdo da aba ativa — wrapper com key para transição suave ao trocar de aba */}
+        <div key={abaAtiva} className="tg-aba-anim relative z-10 flex-1 flex flex-col min-h-0">
         {abaAtiva === 'diario' ? (
           <>
             {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
@@ -2161,6 +2196,7 @@ export default function App() {
         ) : (
           <PlaceholderScreen item={NAV_ITEMS.find((i) => i.key === abaAtiva)} />
         )}
+        </div>
 
         {/* Menu de Navegação Inferior (RF 3) */}
         <BottomNav abaAtiva={abaAtiva} onChangeAba={setAbaAtiva} onAdd={() => setSheetOpen(true)} />
