@@ -96,10 +96,11 @@
    frame. Respeita prefers-reduced-motion. */
 .day-summary-mesh {
   background:
-    radial-gradient(at 18% 20%, rgba(47,107,67,0.12), transparent 55%),
-    radial-gradient(at 85% 0%, rgba(120,196,140,0.16), transparent 50%),
-    radial-gradient(at 92% 92%, rgba(201,118,58,0.08), transparent 55%),
-    #FFFDF7;
+    radial-gradient(at 18% 20%, rgba(47,107,67,0.22), transparent 55%),
+    radial-gradient(at 85% 0%, rgba(120,196,140,0.30), transparent 50%),
+    radial-gradient(at 92% 92%, rgba(201,118,58,0.18), transparent 55%),
+    radial-gradient(at 40% 100%, rgba(94,138,78,0.16), transparent 60%),
+    #FAF5EA;
 }
 .day-summary-mesh::before {
   content: '';
@@ -108,15 +109,17 @@
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(40% 50% at 30% 30%, rgba(120,196,140,0.18), transparent 70%),
-    radial-gradient(45% 55% at 80% 70%, rgba(47,107,67,0.10), transparent 70%);
-  opacity: 0.6;
+    radial-gradient(40% 50% at 30% 30%, rgba(120,196,140,0.30), transparent 70%),
+    radial-gradient(45% 55% at 80% 70%, rgba(47,107,67,0.20), transparent 70%);
+  opacity: 0.85;
   will-change: transform;
-  animation: tgMeshDrift 20s ease-in-out infinite alternate;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  animation: tgMeshDrift 18s ease-in-out infinite alternate;
 }
 @keyframes tgMeshDrift {
-  from { transform: translate3d(-3%, -2%, 0) scale(1.05); }
-  to   { transform: translate3d(4%, 3%, 0) scale(1.12); }
+  from { transform: translate3d(-7%, -5%, 0) scale(1.08); }
+  to   { transform: translate3d(9%, 7%, 0) scale(1.22); }
 }
 @media (prefers-reduced-motion: reduce) {
   .day-summary-mesh::before { animation: none; }

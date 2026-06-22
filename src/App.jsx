@@ -4,7 +4,7 @@ import mascoteImage from './assets/mascote.png';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
-  Leaf, PenLine, EllipsisVertical, ChevronDown, ChartColumn, Trash2, Pencil,
+  Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, Target, User, ChevronRight, Calendar, Wind, Pill, Droplets,
 } from 'lucide-react';
 import {
@@ -493,22 +493,22 @@ function HeroHeader({ colapsado = false }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {/* Título EXPANDIDO: "Diário" pequeno + "Intestinal" grande cursivo + subtítulo */}
+          {/* Título EXPANDIDO: "Meu diário" pequeno + "Intestinal" grande cursivo */}
           <div
             className="overflow-hidden"
             style={{
-              maxHeight: colapsado ? 0 : '8rem',
+              maxHeight: colapsado ? 0 : '6rem',
               opacity: colapsado ? 0 : 1,
               transition: 'max-height 1000ms ease, opacity 1000ms ease',
               willChange: 'max-height, opacity',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+              contain: 'layout paint',
             }}
           >
-            <p className="text-xl font-serif leading-none" style={{ color: 'rgba(255,255,255,0.95)' }}>Diário</p>
+            <p className="text-xl font-serif leading-none" style={{ color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
             <p className="text-5xl leading-[1.1] mt-0.5" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
               Intestinal
-            </p>
-            <p className="mt-2 text-sm max-w-[58%]" style={{ color: 'rgba(255,255,255,0.85)' }}>
-              Acompanhe seu intestino, entenda seu corpo.
             </p>
           </div>
           {/* Título COLAPSADO: "Meu diário intestinal" em cursiva, compacto */}
@@ -519,6 +519,9 @@ function HeroHeader({ colapsado = false }) {
               opacity: colapsado ? 1 : 0,
               transition: 'max-height 1000ms ease, opacity 1000ms ease',
               willChange: 'max-height, opacity',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+              contain: 'layout paint',
             }}
           >
             <p className="text-2xl leading-none" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
@@ -548,9 +551,10 @@ function HeroHeader({ colapsado = false }) {
         className="absolute right-3 top-2 w-24 h-24 object-contain select-none pointer-events-none drop-shadow-lg"
         style={{
           transformOrigin: 'top right',
-          transform: colapsado ? 'translate(-40px, -2px) scale(0.33)' : 'none',
+          transform: colapsado ? 'translate(-40px, -2px) scale(0.33)' : 'translateZ(0)',
           transition: 'transform 1000ms ease, opacity 1000ms ease',
           willChange: 'transform',
+          backfaceVisibility: 'hidden',
         }}
         draggable={false}
       />
@@ -561,7 +565,7 @@ function HeroHeader({ colapsado = false }) {
 // ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
 // `colapsado` recolhe o card para um strip fino (só o cabeçalho), ocultando
 // suavemente os chips e a linha do ciclo. Os dados permanecem montados.
-function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = false }) {
+function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = false, onExpand }) {
   const contagens = contarPorTipo(entries, 'hoje');
   const itens = Object.keys(ENTRY_TYPES).filter((k) => contagens[k] > 0);
 
@@ -584,23 +588,24 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
   }
 
   return (
-    <div className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)]' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
-      style={{ transition: 'padding 1000ms ease, margin 1000ms ease, box-shadow 1000ms ease', willChange: 'margin, padding' }}>
+    <div
+      className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)] cursor-pointer' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
+      style={{ transition: 'padding 1000ms ease, margin 1000ms ease, box-shadow 1000ms ease', willChange: 'margin, padding', transform: 'translateZ(0)', backfaceVisibility: 'hidden', contain: 'layout paint' }}
+      {...(colapsado ? { onClick: onExpand, role: 'button', 'aria-expanded': false, tabIndex: 0 } : {})}>
       <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
         style={{ transition: 'margin 1000ms ease' }}>
-        <button type="button" className="titulo-cursivo flex items-center gap-1 text-base font-serif text-[#2B2A28]">
-          {dateLabel}
-          <ChevronDown size={16} className="text-[#B6AE9F]" />
-        </button>
         <span className="titulo-cursivo flex items-center gap-1.5 text-sm font-serif" style={{ color: 'var(--brand)' }}>
           <ChartColumn size={15} />
           Resumo do dia
+        </span>
+        <span className="titulo-cursivo text-base font-serif text-[#2B2A28]">
+          {dateLabel}
         </span>
       </div>
 
       {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
       <div className="relative z-[1] overflow-hidden"
-        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 1000ms ease, opacity 1000ms ease', willChange: 'max-height, opacity' }}>
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 1000ms ease, opacity 1000ms ease', willChange: 'max-height, opacity', contain: 'layout paint' }}>
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
@@ -2003,7 +2008,7 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
         </div>
       </div>
 
-      <div className="relative z-[1] w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+      <div className="relative z-[1] w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-[0_3px_8px_-2px_rgba(0,0,0,0.18)]"
         style={{ background: meta.soft, color: meta.color }}>
         <Icon size={18} strokeWidth={2.2} />
       </div>
@@ -2014,7 +2019,7 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
         </p>
 
         {entry.type === 'pain' && entry.meta && (
-          <div className="mt-2 rounded-2xl p-3 flex items-center gap-3" style={{ background: meta.soft }}>
+          <div className="mt-2 rounded-2xl p-3 flex items-center gap-3 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.18)]" style={{ background: meta.soft }}>
             <div className="flex-1 min-w-0">
               <p className="entry-text text-xs font-medium" style={{ color: '#6E5F57' }}>Intensidade da dor</p>
               <p className="entry-text text-2xl font-semibold leading-none mt-0.5"
@@ -2036,7 +2041,9 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
           <div className="mt-2 flex items-center gap-1">
             {[1,2,3,4,5].map((i) => (
               <span key={i} className="w-2 h-2 rounded-full"
-                style={i <= entry.meta.quality ? { background: meta.color } : { background: meta.soft }} />
+                style={i <= entry.meta.quality
+                  ? { background: meta.color, boxShadow: '0 1px 3px -1px rgba(0,0,0,0.35)' }
+                  : { background: meta.soft, boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.10)' }} />
             ))}
             <span className="text-xs text-[#B6AE9F] ml-1">qualidade {entry.meta.quality}/5</span>
           </div>
@@ -2044,7 +2051,7 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
 
         {entry.type === 'evacuation' && entry.meta && (
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full shadow-[0_2px_5px_-2px_rgba(0,0,0,0.22)]"
               style={{ background: meta.soft, color: meta.color }}>
               Bristol {entry.meta.bristol}
             </span>
@@ -2187,6 +2194,14 @@ export default function App() {
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
   const idRef = useRef(100);
   const rafRef = useRef(0);
+  const timelineRef = useRef(null);
+
+  // Expande o Resumo/Hero recolhido: rola a timeline ao topo (o handler de scroll
+  // expande via histerese quando top < 24). Disparado ao clicar no card recolhido.
+  const expandirResumo = () => {
+    timelineRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    setColapsado(false);
+  };
 
   // Navegação por gestos (swipe horizontal entre abas, estilo Instagram).
   // Guarda o ponto inicial do toque e um flag para ignorar gestos quando há
@@ -2328,10 +2343,10 @@ export default function App() {
         {abaAtiva === 'diario' ? (
           <>
             {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
-            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} cicloAtivo={cicloAtivo} colapsado={heroColapsado} />
+            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} cicloAtivo={cicloAtivo} colapsado={heroColapsado} onExpand={expandirResumo} />
 
             {/* Timeline conectada (RF 2.4–2.8) */}
-            <main className="relative z-10 flex-1 overflow-y-auto px-5 pb-28"
+            <main ref={timelineRef} className="relative z-10 flex-1 overflow-y-auto px-5 pb-28"
               onScroll={onTimelineScroll}
               style={{ fontSize: 'calc(1rem * var(--font-scale, 1))' }}>
               {dayOrder.map((day) => (
