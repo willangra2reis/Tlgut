@@ -95,7 +95,7 @@ describe('Cabeçalho Hero e Resumo do Dia (RF 2)', () => {
 describe('Menu de navegação inferior (RF 3)', () => {
   it('inicia no Diário com exatamente uma aba ativa e tem FAB', () => {
     render(<App />);
-    ['Diário', 'Insights', 'Hábitos', 'Perfil'].forEach((n) =>
+    ['Diário', 'Insights', 'Aulas', 'Perfil'].forEach((n) =>
       expect(screen.getByRole('button', { name: n })).toBeInTheDocument(),
     );
     expect(document.querySelectorAll('[aria-current="page"]').length).toBe(1);
@@ -103,10 +103,11 @@ describe('Menu de navegação inferior (RF 3)', () => {
     expect(screen.getByRole('button', { name: 'Adicionar registro' })).toBeInTheDocument();
   });
 
-  it('aba placeholder mostra "Em breve" e não altera os registros', () => {
+  it('aba Aulas mostra o catálogo e não altera os registros', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Hábitos' }));
-    expect(screen.getByText('Em breve.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Aulas' }));
+    // O catálogo de Aulas aparece (banner do combo) e os registros do Diário somem
+    expect(screen.getByText('Leve tudo')).toBeInTheDocument();
     expect(screen.queryByText('Café da manhã')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Diário' }));
     expect(screen.getByText('Café da manhã')).toBeInTheDocument();

@@ -5,7 +5,8 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
-  BookOpen, Lightbulb, Target, User, ChevronRight, Calendar, Wind, Pill, Droplets,
+  BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
+  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, Maximize,
 } from 'lucide-react';
 import {
   BRISTOL_DESCRICOES, EVAC_CORES, EVAC_ODORES, buildEvacuationEntry,
@@ -40,11 +41,15 @@ const CHIP_LABELS = {
   cycle: 'Ciclo',
 };
 
-// Abas do Menu_Inferior (RF 3.1). Apenas 'diario' é funcional neste incremento.
+// Abas do Menu_Inferior (RF 3.1). "Aulas" substitui a antiga aba "Hábitos".
+// Ordem: Diário, Insights, Aulas, Perfil. A navegação por gesto (swipe) usa
+// ABAS = NAV_ITEMS.map(...), então a aba Aulas entra automaticamente no swipe.
+// PLANO FUTURO (não implementado aqui): adicionar uma aba/área "Relatórios"
+// com relatórios gerados por IA a partir dos dados do diário.
 const NAV_ITEMS = [
   { key: 'diario',   label: 'Diário',   icon: BookOpen },
   { key: 'insights', label: 'Insights', icon: Lightbulb },
-  { key: 'habitos',  label: 'Hábitos',  icon: Target },
+  { key: 'aulas',    label: 'Aulas',    icon: GraduationCap },
   { key: 'perfil',   label: 'Perfil',   icon: User },
 ];
 
@@ -66,6 +71,170 @@ const MED_TAGS = [
   'Antibiótico', 'Laxante', 'Probiótico', 'Antidepressivo', 'Anti-inflamatório',
   'Analgésico', 'Antiácido', 'Suplemento', 'Vitamina',
 ];
+
+// ─── Aulas (vídeo-aulas) — FASE 1: dados mockados ────────────────────────────
+// Estrutura pronta para depois vir do Supabase. Os campos capa/preview/links
+// ficam null por enquanto (sem imagens): a UI renderiza um placeholder com
+// gradiente da marca. Trocar a fonte de dados não muda a lógica de UI.
+// Textos em primeira pessoa (experiência/rotina), sem alegações clínicas.
+const AULAS = [
+  {
+    id: 'cafe',
+    titulo: 'Super café da manhã/tarde',
+    subtitulo: 'Meu preparo da manhã e da tarde',
+    descricao: 'Como eu preparo meu café da manhã e da tarde, o que parei de comer e novidades que incluí.',
+    preco: 10.0,
+    duracao: '12 min',
+    nivel: 'Iniciante',
+    autor: 'Nut. Camila Souza',
+    idioma: 'pt-BR',
+    aprendizados: [
+      'Como eu monto meu café da manhã e da tarde',
+      'O que eu parei de comer e o que incluí de novo',
+      'Dicas práticas do meu dia a dia',
+    ],
+    capa: null,
+    preview: null,
+    // Exemplo: vídeo via Panda Video (embed/iframe).
+    links: {
+      video: 'https://player-vz-bc28bfd0-ef8.tv.pandavideo.com.br/embed/?v=334bdb0c-39b2-496e-8263-adf09a122eb4',
+      pdf: null,
+      produtos: [],
+    },
+    badge: 'Alimentação',
+  },
+  {
+    id: 'almoco',
+    titulo: 'Super almoço/jantar',
+    subtitulo: 'Meu preparo do almoço e do jantar',
+    descricao: 'Como eu preparo meu almoço e jantar, o que parei de comer e o que incluí de novo.',
+    preco: 10.0,
+    duracao: '12 min',
+    nivel: 'Iniciante',
+    autor: 'Nut. Camila Souza',
+    idioma: 'pt-BR',
+    aprendizados: [
+      'Como eu monto meu almoço e meu jantar',
+      'O que eu parei de comer e o que incluí de novo',
+      'Dicas práticas do meu dia a dia',
+    ],
+    capa: null,
+    preview: null,
+    // Exemplo: arquivo .mp4 direto (player nativo). Link da Wistia (deliveries).
+    links: {
+      video: 'https://embed-ssl.wistia.com/deliveries/e81023b76ba1d8f3e382d6dad3d9f04d79769d81.bin?disposition=attachment&filename=1000110160.mp4',
+      pdf: null,
+      produtos: [],
+    },
+    badge: 'Alimentação',
+  },
+  {
+    id: 'rotina',
+    titulo: 'Minha rotina',
+    subtitulo: 'Água, chás, sono e exercícios',
+    descricao: 'Como tomo água, quais chás uso, sono, exercícios — toda a minha experiência com esses detalhes.',
+    preco: 10.0,
+    duracao: '14 min',
+    nivel: 'Iniciante',
+    autor: 'Nut. Camila Souza',
+    idioma: 'pt-BR',
+    aprendizados: [
+      'Como eu organizo minha hidratação e meus chás',
+      'Como cuido do meu sono e dos meus exercícios',
+      'Dicas práticas do meu dia a dia',
+    ],
+    capa: null,
+    preview: null,
+    // Exemplo: vídeo do YouTube (embed/iframe).
+    links: {
+      video: 'https://www.youtube.com/embed/kyKUVaj5bEo?si=mNqKibe3zhQhduIW',
+      pdf: null,
+      produtos: [],
+    },
+    badge: 'Rotina',
+  },
+  {
+    id: 'kefir',
+    titulo: 'Como produzir Kefir sem muda',
+    subtitulo: 'Meu passo a passo do zero',
+    descricao: 'Meu passo a passo para produzir kefir do zero, sem precisar de muda.',
+    preco: 27.0,
+    duracao: '20 min',
+    nivel: 'Intermediário',
+    autor: 'Nut. Camila Souza',
+    idioma: 'pt-BR',
+    aprendizados: [
+      'Como eu começo o kefir sem muda',
+      'Como acompanho cada etapa do preparo',
+      'Dicas práticas para manter no dia a dia',
+    ],
+    capa: null,
+    preview: null,
+    // Exemplo: embed da Wistia em IFRAME (player nativo da Wistia, ao contrário
+    // do link .mp4 do curso "almoço", que é o arquivo bruto). O ID após
+    // /embed/iframe/ é o "media hashed id" do vídeo na sua conta Wistia.
+    links: {
+      video: 'https://fast.wistia.net/embed/iframe/wscmoabhou',
+      pdf: null,
+      produtos: [],
+    },
+    badge: 'Preparo',
+  },
+  {
+    id: 'conversas',
+    titulo: 'Conversas profundas sobre saúde intestinal',
+    subtitulo: 'Baseadas em biografias importantes',
+    descricao: 'Conversas baseadas em biografias importantes sobre o tema, abordando vários tópicos.',
+    preco: 19.0,
+    duracao: '35 min',
+    nivel: 'Avançado',
+    autor: 'Nut. Camila Souza',
+    idioma: 'pt-BR',
+    aprendizados: [
+      'Os temas que eu trago a partir de biografias',
+      'Os tópicos que eu costumo conectar nas conversas',
+      'Reflexões práticas para o dia a dia',
+    ],
+    capa: null,
+    preview: null,
+    // Exemplo: embed do Bunny Stream (bunny.net) em IFRAME. Formato:
+    // iframe.mediadelivery.net/embed/{libraryId}/{videoId}. O link "/play/..."
+    // do painel é a página do player; para incorporar use "/embed/...".
+    links: {
+      video: 'https://iframe.mediadelivery.net/embed/574163/da1f60ec-ce91-4f82-8017-82633914dcd9',
+      pdf: null,
+      produtos: [],
+    },
+    badge: 'Conversas',
+  },
+];
+
+// Pacotes/ofertas. O combo "Tudo" reúne os 4 primeiros cursos. "conversas" é avulso.
+const AULAS_COMBO = {
+  id: 'combo-tudo',
+  titulo: 'Leve tudo',
+  subtitulo: 'Os 4 cursos essenciais num só pacote',
+  itens: ['cafe', 'almoco', 'rotina', 'kefir'],
+  precoDe: 57.0, // soma dos avulsos (10 + 10 + 10 + 27)
+  preco: 37.0,   // preço promocional do combo
+};
+
+// Formata um número para moeda pt-BR (vírgula decimal): 10 → "R$ 10,00".
+function formatarPreco(valor) {
+  return `R$ ${Number(valor).toFixed(2).replace('.', ',')}`;
+}
+
+// Detecta o tipo de vídeo a partir da URL para escolher o player adequado.
+// 'mp4' → player nativo <video>; 'iframe' → embed (YouTube, Panda, Wistia, etc.).
+// Reconhece arquivos diretos (.mp4/.webm/.ogg) e o padrão .bin?...filename=...mp4
+// (entregas da Wistia). Qualquer outro link é tratado como embed/iframe.
+function tipoDeVideo(url) {
+  if (!url) return null;
+  const u = String(url).toLowerCase();
+  if (/\.(mp4|webm|ogv|ogg|mov|m4v)(\?|#|$)/.test(u)) return 'mp4';
+  if (/[?&]filename=[^&]*\.(mp4|webm|ogv|ogg|mov|m4v)/.test(u)) return 'mp4';
+  return 'iframe';
+}
 
 // ─── Digestive image (base64 webp) ───────────────────────────────────────────
 const DIGESTIVE_IMAGE = digestiveImage;
@@ -673,17 +842,380 @@ function BottomNav({ abaAtiva, onChangeAba, onAdd }) {
   );
 }
 
-// ─── Tela reservada para abas futuras (RF 3.6) ────────────────────────────────
-function PlaceholderScreen({ item }) {
-  const Icon = item.icon;
+// ─── Aulas (vídeo-aulas pagas) — FASE 1 (somente front-end) ───────────────────
+// Tela cheia com cabeçalho próprio (não usa o HeroHeader do Diário). Catálogo
+// estilo "Netflix" com cards grandes; ao tocar abre a sub-view de detalhe.
+// Compras são SIMULADAS (Set local) — sem backend/pagamento real. A estrutura
+// de dados (AULAS/AULAS_COMBO) já prevê os campos para vir do Supabase depois.
+
+// Placeholder visual de prévia: gradiente da marca + ícone Play central. Usado
+// enquanto capa/preview/links forem null (ainda sem vídeo/imagem).
+function PreviewPlaceholder({ children }) {
   return (
-    <main className="relative z-10 flex-1 overflow-y-auto px-5 pb-28 flex flex-col items-center justify-center text-center">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-        style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}>
-        <Icon size={28} />
+    <div
+      className="absolute inset-0"
+      style={{
+        background:
+          'radial-gradient(120% 90% at 80% 10%, rgba(120,196,140,0.35) 0%, rgba(120,196,140,0) 55%), linear-gradient(160deg, #2C4A38 0%, var(--brand-deep) 70%)',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Player de vídeo agnóstico de provedor. Detecta mp4 (player nativo) ou embed
+// (iframe: YouTube, Panda, Wistia, etc.). Trocar o link em AULAS troca o servidor
+// de vídeo sem mudar a UI. Em fase futura os links virão do Supabase com URL
+// assinada para conteúdo pago.
+function VideoPlayer({ url, titulo }) {
+  if (tipoDeVideo(url) === 'mp4') {
+    return (
+      <video
+        src={url}
+        controls
+        autoPlay
+        playsInline
+        className="absolute inset-0 w-full h-full"
+        style={{ background: '#000' }}
+      >
+        Seu navegador não suporta vídeo incorporado.
+      </video>
+    );
+  }
+  return (
+    <iframe
+      src={url}
+      title={titulo || 'Vídeo da aula'}
+      className="absolute inset-0 w-full h-full"
+      style={{ border: 0, background: '#000' }}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+      allowFullScreen
+    />
+  );
+}
+
+// Card de curso no catálogo (proporção ~9/16, grande, um por linha).
+function AulaCard({ aula, liberado, onAbrir }) {
+  return (
+    <button
+      type="button"
+      onClick={onAbrir}
+      className="relative w-full rounded-3xl overflow-hidden text-left shadow-[0_18px_36px_-16px_rgba(0,0,0,0.65)] active:scale-[0.99] transition-transform"
+      style={{ aspectRatio: '9 / 16' }}
+      aria-label={`Abrir aula: ${aula.titulo}`}
+    >
+      <PreviewPlaceholder>
+        {/* Selo de status (canto superior) */}
+        <div className="absolute top-3 left-3 z-10">
+          {liberado ? (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'rgba(120,196,140,0.92)', color: '#11241A' }}>
+              <CheckCircle2 size={13} /> Liberado
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'rgba(12,18,16,0.7)', color: '#F2ECE3' }}>
+              <Lock size={13} /> Bloqueado
+            </span>
+          )}
+        </div>
+
+        {/* Badge categoria (canto superior direito) */}
+        {aula.badge && (
+          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+            style={{ background: 'rgba(255,255,255,0.16)', color: '#F2ECE3' }}>
+            {aula.badge}
+          </span>
+        )}
+
+        {/* Play central */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="w-16 h-16 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
+            <Play size={28} fill="#3A2E25" />
+          </span>
+        </div>
+
+        {/* Rodapé com título/subtítulo/preço sobre gradiente escuro */}
+        <div className="absolute bottom-0 left-0 right-0 p-4"
+          style={{ background: 'linear-gradient(to top, rgba(8,14,11,0.92) 0%, rgba(8,14,11,0.55) 55%, rgba(8,14,11,0) 100%)' }}>
+          <p className="text-2xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
+            {aula.titulo}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(242,236,227,0.82)' }}>{aula.subtitulo}</p>
+          <p className="text-sm font-semibold mt-2" style={{ color: '#F6D2B8' }}>{formatarPreco(aula.preco)}</p>
+        </div>
+      </PreviewPlaceholder>
+    </button>
+  );
+}
+
+// Sub-view de detalhe de um curso (mockup): prévia grande, meta, aprendizados e
+// barra de compra (simulada). Sem player real — links.video é null.
+function AulaDetalhe({ aula, indice, liberado, onVoltar, onAdquirir }) {
+  const [aviso, setAviso] = useState('');
+  const [assistindo, setAssistindo] = useState(false);
+  const numero = String(indice + 1).padStart(2, '0');
+  const temVideo = !!aula.links?.video;
+
+  // Ao clicar em "Assistir": se há vídeo e acesso, abre o player; senão avisa.
+  function assistir() {
+    if (liberado && temVideo) {
+      setAssistindo(true);
+      setAviso('');
+    } else {
+      setAviso('Vídeo em breve — o player será habilitado quando o conteúdo estiver disponível.');
+    }
+  }
+
+  return (
+    <div className="px-4 pt-3">
+      {/* Voltar */}
+      <button type="button" onClick={onVoltar} aria-label="Voltar ao catálogo"
+        className="flex items-center gap-1.5 mb-3 px-3 py-1.5 rounded-full text-sm font-medium"
+        style={{ background: 'rgba(255,255,255,0.12)', color: '#F2ECE3' }}>
+        <ArrowLeft size={16} /> Voltar
+      </button>
+
+      {/* 1. Prévia 9/16: player real (liberado + assistindo) ou capa com overlay */}
+      <div className="relative w-full rounded-3xl overflow-hidden shadow-[0_18px_36px_-16px_rgba(0,0,0,0.7)]"
+        style={{ aspectRatio: '9 / 16' }}>
+        {liberado && assistindo && temVideo ? (
+          <VideoPlayer url={aula.links.video} titulo={aula.titulo} />
+        ) : (
+        <PreviewPlaceholder>
+          {!liberado && (
+            <span className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'rgba(12,18,16,0.7)', color: '#F2ECE3' }}>
+              <Lock size={13} /> Bloqueado
+            </span>
+          )}
+          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+            style={{ background: 'rgba(120,196,140,0.92)', color: '#11241A' }}>
+            AULA {numero}
+          </span>
+
+          {/* Título grande sobre a prévia */}
+          <div className="absolute inset-x-0 top-1/4 px-5 text-center">
+            <p className="text-4xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
+              {aula.titulo}
+            </p>
+            <p className="text-sm mt-1" style={{ color: 'rgba(242,236,227,0.85)' }}>{aula.subtitulo}</p>
+          </div>
+
+          {/* Play central — clicável quando liberado e há vídeo */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            {liberado && temVideo ? (
+              <button type="button" onClick={assistir} aria-label="Assistir aula"
+                className="w-20 h-20 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+                style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
+                <Play size={34} fill="#3A2E25" />
+              </button>
+            ) : (
+              <span className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
+                <Play size={34} fill="#3A2E25" />
+              </span>
+            )}
+          </div>
+
+          {/* Barra de player FALSA (apenas visual) */}
+          <div className="absolute bottom-0 left-0 right-0 p-4"
+            style={{ background: 'linear-gradient(to top, rgba(8,14,11,0.92) 0%, rgba(8,14,11,0) 100%)' }}>
+            <div className="flex items-center gap-2 text-[11px]" style={{ color: '#F2ECE3' }}>
+              <span className="tabular-nums">00:00</span>
+              <span className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.25)' }}>
+                <span className="block h-full w-1/4 rounded-full" style={{ background: '#F6D2B8' }} />
+              </span>
+              <span className="tabular-nums">{aula.duracao}</span>
+              <Maximize size={14} aria-hidden="true" />
+            </div>
+          </div>
+        </PreviewPlaceholder>
+        )}
       </div>
-      <p className="titulo-cursivo text-2xl font-serif" style={{ color: 'var(--amb-text)' }}>{item.label}</p>
-      <p className="text-sm mt-1" style={{ color: 'var(--amb-text)', opacity: 0.7 }}>Em breve.</p>
+
+      {/* 2. Pill de acesso */}
+      <div className="mt-4">
+        {liberado ? (
+          <div className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
+            style={{ background: 'rgba(120,196,140,0.16)' }}>
+            <span className="flex items-center gap-2 text-sm font-medium" style={{ color: '#CDEBD5' }}>
+              <CheckCircle2 size={16} /> Você tem acesso
+            </span>
+            <button type="button"
+              onClick={assistir}
+              className="px-4 py-2 rounded-full text-sm font-semibold"
+              style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+              Assistir
+            </button>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
+            style={{ background: 'rgba(12,18,16,0.55)', color: '#F2ECE3' }}>
+            <Lock size={14} /> Acesso exclusivo
+          </span>
+        )}
+        {aviso && <p className="text-xs mt-2" style={{ color: 'rgba(242,236,227,0.8)' }}>{aviso}</p>}
+      </div>
+
+      {/* 3. Título + subtítulo */}
+      <h2 className="text-3xl mt-5 leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
+        {aula.titulo}
+      </h2>
+      <p className="text-sm mt-1" style={{ color: 'rgba(242,236,227,0.82)' }}>{aula.descricao}</p>
+
+      {/* 4. Meta */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-4 text-xs" style={{ color: 'rgba(242,236,227,0.78)' }}>
+        <span className="flex items-center gap-1.5"><Clock size={14} /> {aula.duracao}</span>
+        <span className="flex items-center gap-1.5"><BarChart3 size={14} /> Nível {aula.nivel}</span>
+        <span className="flex items-center gap-1.5"><User size={14} /> {aula.autor}</span>
+      </div>
+
+      {/* 5. Divisor */}
+      <div className="my-5 h-px" style={{ background: 'rgba(242,236,227,0.18)' }} />
+
+      {/* 6. Aprendizados */}
+      <p className="text-2xl" style={{ fontFamily: CURSIVE_STACK, color: '#9FD8AE' }}>
+        Nesta aula você vai aprender:
+      </p>
+      <ul className="mt-3 space-y-2.5">
+        {aula.aprendizados.map((item, i) => (
+          <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: '#F2ECE3' }}>
+            <CheckCircle2 size={18} className="shrink-0 mt-0.5" style={{ color: '#7FC88C' }} />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* 7. Barra de compra / assistir */}
+      <div className="mt-6">
+        {liberado ? (
+          <button type="button"
+            onClick={assistir}
+            className="w-full py-3.5 rounded-2xl text-base font-semibold flex items-center justify-center gap-2"
+            style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+            <Play size={18} fill="#3A2E25" /> Assistir
+          </button>
+        ) : (
+          <div className="rounded-2xl p-4" style={{ background: 'rgba(8,14,11,0.55)' }}>
+            <div className="flex items-center gap-2.5">
+              <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(246,210,184,0.18)', color: '#F6D2B8' }}>
+                <Lock size={18} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold" style={{ color: '#FFFFFF' }}>Desbloqueie esta aula</p>
+                <p className="text-xs" style={{ color: 'rgba(242,236,227,0.75)' }}>Acesso imediato e ilimitado</p>
+              </div>
+            </div>
+            <button type="button" onClick={onAdquirir}
+              className="w-full mt-3 py-3.5 rounded-2xl text-base font-semibold"
+              style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+              Adquirir agora {formatarPreco(aula.preco)}
+            </button>
+            <p className="text-[11px] text-center mt-2" style={{ color: 'rgba(242,236,227,0.6)' }}>
+              Demonstração — compra simulada (pagamento em breve)
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Tela principal da aba Aulas (catálogo + detalhe). Sem data-noswipe: o swipe
+// horizontal continua navegando entre abas; a rolagem do catálogo é vertical.
+function AulasScreen() {
+  const [comprados, setComprados] = useState(() => new Set());
+  const [selecionado, setSelecionado] = useState(null);
+
+  const liberar = useCallback((ids) => {
+    setComprados((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, []);
+
+  const aulaSel = selecionado ? AULAS.find((a) => a.id === selecionado) : null;
+  const indiceSel = selecionado ? AULAS.findIndex((a) => a.id === selecionado) : -1;
+  const comboLiberado = AULAS_COMBO.itens.every((id) => comprados.has(id));
+
+  return (
+    <main
+      className="relative z-10 flex-1 overflow-y-auto pb-28"
+      style={{ background: 'var(--brand-deep)' }}
+    >
+      {/* Cabeçalho próprio (sticky) */}
+      <header className="sticky top-0 z-20 flex items-center justify-between px-5 py-3"
+        style={{ background: 'var(--brand-deep)' }}>
+        <div className="flex items-center gap-2">
+          <Leaf size={22} style={{ color: '#9FD8AE' }} />
+          <p className="text-3xl leading-none" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>Aulas</p>
+        </div>
+        <button type="button" aria-label="Transmitir"
+          className="w-9 h-9 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(255,255,255,0.12)', color: '#F2ECE3' }}>
+          <Cast size={18} />
+        </button>
+      </header>
+
+      {aulaSel ? (
+        <AulaDetalhe
+          aula={aulaSel}
+          indice={indiceSel}
+          liberado={comprados.has(aulaSel.id)}
+          onVoltar={() => setSelecionado(null)}
+          onAdquirir={() => liberar([aulaSel.id])}
+        />
+      ) : (
+        <div className="px-4 pt-1">
+          {/* Banner do COMBO */}
+          <div className="rounded-3xl p-5 shadow-[0_18px_36px_-16px_rgba(0,0,0,0.6)]"
+            style={{ background: 'linear-gradient(150deg, #34543F 0%, #1E3328 100%)', border: '1px solid rgba(159,216,174,0.25)' }}>
+            <p className="text-3xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
+              {AULAS_COMBO.titulo}
+            </p>
+            <p className="text-sm mt-1" style={{ color: 'rgba(242,236,227,0.82)' }}>{AULAS_COMBO.subtitulo}</p>
+            <div className="flex items-center gap-2 mt-3">
+              <span className="text-sm line-through" style={{ color: 'rgba(242,236,227,0.6)' }}>
+                de {formatarPreco(AULAS_COMBO.precoDe)}
+              </span>
+              <span className="text-2xl font-bold" style={{ color: '#F6D2B8' }}>
+                por {formatarPreco(AULAS_COMBO.preco)}
+              </span>
+            </div>
+            {comboLiberado ? (
+              <p className="mt-3 flex items-center gap-1.5 text-sm font-medium" style={{ color: '#CDEBD5' }}>
+                <CheckCircle2 size={16} /> Combo liberado — 4 cursos desbloqueados
+              </p>
+            ) : (
+              <button type="button" onClick={() => liberar(AULAS_COMBO.itens)}
+                className="w-full mt-4 py-3 rounded-2xl text-base font-semibold"
+                style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+                Adquirir combo {formatarPreco(AULAS_COMBO.preco)}
+              </button>
+            )}
+            <p className="text-[11px] text-center mt-2" style={{ color: 'rgba(242,236,227,0.6)' }}>
+              Demonstração — compra simulada (pagamento em breve)
+            </p>
+          </div>
+
+          {/* Catálogo vertical */}
+          <div className="mt-5 space-y-5">
+            {AULAS.map((aula) => (
+              <AulaCard
+                key={aula.id}
+                aula={aula}
+                liberado={comprados.has(aula.id)}
+                onAbrir={() => setSelecionado(aula.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -2249,7 +2781,7 @@ export default function App() {
 
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
-  // O gate por aba garante que Perfil/Hábitos nunca exibam o estado recolhido.
+  // O gate por aba garante que Perfil/Aulas nunca exibam o estado recolhido.
   // Reseta naturalmente ao trocar de aba.
   const heroColapsado = abaAtiva === 'diario' && colapsado;
 
@@ -2336,7 +2868,7 @@ export default function App() {
         {/* Ambiência decorativa de fundo (atrás de todo o conteúdo) */}
         <AmbianceLayer theme={tema} />
 
-        {abaAtiva !== 'insights' && <HeroHeader colapsado={heroColapsado} />}
+        {abaAtiva !== 'insights' && abaAtiva !== 'aulas' && <HeroHeader colapsado={heroColapsado} />}
 
         {/* Conteúdo da aba ativa — wrapper com key para transição suave ao trocar de aba */}
         <div key={abaAtiva} className="tg-aba-anim relative z-10 flex-1 flex flex-col min-h-0">
@@ -2385,7 +2917,7 @@ export default function App() {
         ) : abaAtiva === 'perfil' ? (
           <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} cicloAtivo={cicloAtivo} onCiclo={setCicloAtivo} />
         ) : (
-          <PlaceholderScreen item={NAV_ITEMS.find((i) => i.key === abaAtiva)} />
+          <AulasScreen />
         )}
         </div>
 
