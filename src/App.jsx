@@ -487,44 +487,44 @@ function HeroHeader({ colapsado = false }) {
         paddingBottom: colapsado ? '0.5rem' : '2.25rem',
         borderBottomLeftRadius: colapsado ? 16 : 28,
         borderBottomRightRadius: colapsado ? 16 : 28,
-        transition: 'padding 1000ms ease, border-radius 1000ms ease',
+        transition: 'padding 500ms ease, border-radius 500ms ease',
         willChange: 'padding, border-radius',
       }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {/* Título EXPANDIDO: "Meu diário" pequeno + "Intestinal" grande cursivo */}
+          {/* Título EXPANDIDO: "Meu diário" cursivo menor + "Intestinal" grande cursivo */}
           <div
-            className="overflow-hidden"
+            className="overflow-hidden pr-3"
             style={{
-              maxHeight: colapsado ? 0 : '6rem',
+              maxHeight: colapsado ? 0 : '7rem',
               opacity: colapsado ? 0 : 1,
-              transition: 'max-height 1000ms ease, opacity 1000ms ease',
+              transition: 'max-height 500ms ease, opacity 500ms ease',
               willChange: 'max-height, opacity',
               transform: 'translateZ(0)',
               backfaceVisibility: 'hidden',
               contain: 'layout paint',
             }}
           >
-            <p className="text-xl font-serif leading-none" style={{ color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
-            <p className="text-5xl leading-[1.1] mt-0.5" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+            <p className="text-2xl leading-[1.25]" style={{ fontFamily: CURSIVE_STACK, color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
+            <p className="text-5xl leading-[1.25] -mt-1" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
               Intestinal
             </p>
           </div>
           {/* Título COLAPSADO: "Meu diário intestinal" em cursiva, compacto */}
           <div
-            className="overflow-hidden"
+            className="overflow-hidden pr-3"
             style={{
-              maxHeight: colapsado ? '2.5rem' : 0,
+              maxHeight: colapsado ? '3.25rem' : 0,
               opacity: colapsado ? 1 : 0,
-              transition: 'max-height 1000ms ease, opacity 1000ms ease',
+              transition: 'max-height 500ms ease, opacity 500ms ease',
               willChange: 'max-height, opacity',
               transform: 'translateZ(0)',
               backfaceVisibility: 'hidden',
               contain: 'layout paint',
             }}
           >
-            <p className="text-2xl leading-none" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+            <p className="text-2xl leading-[1.3] whitespace-nowrap" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
               Meu diário intestinal
             </p>
           </div>
@@ -536,7 +536,7 @@ function HeroHeader({ colapsado = false }) {
               background: 'rgba(255,255,255,0.14)',
               width: colapsado ? 32 : 36,
               height: colapsado ? 32 : 36,
-              transition: 'width 1000ms ease, height 1000ms ease',
+              transition: 'width 500ms ease, height 500ms ease',
             }}>
             <EllipsisVertical size={colapsado ? 16 : 18} />
           </button>
@@ -552,7 +552,7 @@ function HeroHeader({ colapsado = false }) {
         style={{
           transformOrigin: 'top right',
           transform: colapsado ? 'translate(-40px, -2px) scale(0.33)' : 'translateZ(0)',
-          transition: 'transform 1000ms ease, opacity 1000ms ease',
+          transition: 'transform 500ms ease, opacity 500ms ease',
           willChange: 'transform',
           backfaceVisibility: 'hidden',
         }}
@@ -590,10 +590,10 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
   return (
     <div
       className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)] cursor-pointer' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
-      style={{ transition: 'padding 1000ms ease, margin 1000ms ease, box-shadow 1000ms ease', willChange: 'margin, padding', transform: 'translateZ(0)', backfaceVisibility: 'hidden', contain: 'layout paint' }}
+      style={{ transition: 'padding 500ms ease, margin 500ms ease, box-shadow 500ms ease', willChange: 'margin, padding', transform: 'translateZ(0)', backfaceVisibility: 'hidden', contain: 'layout paint' }}
       {...(colapsado ? { onClick: onExpand, role: 'button', 'aria-expanded': false, tabIndex: 0 } : {})}>
       <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
-        style={{ transition: 'margin 1000ms ease' }}>
+        style={{ transition: 'margin 500ms ease' }}>
         <span className="titulo-cursivo flex items-center gap-1.5 text-sm font-serif" style={{ color: 'var(--brand)' }}>
           <ChartColumn size={15} />
           Resumo do dia
@@ -605,7 +605,7 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
 
       {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
       <div className="relative z-[1] overflow-hidden"
-        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 1000ms ease, opacity 1000ms ease', willChange: 'max-height, opacity', contain: 'layout paint' }}>
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 500ms ease, opacity 500ms ease', willChange: 'max-height, opacity', contain: 'layout paint' }}>
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
@@ -616,8 +616,8 @@ function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = fa
               return (
                 <div key={k} className="flex flex-col items-center gap-1 min-w-[58px] shrink-0">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{ background: meta.soft, color: meta.color }}>
-                    <Icon size={18} />
+                    style={{ background: meta.soft, color: meta.color, border: `1px solid ${meta.color}59`, boxShadow: `0 2px 6px -1px rgba(0,0,0,0.22), inset 0 0 0 1px ${meta.color}1f` }}>
+                    <Icon size={18} strokeWidth={2.4} />
                   </div>
                   <span className="text-lg font-semibold leading-none" style={{ color: meta.color }}>{contagens[k]}</span>
                   <span className="text-[11px] text-[#7D766A]">{CHIP_LABELS[k]}</span>
@@ -2008,9 +2008,9 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
         </div>
       </div>
 
-      <div className="relative z-[1] w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-[0_3px_8px_-2px_rgba(0,0,0,0.18)]"
-        style={{ background: meta.soft, color: meta.color }}>
-        <Icon size={18} strokeWidth={2.2} />
+      <div className="relative z-[1] w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+        style={{ background: meta.soft, color: meta.color, border: `1px solid ${meta.color}59`, boxShadow: `0 2px 6px -1px rgba(0,0,0,0.22), inset 0 0 0 1px ${meta.color}1f` }}>
+        <Icon size={18} strokeWidth={2.4} />
       </div>
       <div className="relative z-[1] flex-1 min-w-0">
         <p className="entry-text font-medium text-[#2B2A28] text-[0.95em] break-words">{entry.title}</p>
