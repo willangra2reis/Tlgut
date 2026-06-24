@@ -1,0 +1,90 @@
+ok esse é um link com palyer wistia https://fast.wistia.net/embed/iframe/wscmoabhou
+
+
+
+Esqueci da psaar tambem um exemplo de player do bunny:
+
+https://player.mediadelivery.net/play/574163/da1f60ec-ce91-4f82-8017-82633914dcd9
+
+
+
+apos ajustar isso gostaria de saber/discutir os proximos passos?
+
+
+
+gostaria tambem de deixar "engatilhado" algumas ideias que podem correlacionar com essa que atualmente estamos desenvolvendo que é as video aulas, vou deixar aqui para que você tome ciencia:
+
+
+
+Sistema de Recompensa por Indicação (ou Referral Reward System).Ou seja se uma pessoa se inscrever através de seu link de indicação, ela pode receber recompensas porem ainda tambem nao sei extamentes o que poderia ser.Tenho pensando em liberar o acesso por exemplo ao "Como produzir Kefir sem muda R$27" pois acredito que possa ser um produto bem desejado.Sendo assim forçaria ou seria um bom motivo para o usuario fazer a indicação para desbloquear essa video aula.Porém tenho duvidas sobre como poderíamos fazer esse sistema de Recompensa, se seria diretamente por exemplo: havendo um inscrição através do link ja aconteceria o desbloqueio desse módulo ou teria que haver X números de inscrições para haver esse desbloqueio, ou poderia ser por exemplo cada inscrição via link vale tantos pontos ou moedas...Preciso que me ajude a expandir essas ideias, precisamos concluir as etapas da aba de videos 
+
+
+
+
+
+
+
+Ajustado e verificado (lint + build verdes, nada commitado). Agora cada curso demonstra um provedor diferente, então você consegue comparar todos no celular:
+
+Super café → Panda Video (iframe)
+Super almoço/jantar → arquivo .mp4 direto / Wistia deliveries (player nativo)
+Minha rotina → YouTube (iframe)
+Como produzir Kefir → Wistia player real (wscmoabhou)
+Conversas profundas → Bunny Stream (converti o /play/ para /embed/)
+Lembrando: como a compra é simulada, é só "Adquirir" pra liberar e depois "Assistir".
+
+Agora vamos à conversa de próximos passos e à ideia de indicações. Vou ser direto e honesto, porque tem um ponto de segurança importante no meio do caminho.
+
+Onde estamos e o que falta na aba Aulas
+A Fase 1 (UI + simulação) está completa. Para a aba ficar "de verdade", faltam:
+
+Fase 2 — Supabase + contas: catálogo vindo do banco e login/cadastro. É a base de tudo: sem conta, não dá pra saber quem comprou nem quem indicou quem.
+Fase 3 — Pagamento + liberação de acesso (entitlement): quem paga libera o curso. O "entitlement" é o coração: é a tabela que diz "usuário X tem acesso ao curso Y".
+Fase 4 — Painel admin: você gerencia capas, links, descrições, preços.
+Ponto de segurança que muda a escolha de provedor
+Agora que o conteúdo é pago, o provedor de vídeo importa muito:
+
+YouTube (mesmo "não listado") e Wistia público: qualquer um com o link assiste. Não servem para conteúdo pago de verdade.
+Bunny Stream e Panda Video: suportam URL assinada/token (o link expira e é gerado só pra quem tem acesso). São os indicados para o conteúdo pago.
+Minha recomendação: padronizar o conteúdo pago no Bunny ou Panda com token, e deixar YouTube/Wistia só para prévias gratuitas. Isso a gente trava na Fase 3.
+
+Sistema de Recompensa por Indicação — expandindo a ideia
+A boa notícia: esse sistema reaproveita exatamente a mesma peça da Fase 3 (o entitlement). Liberar o Kefir por uma compra ou por uma indicação é a mesma ação ("dar acesso ao curso Y para o usuário X"). Então ele encaixa naturalmente depois do Supabase + entitlement, não é um projeto paralelo.
+
+Os três modelos possíveis
+Desbloqueio direto (1 indicação = libera): mais simples, mas é o mais fácil de fraudar (a pessoa cria uma conta fake e libera). Não recomendo sozinho.
+Por meta (N indicações válidas liberam o Kefir): ex. "convide 3 amigos e ganhe o curso". Simples de entender, dá uma barra de progresso bonita, e a meta reduz fraude.
+Pontos/moedas (cada indicação válida vale X pontos; pontos trocam por cursos/descontos): o mais flexível e reaproveitável para produtos futuros, porém mais complexo.
+Minha recomendação
+Usar pontos por baixo dos panos, mas mostrar uma meta simples na tela. Na prática: cada indicação válida = 1 ponto; o Kefir "custa" 3 pontos. Para o usuário aparece só "Convide 3 amigos e libere o curso de Kefir" com uma barrinha de progresso. Por baixo é pontos, então no futuro você cria outras recompensas em outras faixas sem refazer nada.
+
+A pergunta mais importante: o que conta como indicação "válida"?
+Isso define se o sistema funciona ou vira festa de contas fake. Opções, da mais fraca à mais forte:
+
+Só o cadastro (fraco — fácil de burlar).
+Cadastro + e-mail confirmado (bom mínimo).
+Cadastro + e-mail confirmado + alguma atividade real (ex. registrou ao menos 1 evento no diário, ou ficou ativo X dias). Mais forte contra fraude.
+A indicação só vale quando o indicado faz uma compra (modelo "ganhe comissão/desconto" — o mais forte, e o que alinha com receita).
+Recomendo no mínimo "cadastro + e-mail confirmado + 1 registro no diário", além de: bloquear autoindicação, 1 conta por e-mail, e um teto de quantas indicações contam por dia.
+
+Cuidado de modelo de negócio (feedback honesto)
+Mantenha as recompensas como conteúdo ou desconto, nunca pagamento em dinheiro entre usuários. Recompensa em dinheiro/saque com base em "recrutar pessoas" pode esbarrar em discussões de pirâmide. Liberar curso/cupom é seguro e tem o mesmo efeito de incentivo.
+
+Como ficaria a mecânica, em resumo
+Cada usuário tem um código/link de indicação (?ref=CODIGO).
+No cadastro, guardamos quem indicou.
+Quando o indicado vira "válido" (pela regra acima), o indicador ganha 1 ponto.
+Ao atingir a meta, o entitlement libera o Kefir automaticamente.
+Tela de indicações: link pra compartilhar, barra de progresso, lista de indicados e status.
+Como sugiro proceder
+A ordem natural fica: Fase 2 (Supabase + login) → Fase 3 (pagamento + entitlement) → Indicações (em cima do entitlement) → Fase 4 (admin).
+
+Antes de escrever qualquer código dessas fases, faz sentido eu documentar tudo isso no spec (requisitos + design das Aulas, pagamento, entitlement e indicações), já que cresceu bastante e envolve segurança e backend. Assim a gente fecha as decisões no papel antes de implementar.
+
+Algumas decisões que preciso de você pra fechar o spec:
+
+Provedor do conteúdo pago: Bunny ou Panda? (recomendo um só pra simplificar a integração de token)
+Pagamento: Mercado Pago, Stripe ou Kiwify? (no Brasil, Mercado Pago costuma ser o mais simples pra Pix)
+Indicação válida: qual regra você prefere (só e-mail confirmado / e-mail + atividade / só quando o indicado compra)?
+Meta do Kefir: quantas indicações para liberar? (sugiro 3)
+Quer que eu já comece a documentar as Aulas + pagamento + entitlement + indicações no spec com base nessas recomendações, e a gente vai ajustando? Ou prefere fechar essas 4 decisões primeiro e só depois eu escrevo?

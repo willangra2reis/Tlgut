@@ -297,3 +297,136 @@ Um requisito transversal e inegociável cobre o posicionamento regulatório do p
 6. THE Aplicativo SHALL apresentar todo texto relacionado ao ciclo como observação factual, sem diagnóstico, juízo de normalidade ou recomendação (consistente com o Requisito 6).
 
 > Princípio (reafirmado): baixa fricção > riqueza máxima por registro. Ciclo e Medicamentos seguem divulgação progressiva — captura rápida primeiro, qualificadores opcionais depois.
+
+
+---
+
+## Glossário (incremento Polimentos de UX e PWA)
+
+- **Hero_Colapsado**: estado do Cabeçalho_Hero recolhido ao rolar a timeline — exibe apenas a barra de marca fina com o nome cursivo.
+- **Swipe_Horizontal**: gesto de deslize horizontal sobre a área de conteúdo para navegar entre abas, análogo ao Instagram.
+- **PWA**: Progressive Web App — instalável na tela inicial do dispositivo, com ícones, manifesto e service worker.
+- **Entidade_de_Edição**: qualquer campo editável de um registro existente (horário, dia, título, descrição, observação).
+
+---
+
+## Requisito 17: Polimentos do Diário (collapse, hero, cards, edição, ordem)
+
+**História de usuário:** Como usuário, quero que o hero se recolha ao rolar a timeline, que os cards tenham identidade visual rica e que eu possa editar registros existentes, para que o app seja mais agradável e útil no dia a dia.
+
+### Critérios de Aceitação
+
+1. WHEN o usuário rola a timeline da aba Diário para cima, THE Aplicativo SHALL recolher o Cabeçalho_Hero progressivamente até o estado Hero_Colapsado.
+2. WHILE no estado Hero_Colapsado, THE Aplicativo SHALL exibir o nome do produto em fonte cursiva na barra fina do cabeçalho.
+3. WHEN o usuário rola a timeline para baixo até o início, THE Aplicativo SHALL expandir o Hero de volta ao estado completo.
+4. THE Aplicativo SHALL aplicar a transição de colapso/expansão do Hero com animação suave via GPU (sem serrilhado), usando requestAnimationFrame e histerese para evitar oscilação.
+5. THE Menu_de_Ações_do_Registro SHALL incluir a opção "Editar" além da opção "Remover" já existente.
+6. WHEN o usuário seleciona "Editar" em um registro, THE Aplicativo SHALL exibir um formulário de edição com os campos horário, dia, título, descrição e observação preenchidos com os dados atuais do registro.
+7. WHEN o usuário confirma a edição, THE Aplicativo SHALL atualizar o registro na Linha_do_Tempo mantendo o mesmo id e tipo, preservando campos não editados.
+8. THE Aplicativo SHALL exibir os registros da Linha_do_Tempo em ordem cronológica dentro de cada agrupamento de dia.
+9. THE Menu_de_Ações_do_Registro SHALL fechar automaticamente quando o usuário toca fora dele em qualquer área da tela.
+10. WHERE um card de registro não tem altura suficiente para exibir o menu de ações completamente, THE Aplicativo SHALL posicionar o menu acima do botão para evitar corte.
+11. THE Card_Resumo_do_Dia SHALL ser expansível/recolhível ao toque do usuário.
+12. THE Aplicativo SHALL aplicar um mesh gradient animado sutilmente no fundo do Card_Resumo_do_Dia para diferenciá-lo visualmente dos cards de registro.
+
+---
+
+## Requisito 18: Navegação por swipe e PWA instalável
+
+**História de usuário:** Como usuário mobile, quero navegar entre abas deslizando o dedo horizontalmente e instalar o app na tela inicial, para que a experiência seja fluída e nativa.
+
+### Critérios de Aceitação
+
+1. WHEN o usuário executa um Swipe_Horizontal com deslocamento horizontal ≥ 60px, relação |dx| > 1,5×|dy| e duração < 700ms sobre a área de conteúdo, THE Aplicativo SHALL navegar para a aba adjacente na direção do swipe.
+2. THE Aplicativo SHALL ignorar swipes em elementos marcados com `data-noswipe` (ex.: sliders, players de vídeo, scrolls internos).
+3. THE Aplicativo SHALL ignorar swipes que ocorrem enquanto um overlay ou modal está aberto.
+4. THE Aplicativo SHALL publicar um Web App Manifest com nome, ícones (192×192 e 512×512 px) e cor de tema da marca.
+5. THE Aplicativo SHALL registrar um service worker com estratégia network-first para permitir uso offline básico e instalação.
+6. WHERE o navegador suporta instalação de PWA, THE Aplicativo SHALL permitir que o usuário adicione o app à tela inicial.
+
+---
+
+## Glossário (incremento Aba Aulas)
+
+- **Aula**: unidade de vídeo-aula disponível para compra individual ou em combo.
+- **Catálogo_de_Aulas**: tela da aba Aulas que lista todas as Aulas disponíveis em cards estilo Netflix.
+- **Card_de_Aula**: card de proporção 9/16 que representa uma Aula no catálogo.
+- **Tela_de_Detalhe**: sub-view que exibe informações completas de uma Aula selecionada.
+- **Player_de_Video**: componente que reproduz vídeo de um provedor (Panda Video, YouTube, Bunny Stream ou arquivo mp4 direto).
+- **Entitlement**: registro que confirma que um usuário tem acesso a uma Aula específica (compra, combo ou recompensa).
+- **Combo**: pacote que reúne múltiplas Aulas com desconto em relação à soma dos preços individuais.
+- **Provedor_de_Video**: serviço externo que hospeda o vídeo (Panda Video, YouTube, Bunny Stream, Wistia ou mp4 direto).
+
+---
+
+## Requisito 19: Catálogo de vídeo-aulas (Aba Aulas)
+
+**História de usuário:** Como usuário, quero explorar e comprar vídeo-aulas no app, visualizando um catálogo atrativo e acessando o conteúdo desbloqueado diretamente pelo player, para que eu consuma o conteúdo sem sair do app.
+
+### Critérios de Aceitação
+
+1. THE Aplicativo SHALL substituir a aba "Hábitos" por uma aba "Aulas" no Menu_Inferior, mantendo swipe e navegação por toque.
+2. THE Aplicativo SHALL exibir o Catálogo_de_Aulas na aba Aulas com os cursos disponíveis em Cards_de_Aula de proporção 9/16, um por linha.
+3. EACH Card_de_Aula SHALL exibir o título, subtítulo, preço e status de acesso (Liberado / Bloqueado).
+4. WHEN o usuário toca em um Card_de_Aula, THE Aplicativo SHALL exibir a Tela_de_Detalhe da aula selecionada com prévia, aprendizados, meta-informações e barra de compra/acesso.
+5. WHERE a Aula está bloqueada, THE Aplicativo SHALL exibir o preço e um botão "Adquirir agora" na Tela_de_Detalhe.
+6. WHERE a Aula está liberada e possui link de vídeo, THE Aplicativo SHALL exibir o Player_de_Video na área de prévia da Tela_de_Detalhe ao usuário acionar "Assistir".
+7. THE Player_de_Video SHALL detectar automaticamente o tipo de link (iframe embed ou arquivo mp4 direto) e usar o player adequado: `<video>` nativo para mp4/webm, `<iframe>` para qualquer embed (Panda, YouTube, Bunny, Wistia etc.).
+8. THE Aplicativo SHALL exibir um banner de Combo no Catálogo_de_Aulas mostrando o preço original, o preço promocional e o desconto obtido ao adquirir o pacote.
+9. THE Aplicativo SHALL apresentar todo texto descritivo das Aulas como experiência pessoal/rotina do autor, sem promessa de cura, efeito terapêutico ou alegação clínica (consistente com o Requisito 6).
+10. THE Aplicativo SHALL indicar claramente quando a compra é simulada (Fase 1 sem pagamento real), com aviso visível ao usuário.
+
+---
+
+## Requisito 20: Player de vídeo agnóstico de provedor
+
+**História de usuário:** Como administrador do conteúdo, quero trocar o provedor de vídeo de um curso alterando apenas a URL no cadastro, sem precisar modificar a interface do app, para que eu tenha flexibilidade de migrar entre Panda, YouTube, Bunny ou mp4 direto.
+
+### Critérios de Aceitação
+
+1. THE Aplicativo SHALL determinar o tipo de player exclusivamente a partir da URL do vídeo, sem campo de tipo explícito.
+2. IF a URL terminar em extensão de vídeo (`.mp4`, `.webm`, `.ogv`, `.ogg`, `.mov`, `.m4v`) ou seguir o padrão de entrega de arquivo com `filename=*.mp4` (ex.: Wistia deliveries), THEN THE Aplicativo SHALL usar o player nativo `<video>` com controles.
+3. IF a URL for qualquer outro formato (domínio de embed do Panda, YouTube, Bunny, Wistia player etc.), THEN THE Aplicativo SHALL usar `<iframe>` com `allow="autoplay; fullscreen"`.
+4. THE Aplicativo SHALL aceitar links de pelo menos os provedores: Panda Video (`player-vz-*.tv.pandavideo.com.br`), YouTube (`youtube.com/embed`), Bunny Stream (`iframe.mediadelivery.net/embed`), Wistia player (`fast.wistia.net/embed/iframe`) e arquivos mp4 diretos.
+5. WHEN o link de vídeo de uma Aula é `null`, THE Aplicativo SHALL exibir um estado "Vídeo em breve" no lugar do player.
+
+---
+
+## Roadmap futuro documentado (fora do escopo atual — referência para fases seguintes)
+
+> Esta seção documenta as decisões e contornos das próximas fases acordadas entre produto e desenvolvimento. Não gera tarefas implementáveis até que cada fase seja detalhada em seu próprio incremento.
+
+### Fase 2 — Supabase + autenticação
+
+- Introduzir Supabase como backend: tabelas `cursos`, `aulas`, `entitlements`, `users`.
+- Implementar login/cadastro com e-mail e confirmação.
+- Catálogo da aba Aulas passa a vir do banco de dados (substituindo as constantes `AULAS`/`AULAS_COMBO` locais) sem alterar a lógica de UI.
+- URLs de vídeo com token assinado (Bunny/Panda) geradas pelo backend no momento do acesso (conteúdo pago não fica exposto).
+
+### Fase 3 — Pagamento + entitlement
+
+- Integrar gateway de pagamento (Mercado Pago recomendado para Brasil/Pix, ou Stripe).
+- Ao confirmar pagamento, registrar o entitlement na tabela `entitlements` (usuário × curso).
+- A verificação de acesso no app lê a tabela de entitlements (não o estado local de simulação).
+- Conteúdo pago exige provedor com URL assinada (Bunny Stream ou Panda Video); YouTube e Wistia público ficam apenas para prévias gratuitas.
+
+### Fase 4 — Painel admin
+
+- Interface web separada (ou seção protegida no app) para o administrador gerenciar: capas, links de vídeo, descrições, preços, idioma dos cursos.
+- Os dados gerenciados ficam no Supabase; o app os consome via API.
+
+### Fase 5 — Sistema de Recompensa por Indicação (Referral)
+
+- Cada usuário recebe um código/link de indicação único.
+- Mecânica de pontos: cada indicação "válida" gera 1 ponto; a UI exibe progresso como meta ("convide N amigos e libere o curso de Kefir").
+- Critério de indicação válida (a definir, mínimo recomendado): cadastro + e-mail confirmado + ao menos 1 registro no diário.
+- Recompensa inicial: desbloqueio do curso "Como produzir Kefir sem muda" ao atingir a meta.
+- Recompensas em conteúdo/desconto apenas — nunca transferência de dinheiro entre usuários.
+- Anti-fraude: bloquear autoindicação, 1 conta por e-mail, teto de indicações válidas por dia.
+- Implementação depende das Fases 2 e 3 (entitlement e usuários autenticados).
+
+### Fase 6 — Relatórios gerados por IA
+
+- Aba "Relatórios" (futura) com relatório textual gerado por IA a partir dos dados do diário.
+- IA redige o relatório no servidor; o app exibe e permite exportação em PDF.
+- Posicionamento: "perguntas para levar ao médico", nunca diagnóstico.

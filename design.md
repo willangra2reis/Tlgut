@@ -516,3 +516,131 @@ Estado novo em memória: `customMeds: string[]`, `cicloAtivo: boolean` (padrão 
 | RF 14.5–14.6 | `gatilhoAlimentar.risco` + linha de Risco_Relativo; Propriedade I-9 |
 | RF 15.1–15.6 | `ENTRY_TYPES.medication`, `MedicationForm`, `MED_TAGS`, cruzamento por tag |
 | RF 16.1–16.6 | opt-in `cicloAtivo`, `CycleForm`, `faseDoCiclo`; Propriedade I-10 |
+
+
+---
+
+## Incremento Polimentos de UX e PWA
+
+### Visão
+
+Conjunto de polimentos na aba Diário e habilitação do app como PWA instalável. Sem backend. Todas as mudanças são puramente front-end em memória.
+
+### Decisões de design
+
+| Tema | Escolha | Justificativa |
+|---|---|---|
+| Collapse do Hero | `requestAnimationFrame` + booleano com histerese (limiar 56px expandir / 24px recolher) | Evita serrilhado no scroll mobile; transições GPU via `will-change` |
+| Edição de registro | `EditEntryForm` genérico com campos horário/dia/título/descrição/observação | Reutilizável para todos os tipos sem duplicar lógica |
+| Ordem cronológica | `dayOrder = ['ontem','hoje']`; dentro de cada dia, ordenar por `time` crescente | Registros mais antigos aparecem acima, mais novos abaixo |
+| Fechar menu de ações | Listener `pointerdown`/`touchstart` no `document` via `menuRef` | Fecha ao tocar fora sem precisar de overlay |
+| Posição do menu | Detectar espaço disponível abaixo do botão; se insuficiente, abrir para cima | Evita corte em cards pequenos |
+| Mesh gradient animado | `.day-summary-mesh` em `src/index.css` com `@keyframes` sutil | Diferencia o card de resumo dos cards de registro sem peso de imagem |
+| PWA | Manifesto `public/manifest.webmanifest` + SW `public/sw.js` (network-first) + registro em `src/main.jsx` (só produção) | Instalável e funcional offline básico sem framework de PWA |
+
+### Componentes afetados
+
+- **`HeroHeader`**: recebe prop `colapsado` (booleano); padding/border-radius transitam via CSS; o scroll handler usa `rAF` com histerese.
+- **`EditEntryForm`** (novo): formulário genérico editável; abre via opção "Editar" no `Menu_de_Ações_do_Registro`.
+- **`EntryCard`**: menu de ações ganha opção "Editar"; listener no `document` para fechar ao tocar fora; posição dinâmica (acima/abaixo) conforme espaço.
+- **`DaySummaryCard`**: passa a ser expansível/recolhível; recebe `.day-summary-mesh`.
+- **`App`**: handlers `onFrameTouchStart`/`onFrameTouchEnd` no contêiner raiz para swipe horizontal; guardas `data-noswipe` e estados de overlay.
+
+### PWA
+
+```
+public/
+  manifest.webmanifest   — name, short_name, icons (192/512), theme_color, display: standalone
+  sw.js                  — network-first: tenta rede, em falha serve cache
+  pwa-192.png            — ícone 192×192 (mascote sobre fundo bege da marca)
+  pwa-512.png            — ícone 512×512
+src/main.jsx             — registro do SW: if ('serviceWorker' in navigator && import.meta.env.PROD)
+index.html               — <link rel="manifest">, <meta name="theme-color">, <meta name="apple-mobile-web-app-*">
+```
+
+---
+
+## Incremento Aba Aulas (Fase 1 — UI + simulação)
+
+### Visão
+
+Aba "Aulas" substitui "Hábitos" no menu inferior. Fase 1 é puramente front-end: dados mockados em constantes locais (`AULAS`, `AULAS_COMBO`), compras simuladas em `useState(new Set())`. A estrutura de dados e de componentes já prevê os campos necessários para a Fase 2 (Supabase) sem retrabalho de UI.
+
+### Decisões de design
+
+| Tema | Escolha | Justificativa |
+|---|---|---|
+| Dados | Constantes locais `AULAS`/`AULAS_COMBO` com campos `links.video`, `capa`, `preview` | Mesmos campos que virão do Supabase; troca só a fonte |
+| Player agnóstico | `tipoDeVideo(url)` detecta mp4 vs iframe; `VideoPlayer` renderiza `<video>` ou `<iframe>` | Trocar provedor = trocar URL, sem mudança de UI |
+| Compra simulada | `useState(new Set())` com aviso visível "Demonstração — compra simulada" | Permite testar o fluxo completo sem backend |
+| Visual | Fundo `var(--brand-deep)`, cards 9/16, botões pêssego `#F6D2B8` / texto `#3A2E25` | Paleta escura diferencia a aba Aulas do Diário claro |
+| Swipe | Sem `data-noswipe` na `AulasScreen`; swipe entre abas continua funcionando | Rolagem do catálogo é vertical; swipe horizontal navega entre abas |
+| Guarda-corpo | Textos em primeira pessoa (experiência/rotina), sem promessa de cura ou alegação clínica | RF 9 e posicionamento de bem-estar |
+
+### Constantes de dados
+
+```js
+const AULAS = [
+  { id, titulo, subtitulo, descricao, preco, duracao, nivel, autor, idioma,
+    aprendizados: string[], capa: null, preview: null,
+    links: { video: string|null, pdf: null, produtos: [] }, badge },
+  // ... 5 cursos: cafe (R$10), almoco (R$10), rotina (R$10), kefir (R$27), conversas (R$19)
+]
+const AULAS_COMBO = {
+  id, titulo, subtitulo, itens: ['cafe','almoco','rotina','kefir'],
+  precoDe: 57.0, preco: 37.0
+}
+```
+
+### Provedores de vídeo configurados (Fase 1 — exemplos)
+
+| Curso | Provedor | Tipo detectado |
+|---|---|---|
+| Super café da manhã/tarde | Panda Video (`player-vz-*.tv.pandavideo.com.br/embed/`) | iframe |
+| Super almoço/jantar | Wistia deliveries (`.bin?filename=*.mp4`) | mp4 nativo |
+| Minha rotina | YouTube (`youtube.com/embed/`) | iframe |
+| Como produzir Kefir | Wistia player (`fast.wistia.net/embed/iframe/`) | iframe |
+| Conversas profundas | Bunny Stream (`iframe.mediadelivery.net/embed/`) | iframe |
+
+### Componentes novos
+
+- **`PreviewPlaceholder`**: gradiente da marca + ícone Play; usado quando não há vídeo/capa.
+- **`VideoPlayer({ url, titulo })`**: detecta tipo via `tipoDeVideo(url)` e renderiza `<video>` ou `<iframe>`.
+- **`AulaCard({ aula, liberado, onAbrir })`**: card 9/16, selo de status, play central, rodapé com título/preço.
+- **`AulaDetalhe({ aula, indice, liberado, onVoltar, onAdquirir })`**: sub-view de detalhe; quando `liberado && assistindo && temVideo`, substitui o placeholder pelo `VideoPlayer` real.
+- **`AulasScreen`**: catálogo + banner combo + estado `selecionado` (id da aula em detalhe).
+
+### Função auxiliar
+
+```js
+function tipoDeVideo(url)
+// → 'mp4' se extensão de vídeo ou filename=*.mp4 na query string
+// → 'iframe' para qualquer outro link
+// → null se url é null/undefined
+```
+
+### Fluxo de compra simulada
+
+```
+AulasScreen
+  comprados: Set (useState)
+  liberar(ids) → setComprados(prev => new Set([...prev, ...ids]))
+
+AulaCard → onAbrir → setSelecionado(id)
+AulaDetalhe → onAdquirir → liberar([aula.id])
+Banner Combo → liberar(AULAS_COMBO.itens)
+"Assistir" → setAssistindo(true) → VideoPlayer aparece no lugar do placeholder
+```
+
+### Rastreabilidade
+
+| Requisito | Componente / decisão |
+|---|---|
+| RF 19.1 | `NAV_ITEMS`: `habitos` substituído por `aulas` |
+| RF 19.2–19.4 | `AulasScreen`, `AulaCard`, `AulaDetalhe` |
+| RF 19.5–19.6 | Estado `liberado` + botões Adquirir/Assistir |
+| RF 19.7 | `VideoPlayer` + `tipoDeVideo` |
+| RF 19.8 | Banner `AULAS_COMBO` |
+| RF 19.9 | Textos em primeira pessoa, sem alegação clínica |
+| RF 19.10 | Aviso "Demonstração — compra simulada" |
+| RF 20.1–20.5 | `tipoDeVideo(url)` + `VideoPlayer` |

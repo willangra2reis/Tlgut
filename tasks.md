@@ -193,3 +193,110 @@
   - Rodar `npm run lint`, `npm run test` e `npm run build` e corrigir o que aparecer
   - Conferir manualmente: Contexto de Região com alimentos/humor/Bristol; card Sono→dor; risco relativo; novos eventos Medicamentos e Ciclo (opt-in)
   - _Requirements: 13, 14, 15, 16_
+
+
+---
+
+# Plano de Implementação — Incremento Polimentos de UX e PWA
+
+- [x] U1. Collapse do Hero ao rolar a timeline
+  - Adicionar handler de scroll com `requestAnimationFrame` e histerese (limiar 56px→recolher / 24px→expandir) no contêiner da timeline
+  - Passar prop `colapsado` para `HeroHeader`; padding/border-radius transitam via CSS; transição GPU com `will-change`
+  - Exibir nome cursivo na barra recolhida
+  - _Requirements: 17.1, 17.2, 17.3, 17.4_
+
+- [x] U2. Edição de registros
+  - Criar `EditEntryForm` genérico com campos horário, dia, título, descrição e observação pré-preenchidos
+  - Adicionar opção "Editar" no `Menu_de_Ações_do_Registro` ao lado de "Remover"
+  - Ao confirmar, atualizar o registro via `setEntries` preservando id e tipo
+  - _Requirements: 17.5, 17.6, 17.7_
+
+- [x] U3. Ordem cronológica e UX do menu de ações
+  - Garantir `dayOrder = ['ontem','hoje']` e ordenação por `time` crescente dentro de cada dia
+  - Fechar o menu de ações ao tocar fora: listener `pointerdown`/`touchstart` no `document` via `menuRef`
+  - Detectar espaço abaixo do botão; posicionar menu acima quando insuficiente para evitar corte
+  - _Requirements: 17.8, 17.9, 17.10_
+
+- [x] U4. Card_Resumo_do_Dia expansível e mesh gradient
+  - Tornar o `DaySummaryCard` expansível/recolhível ao toque
+  - Aplicar `.day-summary-mesh` em `src/index.css` com `@keyframes` de animação sutil
+  - _Requirements: 17.11, 17.12_
+
+- [x] U5. Navegação por swipe horizontal entre abas
+  - Adicionar handlers `onFrameTouchStart`/`onFrameTouchEnd` no contêiner raiz
+  - Limiar: dx ≥ 60px, |dx| > 1,5×|dy|, dt < 700ms; guardas `data-noswipe` e estados de overlay
+  - _Requirements: 18.1, 18.2, 18.3_
+
+- [x] U6. PWA instalável
+  - Criar `public/manifest.webmanifest` com nome, ícones e cor de tema
+  - Criar `public/sw.js` com estratégia network-first
+  - Gerar `public/pwa-192.png` e `public/pwa-512.png` (mascote sobre fundo bege)
+  - Adicionar meta tags no `index.html`; registrar SW em `src/main.jsx` (só produção)
+  - _Requirements: 18.4, 18.5, 18.6_
+
+---
+
+# Plano de Implementação — Incremento Aba Aulas (Fase 1 — UI + simulação)
+
+- [x] A1. Estrutura de dados e navegação
+  - Substituir item `habitos` por `aulas` (ícone `GraduationCap`) em `NAV_ITEMS`
+  - Criar constantes `AULAS` (5 cursos) e `AULAS_COMBO` com os campos completos (`links.video`, `capa`, `preview`, `aprendizados`)
+  - Criar helper `formatarPreco(valor)` e helper `tipoDeVideo(url)` para detecção de provedor
+  - Ocultar `HeroHeader` na aba Aulas
+  - _Requirements: 19.1, 20.1_
+
+- [x] A2. Player de vídeo agnóstico de provedor
+  - Criar componente `VideoPlayer({ url, titulo })`: `<video>` nativo para mp4/webm; `<iframe>` para embeds
+  - `tipoDeVideo` reconhece: extensões de vídeo diretas, padrão `filename=*.mp4` (Wistia deliveries), e qualquer embed como iframe
+  - Configurar links de exemplo: Panda (cafe), Wistia mp4 (almoco), YouTube (rotina), Wistia player (kefir), Bunny Stream (conversas)
+  - _Requirements: 19.6, 19.7, 20.1, 20.2, 20.3, 20.4, 20.5_
+
+- [x] A3. Componentes de catálogo e detalhe
+  - Criar `PreviewPlaceholder` (gradiente da marca + play)
+  - Criar `AulaCard` (proporção 9/16, selos de status, play central, rodapé com título/preço)
+  - Criar `AulaDetalhe` (prévia, pill de acesso, meta, aprendizados, barra de compra pêssego)
+  - Integrar `VideoPlayer` no `AulaDetalhe`: quando `liberado && assistindo && temVideo`, exibir player em vez do placeholder
+  - _Requirements: 19.2, 19.3, 19.4, 19.5, 19.6_
+
+- [x] A4. Tela principal e compra simulada
+  - Criar `AulasScreen` com catálogo de cards, banner do combo e sub-view de detalhe via estado `selecionado`
+  - Compras gerenciadas por `useState(new Set())` com aviso "Demonstração — compra simulada"
+  - Exibir `AulasScreen` quando `abaAtiva === 'aulas'`
+  - _Requirements: 19.2, 19.8, 19.10_
+
+- [x] A5. Guarda-corpo regulatório das Aulas e testes
+  - Revisar todos os textos de cursos: primeira pessoa, experiência/rotina, sem promessa de cura ou alegação clínica
+  - Atualizar `src/test/app.example.test.jsx`: menu espera "Aulas" no lugar de "Hábitos"; teste do catálogo
+  - Verificação: `npm run lint`, testes rápidos, `npm run build`
+  - _Requirements: 19.9, 6.1, 6.3_
+
+---
+
+# Próximas fases (não implementadas — aguardando decisões e especificação detalhada)
+
+- [ ] F2. Supabase + autenticação
+  - Criar tabelas `cursos`, `aulas`, `entitlements`, `users` no Supabase
+  - Implementar login/cadastro com e-mail e confirmação
+  - Migrar `AULAS`/`AULAS_COMBO` de constantes locais para queries do banco
+  - URLs de vídeo com token assinado (Bunny/Panda) geradas pelo backend no acesso
+  - _Requirements: Roadmap Fase 2_
+
+- [ ] F3. Pagamento + entitlement
+  - Integrar gateway (Mercado Pago recomendado para Pix no Brasil)
+  - Ao confirmar pagamento, registrar entitlement na tabela `entitlements`
+  - Verificação de acesso via entitlement (não mais simulação local)
+  - _Requirements: Roadmap Fase 3_
+
+- [ ] F4. Painel admin
+  - Interface para gerenciar capas, links, descrições, preços e idioma dos cursos no Supabase
+  - _Requirements: Roadmap Fase 4_
+
+- [ ] F5. Sistema de Recompensa por Indicação (Referral)
+  - Código/link de indicação por usuário; mecânica de pontos; desbloqueio do curso Kefir como recompensa inicial
+  - Critério de indicação válida: cadastro + e-mail confirmado + ≥ 1 registro no diário
+  - Anti-fraude: sem autoindicação, 1 conta por e-mail, teto diário
+  - _Requirements: Roadmap Fase 5_
+
+- [ ] F6. Aba Relatórios (IA)
+  - Relatório textual gerado por IA no servidor; exportação em PDF; posicionamento "perguntas para o médico"
+  - _Requirements: Roadmap Fase 6_

@@ -1,12 +1,13 @@
 import digestiveImage from './assets/sisdiges.jpg';
 import digestiveClosedImage from './assets/sisdiges_fechado.jpg';
 import mascoteImage from './assets/mascote.png';
+import capaExemplo from './assets/capaexemplo.jpg';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
-  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, Maximize,
+  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, Maximize, ShoppingBag,
 } from 'lucide-react';
 import {
   BRISTOL_DESCRICOES, EVAC_CORES, EVAC_ODORES, buildEvacuationEntry,
@@ -93,13 +94,16 @@ const AULAS = [
       'O que eu parei de comer e o que incluí de novo',
       'Dicas práticas do meu dia a dia',
     ],
-    capa: null,
+    capa: capaExemplo,
     preview: null,
     // Exemplo: vídeo via Panda Video (embed/iframe).
     links: {
       video: 'https://player-vz-bc28bfd0-ef8.tv.pandavideo.com.br/embed/?v=334bdb0c-39b2-496e-8263-adf09a122eb4',
       pdf: null,
-      produtos: [],
+      produtos: [
+        { titulo: 'Balança de cozinha digital', link: 'https://meli.la/2z2PyUu' },
+        { titulo: 'Potes herméticos de vidro', link: 'https://meli.la/2z2PyUu' },
+      ],
     },
     badge: 'Alimentação',
   },
@@ -124,7 +128,10 @@ const AULAS = [
     links: {
       video: 'https://embed-ssl.wistia.com/deliveries/e81023b76ba1d8f3e382d6dad3d9f04d79769d81.bin?disposition=attachment&filename=1000110160.mp4',
       pdf: null,
-      produtos: [],
+      produtos: [
+        { titulo: 'Frigideira antiaderente', link: 'https://meli.la/2z2PyUu' },
+        { titulo: 'Azeite de oliva extra virgem', link: 'https://meli.la/2z2PyUu' },
+      ],
     },
     badge: 'Alimentação',
   },
@@ -176,7 +183,10 @@ const AULAS = [
     links: {
       video: 'https://fast.wistia.net/embed/iframe/wscmoabhou',
       pdf: null,
-      produtos: [],
+      produtos: [
+        { titulo: 'Peneira de inox fina', link: 'https://meli.la/2z2PyUu' },
+        { titulo: 'Pote de vidro 1L', link: 'https://meli.la/2z2PyUu' },
+      ],
     },
     badge: 'Preparo',
   },
@@ -850,7 +860,7 @@ function BottomNav({ abaAtiva, onChangeAba, onAdd }) {
 
 // Placeholder visual de prévia: gradiente da marca + ícone Play central. Usado
 // enquanto capa/preview/links forem null (ainda sem vídeo/imagem).
-function PreviewPlaceholder({ children }) {
+function PreviewPlaceholder({ children, capa }) {
   return (
     <div
       className="absolute inset-0"
@@ -859,6 +869,9 @@ function PreviewPlaceholder({ children }) {
           'radial-gradient(120% 90% at 80% 10%, rgba(120,196,140,0.35) 0%, rgba(120,196,140,0) 55%), linear-gradient(160deg, #2C4A38 0%, var(--brand-deep) 70%)',
       }}
     >
+      {capa && (
+        <img src={capa} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      )}
       {children}
     </div>
   );
@@ -905,7 +918,7 @@ function AulaCard({ aula, liberado, onAbrir }) {
       style={{ aspectRatio: '9 / 16' }}
       aria-label={`Abrir aula: ${aula.titulo}`}
     >
-      <PreviewPlaceholder>
+      <PreviewPlaceholder capa={aula.capa}>
         {/* Selo de status (canto superior) */}
         <div className="absolute top-3 left-3 z-10">
           {liberado ? (
@@ -984,7 +997,7 @@ function AulaDetalhe({ aula, indice, liberado, onVoltar, onAdquirir }) {
         {liberado && assistindo && temVideo ? (
           <VideoPlayer url={aula.links.video} titulo={aula.titulo} />
         ) : (
-        <PreviewPlaceholder>
+        <PreviewPlaceholder capa={aula.capa}>
           {!liberado && (
             <span className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
               style={{ background: 'rgba(12,18,16,0.7)', color: '#F2ECE3' }}>
@@ -1089,6 +1102,37 @@ function AulaDetalhe({ aula, indice, liberado, onVoltar, onAdquirir }) {
         ))}
       </ul>
 
+      {/* 6b. Produtos */}
+      {aula.links.produtos.length > 0 && (
+        <div className="mt-6">
+          <p className="text-base font-semibold" style={{ color: '#CDEBD5' }}>
+            Produtos mencionados
+          </p>
+          <div className="mt-3 space-y-2.5">
+            {aula.links.produtos.map((prod, i) => (
+              <a key={i}
+                href={prod.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 rounded-2xl p-3 transition-opacity hover:opacity-85"
+                style={{ background: 'rgba(255,255,255,0.07)' }}>
+                <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                  style={{ background: 'rgba(205,235,213,0.15)', color: '#9FD8AE' }}>
+                  <ShoppingBag size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate" style={{ color: '#F2ECE3' }}>{prod.titulo}</p>
+                </div>
+                <span className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full"
+                  style={{ background: 'rgba(246,210,184,0.15)', color: '#F6D2B8' }}>
+                  Comprar agora
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 7. Barra de compra / assistir */}
       <div className="mt-6">
         {liberado ? (
@@ -1172,7 +1216,7 @@ function AulasScreen() {
         />
       ) : (
         <div className="px-4 pt-1">
-          {/* Banner do COMBO */}
+          {!comboLiberado && (
           <div className="rounded-3xl p-5 shadow-[0_18px_36px_-16px_rgba(0,0,0,0.6)]"
             style={{ background: 'linear-gradient(150deg, #34543F 0%, #1E3328 100%)', border: '1px solid rgba(159,216,174,0.25)' }}>
             <p className="text-3xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
@@ -1187,21 +1231,16 @@ function AulasScreen() {
                 por {formatarPreco(AULAS_COMBO.preco)}
               </span>
             </div>
-            {comboLiberado ? (
-              <p className="mt-3 flex items-center gap-1.5 text-sm font-medium" style={{ color: '#CDEBD5' }}>
-                <CheckCircle2 size={16} /> Combo liberado — 4 cursos desbloqueados
-              </p>
-            ) : (
-              <button type="button" onClick={() => liberar(AULAS_COMBO.itens)}
-                className="w-full mt-4 py-3 rounded-2xl text-base font-semibold"
-                style={{ background: '#F6D2B8', color: '#3A2E25' }}>
-                Adquirir combo {formatarPreco(AULAS_COMBO.preco)}
-              </button>
-            )}
+            <button type="button" onClick={() => liberar(AULAS_COMBO.itens)}
+              className="w-full mt-4 py-3 rounded-2xl text-base font-semibold"
+              style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+              Adquirir combo {formatarPreco(AULAS_COMBO.preco)}
+            </button>
             <p className="text-[11px] text-center mt-2" style={{ color: 'rgba(242,236,227,0.6)' }}>
               Demonstração — compra simulada (pagamento em breve)
             </p>
           </div>
+          )}
 
           {/* Catálogo vertical */}
           <div className="mt-5 space-y-5">
