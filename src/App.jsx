@@ -7,7 +7,7 @@ import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
-  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, Maximize, ShoppingBag,
+  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag,
 } from 'lucide-react';
 import {
   BRISTOL_DESCRICOES, EVAC_CORES, EVAC_ODORES, buildEvacuationEntry,
@@ -908,133 +908,83 @@ function VideoPlayer({ url, titulo }) {
   );
 }
 
-// Card de curso no catálogo (proporção ~9/16, grande, um por linha).
-function AulaCard({ aula, liberado, onAbrir }) {
-  return (
-    <button
-      type="button"
-      onClick={onAbrir}
-      className="relative w-full rounded-3xl overflow-hidden text-left shadow-[0_18px_36px_-16px_rgba(0,0,0,0.65)] active:scale-[0.99] transition-transform"
-      style={{ aspectRatio: '9 / 16' }}
-      aria-label={`Abrir aula: ${aula.titulo}`}
-    >
-      <PreviewPlaceholder capa={aula.capa}>
-        {/* Selo de status (canto superior) */}
-        <div className="absolute top-3 left-3 z-10">
-          {liberado ? (
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-              style={{ background: 'rgba(120,196,140,0.92)', color: '#11241A' }}>
-              <CheckCircle2 size={13} /> Liberado
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-              style={{ background: 'rgba(12,18,16,0.7)', color: '#F2ECE3' }}>
-              <Lock size={13} /> Bloqueado
-            </span>
-          )}
-        </div>
-
-        {/* Badge categoria (canto superior direito) */}
-        {aula.badge && (
-          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-            style={{ background: 'rgba(255,255,255,0.16)', color: '#F2ECE3' }}>
-            {aula.badge}
-          </span>
-        )}
-
-        {/* Play central */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
-            <Play size={28} fill="#3A2E25" />
-          </span>
-        </div>
-
-        {/* Rodapé com título/subtítulo/preço sobre gradiente escuro */}
-        <div className="absolute bottom-0 left-0 right-0 p-4"
-          style={{ background: 'linear-gradient(to top, rgba(8,14,11,0.92) 0%, rgba(8,14,11,0.55) 55%, rgba(8,14,11,0) 100%)' }}>
-          <p className="text-2xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
-            {aula.titulo}
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: 'rgba(242,236,227,0.82)' }}>{aula.subtitulo}</p>
-          {!liberado && (
-            <p className="text-sm font-semibold mt-2" style={{ color: '#F6D2B8' }}>{formatarPreco(aula.preco)}</p>
-          )}
-        </div>
-      </PreviewPlaceholder>
-    </button>
-  );
-}
-
-// Tela de prévia (conversão): vídeo de apresentação em tela cheia + overlay
-// com título e botão de compra. Sem scroll — ocupa toda a área visível.
-// Usada quando o usuário ainda não comprou o curso. Após compra, transiciona
-// para AulaDetalhe (estrutura completa com vídeo aula + aprendizados + produtos).
-function AulaPreview({ aula, indice, onVoltar, onComprar }) {
-  const numero = String(indice + 1).padStart(2, '0');
+// Card de curso no catálogo: vídeo de prévia embutido + botão de compra ou
+// acesso. Não é um <button> único pois contém player de vídeo e botões.
+function AulaCard({ aula, liberado, onComprar, onAcessar }) {
   const temPreview = !!aula.preview;
 
   return (
-    <div className="relative h-full overflow-hidden" style={{ background: '#000' }}>
-      {/* Vídeo de prévia preenche toda a tela */}
+    <div
+      className="relative w-full rounded-3xl overflow-hidden text-left shadow-[0_18px_36px_-16px_rgba(0,0,0,0.65)]"
+      style={{ aspectRatio: '9 / 16' }}
+    >
+      {/* Vídeo de prévia ou capa */}
       {temPreview ? (
         <VideoPlayer url={aula.preview} titulo={`Prévia: ${aula.titulo}`} />
       ) : (
         <PreviewPlaceholder capa={aula.capa}>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="w-20 h-20 rounded-full flex items-center justify-center"
+            <span className="w-16 h-16 rounded-full flex items-center justify-center"
               style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
-              <Play size={34} fill="#3A2E25" />
+              <Play size={28} fill="#3A2E25" />
             </span>
           </div>
         </PreviewPlaceholder>
       )}
 
-      {/* Overlay topo: voltar + badge */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-3"
-        style={{ background: 'linear-gradient(to bottom, rgba(8,14,11,0.7) 0%, rgba(8,14,11,0) 100%)' }}>
-        <div className="flex items-center justify-between">
-          <button type="button" onClick={onVoltar} aria-label="Voltar ao catálogo"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium"
-            style={{ background: 'rgba(255,255,255,0.16)', color: '#F2ECE3' }}>
-            <ArrowLeft size={16} /> Voltar
-          </button>
-          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold"
+      {/* Selo de status (canto superior esquerdo) */}
+      <div className="absolute top-3 left-3 z-10">
+        {liberado ? (
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
             style={{ background: 'rgba(120,196,140,0.92)', color: '#11241A' }}>
-            AULA {numero}
+            <CheckCircle2 size={13} /> Liberado
           </span>
-        </div>
+        ) : (
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+            style={{ background: 'rgba(12,18,16,0.7)', color: '#F2ECE3' }}>
+            <Lock size={13} /> Bloqueado
+          </span>
+        )}
       </div>
 
-      {/* Overlay rodapé: título + botão de compra */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 p-5 pb-24"
-        style={{ background: 'linear-gradient(to top, rgba(8,14,11,0.95) 0%, rgba(8,14,11,0.6) 60%, rgba(8,14,11,0) 100%)' }}>
-        <p className="text-3xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
+      {/* Badge categoria (canto superior direito) */}
+      {aula.badge && (
+        <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+          style={{ background: 'rgba(255,255,255,0.16)', color: '#F2ECE3' }}>
+          {aula.badge}
+        </span>
+      )}
+
+      {/* Rodapé com título/subtítulo + botão de ação sobre gradiente escuro */}
+      <div className="absolute bottom-0 left-0 right-0 p-4"
+        style={{ background: 'linear-gradient(to top, rgba(8,14,11,0.95) 0%, rgba(8,14,11,0.7) 55%, rgba(8,14,11,0) 100%)' }}>
+        <p className="text-2xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
           {aula.titulo}
         </p>
-        <p className="text-sm mt-1" style={{ color: 'rgba(242,236,227,0.82)' }}>{aula.subtitulo}</p>
-        <button type="button" onClick={onComprar}
-          className="w-full mt-4 py-3.5 rounded-2xl text-base font-semibold flex items-center justify-center gap-2"
-          style={{ background: '#F6D2B8', color: '#3A2E25' }}>
-          <Lock size={18} /> Comprar agora {formatarPreco(aula.preco)}
-        </button>
-        <p className="text-[11px] text-center mt-2" style={{ color: 'rgba(242,236,227,0.6)' }}>
-          Demonstração — compra simulada (pagamento em breve)
-        </p>
+        <p className="text-xs mt-0.5" style={{ color: 'rgba(242,236,227,0.82)' }}>{aula.subtitulo}</p>
+        {liberado ? (
+          <button type="button" onClick={onAcessar}
+            className="w-full mt-3 py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2"
+            style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+            <Play size={16} fill="#3A2E25" /> Acessar conteúdo
+          </button>
+        ) : (
+          <button type="button" onClick={onComprar}
+            className="w-full mt-3 py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2"
+            style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+            <Lock size={16} /> Comprar agora {formatarPreco(aula.preco)}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-// Sub-view de detalhe de um curso: prévia (vídeo de apresentação), meta,
-// aprendizados, produtos e botão de compra/acesso. O fluxo tem 3 modos:
-// 'capa'    — placeholder com capa e play (estado inicial)
-// 'preview' — vídeo de prévia tocando (livre para qualquer usuário)
-// 'aula'    — vídeo da aula completa (exige compra + clique em "Acessar")
-function AulaDetalhe({ aula, indice, liberado, onVoltar, onAdquirir }) {
-  const [modo, setModo] = useState('capa');
+// Sub-view de detalhe de um curso: vídeo da aula completa + meta + aprendizados
+// + produtos. Acessada via botão "Acessar conteúdo" no card (catálogo). O vídeo
+// inicia automaticamente (autoPlay no VideoPlayer).
+function AulaDetalhe({ aula, indice, onVoltar }) {
   const numero = String(indice + 1).padStart(2, '0');
-  const temPreview = !!aula.preview;
   const temVideo = !!aula.links?.video;
 
   return (
@@ -1046,114 +996,27 @@ function AulaDetalhe({ aula, indice, liberado, onVoltar, onAdquirir }) {
         <ArrowLeft size={16} /> Voltar
       </button>
 
-      {/* 1. Player 9/16: aula real, prévia ou capa */}
+      {/* 1. Player 9/16: vídeo da aula */}
       <div className="relative w-full rounded-3xl overflow-hidden shadow-[0_18px_36px_-16px_rgba(0,0,0,0.7)]"
         style={{ aspectRatio: '9 / 16' }}>
-        {modo === 'aula' && liberado && temVideo ? (
+        {temVideo ? (
           <VideoPlayer url={aula.links.video} titulo={aula.titulo} />
-        ) : modo === 'preview' && temPreview ? (
-          <VideoPlayer url={aula.preview} titulo={`Prévia: ${aula.titulo}`} />
         ) : (
-        <PreviewPlaceholder capa={aula.capa}>
-          {!liberado && (
-            <span className="absolute top-3 left-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-              style={{ background: 'rgba(12,18,16,0.7)', color: '#F2ECE3' }}>
-              <Lock size={13} /> Bloqueado
+          <PreviewPlaceholder capa={aula.capa}>
+            <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+              style={{ background: 'rgba(120,196,140,0.92)', color: '#11241A' }}>
+              AULA {numero}
             </span>
-          )}
-          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-            style={{ background: 'rgba(120,196,140,0.92)', color: '#11241A' }}>
-            AULA {numero}
-          </span>
-
-          {/* Título grande sobre a prévia */}
-          <div className="absolute inset-x-0 top-1/4 px-5 text-center">
-            <p className="text-4xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
-              {aula.titulo}
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'rgba(242,236,227,0.85)' }}>{aula.subtitulo}</p>
-          </div>
-
-          {/* Play central — inicia prévia (se houver) ou aula (se liberado) */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            {temPreview ? (
-              <button type="button" onClick={() => setModo('preview')} aria-label="Assistir prévia"
-                className="w-20 h-20 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-                style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
-                <Play size={34} fill="#3A2E25" />
-              </button>
-            ) : liberado && temVideo ? (
-              <button type="button" onClick={() => setModo('aula')} aria-label="Assistir aula"
-                className="w-20 h-20 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-                style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
-                <Play size={34} fill="#3A2E25" />
-              </button>
-            ) : (
-              <span className="w-20 h-20 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(246,210,184,0.92)', color: '#3A2E25' }}>
-                <Play size={34} fill="#3A2E25" />
-              </span>
-            )}
-          </div>
-
-          {/* Barra de player FALSA (apenas visual) */}
-          <div className="absolute bottom-0 left-0 right-0 p-4"
-            style={{ background: 'linear-gradient(to top, rgba(8,14,11,0.92) 0%, rgba(8,14,11,0) 100%)' }}>
-            <div className="flex items-center gap-2 text-[11px]" style={{ color: '#F2ECE3' }}>
-              <span className="tabular-nums">00:00</span>
-              <span className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.25)' }}>
-                <span className="block h-full w-1/4 rounded-full" style={{ background: '#F6D2B8' }} />
-              </span>
-              <span className="tabular-nums">{aula.duracao}</span>
-              <Maximize size={14} aria-hidden="true" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-sm px-6 text-center" style={{ color: 'rgba(242,236,227,0.7)' }}>
+                Vídeo em breve
+              </p>
             </div>
-          </div>
-        </PreviewPlaceholder>
+          </PreviewPlaceholder>
         )}
       </div>
 
-      {/* 2. Botão de compra / acesso (abaixo do vídeo) */}
-      <div className="mt-4">
-        {liberado ? (
-          modo === 'aula' ? (
-            <div className="flex items-center justify-center gap-2 rounded-2xl px-4 py-3"
-              style={{ background: 'rgba(120,196,140,0.16)' }}>
-              <span className="flex items-center gap-2 text-sm font-medium" style={{ color: '#CDEBD5' }}>
-                <CheckCircle2 size={16} /> Conteúdo liberado
-              </span>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setModo('aula')}
-              className="w-full py-3.5 rounded-2xl text-base font-semibold flex items-center justify-center gap-2"
-              style={{ background: '#F6D2B8', color: '#3A2E25' }}>
-              <Play size={18} fill="#3A2E25" /> Acessar conteúdo
-            </button>
-          )
-        ) : (
-          <div className="rounded-2xl p-4" style={{ background: 'rgba(8,14,11,0.55)' }}>
-            <div className="flex items-center gap-2.5">
-              <span className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: 'rgba(246,210,184,0.18)', color: '#F6D2B8' }}>
-                <Lock size={18} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold" style={{ color: '#FFFFFF' }}>Desbloqueie esta aula</p>
-                <p className="text-xs" style={{ color: 'rgba(242,236,227,0.75)' }}>Acesso imediato e ilimitado</p>
-              </div>
-            </div>
-            <button type="button" onClick={onAdquirir}
-              className="w-full mt-3 py-3.5 rounded-2xl text-base font-semibold"
-              style={{ background: '#F6D2B8', color: '#3A2E25' }}>
-              Adquirir agora {formatarPreco(aula.preco)}
-            </button>
-            <p className="text-[11px] text-center mt-2" style={{ color: 'rgba(242,236,227,0.6)' }}>
-              Demonstração — compra simulada (pagamento em breve)
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* 3. Título + subtítulo */}
+      {/* 2. Título + subtítulo */}
       <h2 className="text-3xl mt-5 leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
         {aula.titulo}
       </h2>
@@ -1254,22 +1117,11 @@ function AulasScreen() {
       </header>
 
       {aulaSel ? (
-        comprados.has(aulaSel.id) ? (
         <AulaDetalhe
           aula={aulaSel}
           indice={indiceSel}
-          liberado={true}
           onVoltar={() => setSelecionado(null)}
-          onAdquirir={() => liberar([aulaSel.id])}
         />
-        ) : (
-        <AulaPreview
-          aula={aulaSel}
-          indice={indiceSel}
-          onVoltar={() => setSelecionado(null)}
-          onComprar={() => liberar([aulaSel.id])}
-        />
-        )
       ) : (
         <div className="px-4 pt-1">
           {!comboLiberado && (
@@ -1305,7 +1157,8 @@ function AulasScreen() {
                 key={aula.id}
                 aula={aula}
                 liberado={comprados.has(aula.id)}
-                onAbrir={() => setSelecionado(aula.id)}
+                onComprar={() => liberar([aula.id])}
+                onAcessar={() => setSelecionado(aula.id)}
               />
             ))}
           </div>
