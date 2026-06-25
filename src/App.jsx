@@ -2773,14 +2773,43 @@ export default function App() {
     };
   }, [pending, activeForm, sheetOpen, editing, zoom, aulaSelecionada, calAberto, abaAtiva, mudarAba]);
 
-  useEffect(() => {
-    history.replaceState({ appBase: true }, '');
-    history.pushState({ appBarrier: true }, '');
+  const lastDepthRef = useRef(0);
+  const isPopStateRef = useRef(false);
+  const ignoreNextPopStateRef = useRef(false);
 
+  const depth = (abaAtiva !== 'diario' ? 1 : 0) +
+                (calAberto ? 1 : 0) +
+                (aulaSelecionada ? 1 : 0) +
+                (zoom ? 1 : 0) +
+                (editing ? 1 : 0) +
+                (pending ? 3 : (activeForm ? 2 : (sheetOpen ? 1 : 0)));
+
+  useEffect(() => {
+    const diff = depth - lastDepthRef.current;
+    if (diff > 0) {
+      for (let i = 0; i < diff; i++) {
+        history.pushState({ overlay: true }, '');
+      }
+    } else if (diff < 0) {
+      if (!isPopStateRef.current) {
+        ignoreNextPopStateRef.current = true;
+        history.go(diff);
+      }
+    }
+    lastDepthRef.current = depth;
+    isPopStateRef.current = false;
+  }, [depth]);
+
+  useEffect(() => {
     const onPopState = () => {
+      if (ignoreNextPopStateRef.current) {
+        ignoreNextPopStateRef.current = false;
+        return;
+      }
+      isPopStateRef.current = true;
       const closed = closeTopRef.current?.();
-      if (closed) {
-        history.pushState({ appBarrier: true }, '');
+      if (!closed) {
+        lastDepthRef.current = 0;
       }
     };
 
