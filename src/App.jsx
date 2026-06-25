@@ -1595,6 +1595,69 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
   );
 }
 
+// Tela de Relatórios IA (futuro): resumo gerado por inteligência artificial a
+// partir dos dados do diário. Por enquanto exibe um mock visual do que o usuário
+// receberá quando a funcionalidade estiver integrada.
+function RelatoriosIAScreen() {
+  const [gerando, setGerando] = useState(false);
+  const [pronto, setPronto] = useState(false);
+
+  const gerar = () => {
+    setGerando(true);
+    setTimeout(() => { setGerando(false); setPronto(true); }, 2000);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]"
+        style={{ background: 'rgba(255,255,255,0.7)', borderColor: 'rgba(150,140,120,0.25)' }}>
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(127,200,140,0.18)', color: '#4A8A5C' }}>
+            <Lightbulb size={20} />
+          </span>
+          <div>
+            <p className="font-medium text-[#2B2A28]">Relatório semanal com IA</p>
+            <p className="text-xs text-[#7D766A]">Resumo personalizado dos seus registros</p>
+          </div>
+        </div>
+        <p className="text-sm text-[#4A443F] mt-3 leading-relaxed">
+          A IA analisa seus sintomas, alimentação, sono e humor para apontar padrões e sugerir pontos de atenção de forma clara e objetiva.
+        </p>
+        <button type="button" onClick={gerar} disabled={gerando}
+          className="mt-4 w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-60 transition-opacity"
+          style={{ background: 'var(--brand)', color: '#fff' }}>
+          {gerando ? 'Analisando seus dados...' : 'Gerar relatório'}
+        </button>
+      </div>
+
+      {pronto && (
+        <div className="rounded-2xl border p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]"
+          style={{ background: 'rgba(255,255,255,0.85)', borderColor: 'rgba(150,140,120,0.25)' }}>
+          <p className="titulo-cursivo text-lg font-serif text-[#2B2A28]">Resumo da semana</p>
+          <ul className="mt-3 space-y-2 text-sm text-[#4A443F]">
+            <li className="flex gap-2">
+              <span style={{ color: '#4A8A5C' }}>•</span>
+              <span>Hidratação manteve-se estável, com média de 6 copos/dia.</span>
+            </li>
+            <li className="flex gap-2">
+              <span style={{ color: '#4A8A5C' }}>•</span>
+              <span>Picos de desconforto abdominal coincidiram com refeições mais gordurosas.</span>
+            </li>
+            <li className="flex gap-2">
+              <span style={{ color: '#4A8A5C' }}>•</span>
+              <span>Sono de qualidade moderada (média 3,2/5) — ocorreu melhora após dias com exercício leve.</span>
+            </li>
+          </ul>
+          <p className="text-[11px] text-[#7D766A] mt-3 italic">
+            Este é um exemplo do formato futuro. Os dados reais virão da análise dos seus registros.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InsightsScreen({ calAberto, onCalAberto }) {
   const history = useMemo(() => gerarHistoricoMock(), []);
   const bounds = useMemo(() => {
@@ -1608,6 +1671,7 @@ function InsightsScreen({ calAberto, onCalAberto }) {
   const [presetAtivo, setPresetAtivo] = useState(30);
   const [hover, setHover] = useState(null);
   const [suavizar, setSuavizar] = useState(false);
+  const [aba, setAba] = useState('insights');
 
   const aplicaPreset = (nn) => { setRange(preset(nn)); setPresetAtivo(nn); setHover(null); };
   const aplicaRange = (r) => { setRange(r); setPresetAtivo(null); setHover(null); };
@@ -1635,55 +1699,114 @@ function InsightsScreen({ calAberto, onCalAberto }) {
 
   return (
     <main className="relative z-10 flex-1 overflow-y-auto px-5 pb-28">
+      {/* ── Cabeçalho fixo ──────────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 -mx-5 px-5 pt-3 pb-2"
         style={{ background: 'var(--amb-bg-1)', boxShadow: '0 6px 12px -10px rgba(0,0,0,0.5)' }}>
-        <div className="flex items-baseline justify-between">
-          <p className="titulo-cursivo text-2xl font-serif" style={{ color: 'var(--amb-text)' }}>Insights</p>
-          <span className="text-xs tabular-nums" style={{ color: 'var(--amb-text)', opacity: 0.85 }}>{foco}</span>
-        </div>
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          {periodos.map((p) => (
-            <button key={p} type="button" onClick={() => aplicaPreset(p)}
-              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-              style={btn(presetAtivo === p)}>{p}d</button>
+
+        {/* Tabs em cursiva substituem o título */}
+        <div className="flex items-center gap-5">
+          {[
+            { key: 'insights',   label: 'Insights'      },
+            { key: 'relatorios', label: 'Relatórios IA' },
+          ].map(({ key, label }) => (
+            <button key={key} type="button" onClick={() => setAba(key)}
+              className="titulo-cursivo text-2xl font-serif pb-0.5 transition-all"
+              style={{
+                color:       'var(--amb-text)',
+                opacity:     aba === key ? 1 : 0.38,
+                borderBottom: aba === key
+                  ? '2px solid var(--brand)'
+                  : '2px solid transparent',
+              }}>
+              {label}
+            </button>
           ))}
-          <button type="button" aria-label="Escolher no calendário" onClick={() => onCalAberto(!calAberto)}
-            className="px-2.5 py-1 rounded-full border flex items-center" style={btn(calAberto || presetAtivo === null)}>
-            <Calendar size={14} />
-          </button>
-          <button type="button" onClick={() => setSuavizar((v) => !v)} aria-pressed={suavizar}
-            className="ml-auto px-3 py-1 rounded-full text-xs font-medium border transition-colors" style={btn(suavizar)}>
-            Suavizar
-          </button>
         </div>
+
+        {/* Seletores de período (só na aba Insights) */}
+        {aba === 'insights' && (
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {periodos.map((p) => (
+              <button key={p} type="button" onClick={() => aplicaPreset(p)}
+                className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+                style={btn(presetAtivo === p)}>{p}d</button>
+            ))}
+            <button type="button" aria-label="Escolher no calendário" onClick={() => onCalAberto(!calAberto)}
+              className="px-2.5 py-1 rounded-full border flex items-center" style={btn(calAberto || presetAtivo === null)}>
+              <Calendar size={14} />
+            </button>
+            <button type="button" onClick={() => setSuavizar((v) => !v)} aria-pressed={suavizar}
+              className="ml-auto px-3 py-1 rounded-full text-xs font-medium border transition-colors" style={btn(suavizar)}>
+              Suavizar
+            </button>
+          </div>
+        )}
+
         {calAberto && (
           <CalendarPicker minTs={bounds.min} maxTs={bounds.max} range={range} onRange={aplicaRange} />
         )}
       </div>
 
-      {/* Backdrop transparente: fecha o calendário ao clicar fora. O CalendarPicker
-          vive na toolbar (z-20), acima deste backdrop (z-10), então não se fecha
-          ao ser clicado; cliques nos cards abaixo fecham. */}
+      {/* Backdrop transparente: fecha o calendário ao clicar fora */}
       {calAberto && <div className="fixed inset-0 z-10" onClick={() => onCalAberto(false)} />}
 
-      <div className="space-y-3 mt-3">
-        <MetricCard titulo="Hidratação" color={ENTRY_TYPES.water.color} serie={agua} unidade=" copos/dia" casas={suavizar ? 1 : 0} hover={hover} onHover={setHover} />
-        <MetricCard titulo="Intensidade da dor" color={ENTRY_TYPES.pain.color} serie={dor} unidade="/10" casas={1} hover={hover} onHover={setHover} />
-        <MetricCard titulo="Qualidade do sono" color={ENTRY_TYPES.sleep.color} serie={sono} unidade="/5" casas={1} hover={hover} onHover={setHover} />
-        <MetricCard titulo="Humor" color={ENTRY_TYPES.mood.color} serie={humor} unidade="/5" casas={1} hover={hover} onHover={setHover} />
-        <MetricCard titulo="Exercício" color={ENTRY_TYPES.exercise.color} serie={exercicio} unidade=" min/dia" casas={0} hover={hover} onHover={setHover} />
-      </div>
+      {/* ── Badge de data do período / scrubbing (fora do sticky) ──────── */}
+      {aba === 'insights' && (
+        <div className="flex justify-center mt-3 mb-1">
+          <span
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold tabular-nums transition-all duration-200"
+            style={hover != null
+              ? {
+                  background: 'var(--brand)',
+                  color: '#fff',
+                  boxShadow: '0 4px 12px -2px rgba(74,138,92,0.45)',
+                }
+              : {
+                  background: 'rgba(255,255,255,0.62)',
+                  color: 'var(--amb-text)',
+                  border: '1px solid rgba(150,140,120,0.25)',
+                }
+            }>
+            {/* Ícone de calendário discreto */}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ opacity: hover != null ? 0.8 : 0.55 }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            {foco}
+          </span>
+        </div>
+      )}
 
-      <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Onde dói</p>
-      <PainHeatmap history={hist} />
-      <div className="mt-3"><PainScrubber history={hist} /></div>
+      {/* ── Conteúdo principal ──────────────────────────────────────────── */}
+      {aba === 'insights' ? (
+        <>
+          <div className="space-y-3 mt-2">
+            <MetricCard titulo="Hidratação" color={ENTRY_TYPES.water.color} serie={agua} unidade=" copos/dia" casas={suavizar ? 1 : 0} hover={hover} onHover={setHover} />
+            <MetricCard titulo="Intensidade da dor" color={ENTRY_TYPES.pain.color} serie={dor} unidade="/10" casas={1} hover={hover} onHover={setHover} />
+            <MetricCard titulo="Qualidade do sono" color={ENTRY_TYPES.sleep.color} serie={sono} unidade="/5" casas={1} hover={hover} onHover={setHover} />
+            <MetricCard titulo="Humor" color={ENTRY_TYPES.mood.color} serie={humor} unidade="/5" casas={1} hover={hover} onHover={setHover} />
+            <MetricCard titulo="Exercício" color={ENTRY_TYPES.exercise.color} serie={exercicio} unidade=" min/dia" casas={0} hover={hover} onHover={setHover} />
+          </div>
 
-      <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Cruzamentos</p>
-      <CrossingsSection history={hist} />
+          <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Onde dói</p>
+          <PainHeatmap history={hist} />
+          <div className="mt-3"><PainScrubber history={hist} /></div>
 
-      <p className="text-[11px] mt-4 leading-snug" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>
-        Use os botões 7/30/60/90 ou o calendário (dia ou intervalo) — todas as seções seguem o mesmo período. Observações dos seus próprios registros; não substituem avaliação profissional.
-      </p>
+          <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Cruzamentos</p>
+          <CrossingsSection history={hist} />
+
+          <p className="text-[11px] mt-4 leading-snug" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>
+            Use os botões 7/30/60/90 ou o calendário (dia ou intervalo) — todas as seções seguem o mesmo período. Observações dos seus próprios registros; não substituem avaliação profissional.
+          </p>
+        </>
+      ) : (
+        <div className="mt-3">
+          <RelatoriosIAScreen />
+        </div>
+      )}
     </main>
   );
 }
