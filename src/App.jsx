@@ -1323,34 +1323,59 @@ function PainHeatmap({ history }) {
             })}
           </div>
           {sel && ctx ? (
-            <div className="mt-3 rounded-xl bg-[#FAF7F2] border border-[#EFE7DD] p-3 text-xs leading-snug" style={{ color: 'var(--ink, #4A443F)' }}>
-              <p className="font-semibold" style={{ color: '#2B2A28' }}>{ORGAN_LABELS[sel]}</p>
-              <p>{ctx.n} registro(s) · {Math.round(ctx.share * 100)}% das suas dores · intensidade média {ctx.intensidadeMedia.toFixed(1)}/10</p>
-              {ctx.aguaNesses != null && ctx.aguaGeral != null && (
-                <p className="mt-0.5">Água nesses dias: ~{ctx.aguaNesses.toFixed(1)} copos/dia (sua média: {ctx.aguaGeral.toFixed(1)})</p>
-              )}
-              {ctx.sonoNesses != null && ctx.sonoGeral != null && (
-                <p>Sono nesses dias: ~{ctx.sonoNesses.toFixed(1)}/5 (sua média: {ctx.sonoGeral.toFixed(1)})</p>
-              )}
-              {ctx.humorMedio != null && (
-                <p className="mt-0.5">Humor médio nesses dias: ~{ctx.humorMedio.toFixed(1)}/5</p>
-              )}
-              {ctx.bristolMedio != null && (
-                <p>Consistência média nesses dias: Bristol ~{ctx.bristolMedio.toFixed(1)}</p>
-              )}
-              {ctx.alimentosFrequentes.length > 0 && (
-                <div className="mt-1.5">
-                  <p>Alimentos mais registrados nesses dias:</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {ctx.alimentosFrequentes.map((a) => (
-                      <span key={a.tag}
-                        className="inline-flex items-center rounded-full bg-[#EFE7DD] px-2 py-0.5 text-[11px] text-[#4A443F]">
-                        {a.tag} ({a.n})
-                      </span>
-                    ))}
-                  </div>
+            <div className="mt-4 overflow-hidden rounded-2xl border shadow-sm transition-all" style={{ borderColor: 'rgba(189,90,74,0.15)', background: 'linear-gradient(to bottom, #FAF7F2, #FFF)' }}>
+              <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: 'rgba(189,90,74,0.1)', background: 'rgba(189,90,74,0.05)' }}>
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#BD5A4A', boxShadow: '0 0 0 2px rgba(189,90,74,0.2)' }} />
+                <p className="font-bold text-sm" style={{ color: '#BD5A4A' }}>{ORGAN_LABELS[sel]}</p>
+              </div>
+              <div className="p-4 pt-3 text-xs text-[#4A443F] space-y-3">
+                <div className="flex gap-4">
+                  <div><span className="block text-[#9A938A] text-[10px] uppercase font-semibold mb-0.5">Registros</span><strong className="text-lg text-[#2B2A28] leading-none">{ctx.n}</strong></div>
+                  <div><span className="block text-[#9A938A] text-[10px] uppercase font-semibold mb-0.5">Frequência</span><strong className="text-lg text-[#2B2A28] leading-none">{Math.round(ctx.share * 100)}%</strong></div>
+                  <div><span className="block text-[#9A938A] text-[10px] uppercase font-semibold mb-0.5">Intensidade</span><strong className="text-lg text-[#2B2A28] leading-none">{ctx.intensidadeMedia.toFixed(1)}</strong><span className="text-[10px]">/10</span></div>
                 </div>
-              )}
+
+                <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-[#EFE7DD]">
+                  {ctx.aguaNesses != null && ctx.aguaGeral != null && (
+                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
+                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Água (média/dia)</span>
+                      <span className="font-medium text-[#2B2A28]">{ctx.aguaNesses.toFixed(1)} copos</span>
+                    </div>
+                  )}
+                  {ctx.sonoNesses != null && ctx.sonoGeral != null && (
+                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
+                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Sono (qualidade)</span>
+                      <span className="font-medium text-[#2B2A28]">{ctx.sonoNesses.toFixed(1)} <span className="text-[10px] text-[#9A938A]">/ 5</span></span>
+                    </div>
+                  )}
+                  {ctx.humorMedio != null && (
+                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
+                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Humor Médio</span>
+                      <span className="font-medium text-[#2B2A28]">{ctx.humorMedio.toFixed(1)} <span className="text-[10px] text-[#9A938A]">/ 5</span></span>
+                    </div>
+                  )}
+                  {ctx.bristolMedio != null && (
+                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
+                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Fezes (Bristol)</span>
+                      <span className="font-medium text-[#2B2A28]">Tipo {ctx.bristolMedio.toFixed(1)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {ctx.alimentosFrequentes.length > 0 && (
+                  <div className="pt-2">
+                    <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-1.5">Gatilhos Alimentares Potenciais</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ctx.alimentosFrequentes.map((a) => (
+                        <span key={a.tag}
+                          className="inline-flex items-center rounded-md bg-white border border-[#EFE7DD] px-2 py-1 text-[11px] font-medium text-[#4A443F] shadow-sm">
+                          {a.tag} <span className="ml-1 opacity-50 font-normal">({a.n})</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <p className="text-xs text-center mt-2 text-[#9A938A]">Toque numa região para ver os detalhes</p>
@@ -1381,7 +1406,7 @@ function CrossCard({ titulo, explicacao, children }) {
 
 // Linha do tempo da dor — "scrubber" estilo player: arrastar revela as dores
 // marcadas ao longo do tempo, numa janela deslizante (RF 9.7).
-function PainScrubber({ history }) {
+function PainScrubber({ history, onScrub }) {
   const pains = useMemo(() => history
     .filter((e) => e.type === 'pain' && e.organ && ORGAN_POINTS[e.organ])
     .map((e) => {
@@ -1406,7 +1431,6 @@ function PainScrubber({ history }) {
     <div data-noswipe className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
       <div className="flex items-baseline justify-between mb-1">
         <p className="entry-text text-sm font-medium text-[#2B2A28]">Linha do tempo da dor</p>
-        <span className="text-xs tabular-nums text-[#7D766A]">{fmtData(focusTs, true)}</span>
       </div>
       <div className="relative mx-auto" style={{ width: 190, aspectRatio: '374/740' }}>
         <img src={DIGESTIVE_IMAGE} alt="Silhueta" className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
@@ -1424,7 +1448,14 @@ function PainScrubber({ history }) {
           );
         })}
       </div>
-      <input type="range" min={0} max={100} value={pos} onChange={(e) => setPos(Number(e.target.value))}
+      <input type="range" min={0} max={100} value={pos}
+        onChange={(e) => {
+          const val = Number(e.target.value);
+          setPos(val);
+          if (onScrub) onScrub(min + (val / 100) * (max - min));
+        }}
+        onPointerUp={() => onScrub && onScrub(null)}
+        onPointerLeave={() => onScrub && onScrub(null)}
         className="w-full mt-3" style={{ accentColor: 'var(--brand)' }} aria-label="Linha do tempo da dor" />
       <p className="text-[11px] text-[#9A938A] mt-1">Arraste para percorrer as dores marcadas no período selecionado (janela móvel de ~{diasJanela} dia(s)).</p>
     </div>
@@ -1670,6 +1701,7 @@ function InsightsScreen({ calAberto, onCalAberto }) {
   const [range, setRange] = useState(() => preset(30));
   const [presetAtivo, setPresetAtivo] = useState(30);
   const [hover, setHover] = useState(null);
+  const [scrubTs, setScrubTs] = useState(null);
   const [suavizar, setSuavizar] = useState(false);
   const [aba, setAba] = useState('insights');
 
@@ -1690,7 +1722,16 @@ function InsightsScreen({ calAberto, onCalAberto }) {
 
   const umDia = inicioDiaUTC(range.ini) === inicioDiaUTC(range.fim);
   const rangeLabel = umDia ? fmtData(range.ini, true) : `${fmtData(range.ini)} – ${fmtData(range.fim)}`;
-  const foco = hover != null && agua[hover] ? fmtData(agua[hover].dia, true) : rangeLabel;
+  
+  let foco = rangeLabel;
+  let isScrubbing = false;
+  if (scrubTs != null) {
+    foco = fmtData(scrubTs, true);
+    isScrubbing = true;
+  } else if (hover != null && agua[hover]) {
+    foco = fmtData(agua[hover].dia, true);
+    isScrubbing = true;
+  }
 
   const periodos = [7, 30, 60, 90];
   const btn = (ativo) => (ativo
@@ -1742,6 +1783,35 @@ function InsightsScreen({ calAberto, onCalAberto }) {
           </div>
         )}
 
+        {/* ── Badge central fixado no painel superior ──────── */}
+        {aba === 'insights' && (
+          <div className="flex justify-center mt-3">
+            <span
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold tabular-nums transition-all duration-200"
+              style={isScrubbing
+                ? {
+                    background: 'var(--brand)',
+                    color: '#fff',
+                    boxShadow: '0 4px 12px -2px rgba(74,138,92,0.45)',
+                  }
+                : {
+                    background: 'rgba(255,255,255,0.62)',
+                    color: 'var(--amb-text)',
+                    border: '1px solid rgba(150,140,120,0.25)',
+                  }
+              }>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ opacity: isScrubbing ? 0.8 : 0.55 }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              {foco}
+            </span>
+          </div>
+        )}
+
         {calAberto && (
           <CalendarPicker minTs={bounds.min} maxTs={bounds.max} range={range} onRange={aplicaRange} />
         )}
@@ -1749,36 +1819,6 @@ function InsightsScreen({ calAberto, onCalAberto }) {
 
       {/* Backdrop transparente: fecha o calendário ao clicar fora */}
       {calAberto && <div className="fixed inset-0 z-10" onClick={() => onCalAberto(false)} />}
-
-      {/* ── Badge de data do período / scrubbing (fora do sticky) ──────── */}
-      {aba === 'insights' && (
-        <div className="flex justify-center mt-3 mb-1">
-          <span
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold tabular-nums transition-all duration-200"
-            style={hover != null
-              ? {
-                  background: 'var(--brand)',
-                  color: '#fff',
-                  boxShadow: '0 4px 12px -2px rgba(74,138,92,0.45)',
-                }
-              : {
-                  background: 'rgba(255,255,255,0.62)',
-                  color: 'var(--amb-text)',
-                  border: '1px solid rgba(150,140,120,0.25)',
-                }
-            }>
-            {/* Ícone de calendário discreto */}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-              style={{ opacity: hover != null ? 0.8 : 0.55 }}>
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            {foco}
-          </span>
-        </div>
-      )}
 
       {/* ── Conteúdo principal ──────────────────────────────────────────── */}
       {aba === 'insights' ? (
