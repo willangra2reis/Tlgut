@@ -1081,9 +1081,8 @@ function AulaDetalhe({ aula, indice, onVoltar }) {
 
 // Tela principal da aba Aulas (catálogo + detalhe). Sem data-noswipe: o swipe
 // horizontal continua navegando entre abas; a rolagem do catálogo é vertical.
-function AulasScreen() {
+function AulasScreen({ selecionado, onSelecionado }) {
   const [comprados, setComprados] = useState(() => new Set());
-  const [selecionado, setSelecionado] = useState(null);
 
   const liberar = useCallback((ids) => {
     setComprados((prev) => {
@@ -1120,7 +1119,7 @@ function AulasScreen() {
         <AulaDetalhe
           aula={aulaSel}
           indice={indiceSel}
-          onVoltar={() => setSelecionado(null)}
+          onVoltar={() => onSelecionado(null)}
         />
       ) : (
         <div className="px-4 pt-1">
@@ -1158,7 +1157,7 @@ function AulasScreen() {
                 aula={aula}
                 liberado={comprados.has(aula.id)}
                 onComprar={() => liberar([aula.id])}
-                onAcessar={() => setSelecionado(aula.id)}
+                onAcessar={() => onSelecionado(aula.id)}
               />
             ))}
           </div>
@@ -1596,7 +1595,7 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
   );
 }
 
-function InsightsScreen() {
+function InsightsScreen({ calAberto, onCalAberto }) {
   const history = useMemo(() => gerarHistoricoMock(), []);
   const bounds = useMemo(() => {
     const ts = history.map((e) => e.ts);
@@ -1607,7 +1606,6 @@ function InsightsScreen() {
 
   const [range, setRange] = useState(() => preset(30));
   const [presetAtivo, setPresetAtivo] = useState(30);
-  const [calAberto, setCalAberto] = useState(false);
   const [hover, setHover] = useState(null);
   const [suavizar, setSuavizar] = useState(false);
 
@@ -1649,7 +1647,7 @@ function InsightsScreen() {
               className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
               style={btn(presetAtivo === p)}>{p}d</button>
           ))}
-          <button type="button" aria-label="Escolher no calendário" onClick={() => setCalAberto((v) => !v)}
+          <button type="button" aria-label="Escolher no calendário" onClick={() => onCalAberto(!calAberto)}
             className="px-2.5 py-1 rounded-full border flex items-center" style={btn(calAberto || presetAtivo === null)}>
             <Calendar size={14} />
           </button>
@@ -1666,7 +1664,7 @@ function InsightsScreen() {
       {/* Backdrop transparente: fecha o calendário ao clicar fora. O CalendarPicker
           vive na toolbar (z-20), acima deste backdrop (z-10), então não se fecha
           ao ser clicado; cliques nos cards abaixo fecham. */}
-      {calAberto && <div className="fixed inset-0 z-10" onClick={() => setCalAberto(false)} />}
+      {calAberto && <div className="fixed inset-0 z-10" onClick={() => onCalAberto(false)} />}
 
       <div className="space-y-3 mt-3">
         <MetricCard titulo="Hidratação" color={ENTRY_TYPES.water.color} serie={agua} unidade=" copos/dia" casas={suavizar ? 1 : 0} hover={hover} onHover={setHover} />
@@ -2672,6 +2670,8 @@ export default function App() {
   const [cicloAtivo, setCicloAtivo] = useState(false);                                  // acompanhamento de ciclo opt-in (RF 16.1)
   const [colapsado,  setColapsado]  = useState(false);                                  // hero recolhido ao rolar a timeline
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
+  const [aulaSelecionada, setAulaSelecionada] = useState(null);                          // detalhe da aula (elevado de AulasScreen)
+  const [calAberto,  setCalAberto]  = useState(false);                                   // calendário dos Insights (elevado de InsightsScreen)
   const idRef = useRef(100);
   const rafRef = useRef(0);
   const timelineRef = useRef(null);
@@ -2693,7 +2693,7 @@ export default function App() {
     const t = e.touches[0];
     const ignore = Boolean(sheetOpen || activeForm || zoom || calibrando || editing
       || (e.target.closest && e.target.closest('[data-noswipe]')));
-    swipeRef.current = { x: t.clientX, y: t.clientY, t: Date.now(), ignore };
+    swipeRef.current = { x: t.clientX, y: t.clientY, t: e.timeStamp, ignore };
   };
 
   const onFrameTouchEnd = (e) => {
@@ -2702,12 +2702,12 @@ export default function App() {
     const t = e.changedTouches[0];
     const dx = t.clientX - s.x;
     const dy = t.clientY - s.y;
-    const dt = Date.now() - s.t;
+    const dt = e.timeStamp - s.t;
     if (Math.abs(dx) >= 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 700) {
       const idx = ABAS.indexOf(abaAtiva);
       const alvo = dx < 0 ? idx + 1 : idx - 1;
       const novo = Math.max(0, Math.min(ABAS.length - 1, alvo));
-      if (novo !== idx) setAbaAtiva(ABAS[novo]);
+      if (novo !== idx) mudarAba(ABAS[novo]);
     }
   };
 
@@ -2743,6 +2743,49 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // ─── Navegação com botão "Voltar" do dispositivo (History API) ──────────────
+  // Ao montar, empurramos uma entrada-barreira no histórico. Quando o usuário
+  // aperta "voltar", o popstate dispara; verificamos qual camada está aberta
+  // (da mais aninhada à menos) e a fechamos. Se algo foi fechado, re-empurramos
+  // a barreira para a próxima vez. Se nada está aberto, deixamos sair.
+  const closeTopRef = useRef(null);
+
+  // Wrapper para trocar de aba resetando sub-estados de telas internas.
+  const mudarAba = useCallback((aba) => {
+    setAbaAtiva(aba);
+    setAulaSelecionada(null);
+    setCalAberto(false);
+  }, []);
+
+  useEffect(() => {
+    closeTopRef.current = () => {
+      if (pending)          { setPending(null); return true; }
+      if (activeForm)       { setPending(null); setActiveForm(null); setSheetOpen(true); return true; }
+      if (sheetOpen)        { setSheetOpen(false); return true; }
+      if (editing)          { setEditing(null); return true; }
+      if (zoom)             { setZoom(null); return true; }
+      if (aulaSelecionada)  { setAulaSelecionada(null); return true; }
+      if (calAberto)        { setCalAberto(false); return true; }
+      if (abaAtiva !== 'diario') { mudarAba('diario'); return true; }
+      return false;
+    };
+  }, [pending, activeForm, sheetOpen, editing, zoom, aulaSelecionada, calAberto, abaAtiva, mudarAba]);
+
+  useEffect(() => {
+    history.replaceState({ appBase: true }, '');
+    history.pushState({ appBarrier: true }, '');
+
+    const onPopState = () => {
+      const closed = closeTopRef.current?.();
+      if (closed) {
+        history.pushState({ appBarrier: true }, '');
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   // Ordem cronológica natural: mais antigo em cima, mais recente embaixo
@@ -2861,16 +2904,16 @@ export default function App() {
             </main>
           </>
         ) : abaAtiva === 'insights' ? (
-          <InsightsScreen />
+          <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} />
         ) : abaAtiva === 'perfil' ? (
           <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} cicloAtivo={cicloAtivo} onCiclo={setCicloAtivo} />
         ) : (
-          <AulasScreen />
+          <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}
         </div>
 
         {/* Menu de Navegação Inferior (RF 3) */}
-        <BottomNav abaAtiva={abaAtiva} onChangeAba={setAbaAtiva} onAdd={() => setSheetOpen(true)} />
+        <BottomNav abaAtiva={abaAtiva} onChangeAba={mudarAba} onAdd={() => setSheetOpen(true)} />
 
         {/* Ferramenta temporária de calibração de pontos (dev) */}
         {calibrando && <CalibrationOverlay onClose={() => setCalibrando(false)} />}

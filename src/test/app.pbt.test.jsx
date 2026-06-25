@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import App from '../App.jsx';
 
-const TABS = ['Diário', 'Insights', 'Hábitos', 'Perfil'];
+const TABS = ['Diário', 'Insights', 'Aulas', 'Perfil'];
 
 describe('Estado de UI do App (PBT)', () => {
   // Feature: temas-redesign-verde-e-evacuacao, Property 5: Exatamente uma aba
