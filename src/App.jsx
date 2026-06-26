@@ -1330,33 +1330,33 @@ function PainHeatmap({ history }) {
               </div>
               <div className="p-4 pt-3 text-xs text-[#4A443F] space-y-3">
                 <div className="flex gap-4">
-                  <div><span className="block text-[#9A938A] text-[10px] uppercase font-semibold mb-0.5">Registros</span><strong className="text-lg text-[#2B2A28] leading-none">{ctx.n}</strong></div>
-                  <div><span className="block text-[#9A938A] text-[10px] uppercase font-semibold mb-0.5">Frequência</span><strong className="text-lg text-[#2B2A28] leading-none">{Math.round(ctx.share * 100)}%</strong></div>
-                  <div><span className="block text-[#9A938A] text-[10px] uppercase font-semibold mb-0.5">Intensidade</span><strong className="text-lg text-[#2B2A28] leading-none">{ctx.intensidadeMedia.toFixed(1)}</strong><span className="text-[10px]">/10</span></div>
+                  <div><span className="block text-[#9A938A] text-[11px] uppercase font-semibold mb-0.5">Registros</span><strong className="text-xl text-[#2B2A28] leading-none">{ctx.n}</strong></div>
+                  <div><span className="block text-[#9A938A] text-[11px] uppercase font-semibold mb-0.5">Frequência</span><strong className="text-xl text-[#2B2A28] leading-none">{Math.round(ctx.share * 100)}%</strong></div>
+                  <div><span className="block text-[#9A938A] text-[11px] uppercase font-semibold mb-0.5">Intensidade</span><strong className="text-xl text-[#2B2A28] leading-none">{ctx.intensidadeMedia.toFixed(1)}</strong><span className="text-[11px] font-medium ml-0.5 text-[#9A938A]">/ 10</span></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-[#EFE7DD]">
                   {ctx.aguaNesses != null && ctx.aguaGeral != null && (
                     <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Água (média/dia)</span>
+                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Água (média/dia)</span>
                       <span className="font-medium text-[#2B2A28]">{ctx.aguaNesses.toFixed(1)} copos</span>
                     </div>
                   )}
                   {ctx.sonoNesses != null && ctx.sonoGeral != null && (
                     <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Sono (qualidade)</span>
+                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Sono (qualidade)</span>
                       <span className="font-medium text-[#2B2A28]">{ctx.sonoNesses.toFixed(1)} <span className="text-[10px] text-[#9A938A]">/ 5</span></span>
                     </div>
                   )}
                   {ctx.humorMedio != null && (
                     <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Humor Médio</span>
+                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Humor Médio</span>
                       <span className="font-medium text-[#2B2A28]">{ctx.humorMedio.toFixed(1)} <span className="text-[10px] text-[#9A938A]">/ 5</span></span>
                     </div>
                   )}
                   {ctx.bristolMedio != null && (
                     <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-0.5">Fezes (Bristol)</span>
+                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Fezes (Bristol)</span>
                       <span className="font-medium text-[#2B2A28]">Tipo {ctx.bristolMedio.toFixed(1)}</span>
                     </div>
                   )}
@@ -1364,11 +1364,11 @@ function PainHeatmap({ history }) {
 
                 {ctx.alimentosFrequentes.length > 0 && (
                   <div className="pt-2">
-                    <span className="block text-[#9A938A] text-[9px] uppercase font-bold tracking-wide mb-1.5">Gatilhos Alimentares Potenciais</span>
+                    <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-1.5">Gatilhos Alimentares Potenciais</span>
                     <div className="flex flex-wrap gap-1.5">
                       {ctx.alimentosFrequentes.map((a) => (
                         <span key={a.tag}
-                          className="inline-flex items-center rounded-md bg-white border border-[#EFE7DD] px-2 py-1 text-[11px] font-medium text-[#4A443F] shadow-sm">
+                          className="inline-flex items-center rounded-md bg-white border border-[#EFE7DD] px-2 py-1 text-xs font-medium text-[#4A443F] shadow-sm">
                           {a.tag} <span className="ml-1 opacity-50 font-normal">({a.n})</span>
                         </span>
                       ))}
@@ -1454,8 +1454,13 @@ function PainScrubber({ history, onScrub }) {
           setPos(val);
           if (onScrub) onScrub(min + (val / 100) * (max - min));
         }}
+        onPointerDown={() => onScrub && onScrub(min + (pos / 100) * (max - min))}
         onPointerUp={() => onScrub && onScrub(null)}
-        onPointerLeave={() => onScrub && onScrub(null)}
+        onPointerCancel={() => onScrub && onScrub(null)}
+        onTouchStart={() => onScrub && onScrub(min + (pos / 100) * (max - min))}
+        onTouchEnd={() => onScrub && onScrub(null)}
+        onMouseDown={() => onScrub && onScrub(min + (pos / 100) * (max - min))}
+        onMouseUp={() => onScrub && onScrub(null)}
         className="w-full mt-3" style={{ accentColor: 'var(--brand)' }} aria-label="Linha do tempo da dor" />
       <p className="text-[11px] text-[#9A938A] mt-1">Arraste para percorrer as dores marcadas no período selecionado (janela móvel de ~{diasJanela} dia(s)).</p>
     </div>
@@ -1747,10 +1752,11 @@ function InsightsScreen({ calAberto, onCalAberto }) {
         {/* Tabs em cursiva substituem o título */}
         <div className="flex items-center gap-5">
           {[
-            { key: 'insights',   label: 'Insights'      },
-            { key: 'relatorios', label: 'Relatórios IA' },
-          ].map(({ key, label }) => (
+            { key: 'insights',   label: 'Insights',      ariaLabel: 'Aba interna Insights' },
+            { key: 'relatorios', label: 'Relatórios IA', ariaLabel: 'Aba interna Relatórios IA' },
+          ].map(({ key, label, ariaLabel }) => (
             <button key={key} type="button" onClick={() => setAba(key)}
+              aria-label={ariaLabel}
               className="titulo-cursivo text-2xl font-serif pb-0.5 transition-all"
               style={{
                 color:       'var(--amb-text)',
@@ -1800,13 +1806,6 @@ function InsightsScreen({ calAberto, onCalAberto }) {
                     border: '1px solid rgba(150,140,120,0.25)',
                   }
               }>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                style={{ opacity: isScrubbing ? 0.8 : 0.55 }}>
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
               {foco}
             </span>
           </div>
@@ -1833,7 +1832,7 @@ function InsightsScreen({ calAberto, onCalAberto }) {
 
           <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Onde dói</p>
           <PainHeatmap history={hist} />
-          <div className="mt-3"><PainScrubber history={hist} /></div>
+          <div className="mt-3"><PainScrubber history={hist} onScrub={setScrubTs} /></div>
 
           <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Cruzamentos</p>
           <CrossingsSection history={hist} />
@@ -2660,21 +2659,22 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
         </p>
 
         {entry.type === 'pain' && entry.meta && (
-          <div className="mt-2 rounded-2xl p-3 flex items-center gap-3 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.18)]" style={{ background: meta.soft }}>
-            <div className="flex-1 min-w-0">
-              <p className="entry-text text-xs font-medium" style={{ color: '#6E5F57' }}>Intensidade da dor</p>
-              <p className="entry-text text-2xl font-semibold leading-none mt-0.5"
-                style={{ color: corIntensidade(entry.meta.intensity) }}>
-                {entry.meta.intensity}/10
-              </p>
-              <IntensityBar value={entry.meta.intensity} />
-            </div>
+          <div className="mt-2 rounded-2xl p-4 flex flex-col items-center shadow-[0_2px_8px_-3px_rgba(0,0,0,0.18)]" style={{ background: meta.soft }}>
             {entry.meta.clouds?.length > 0 && (
               <button type="button" onClick={() => onZoom && onZoom(entry)} aria-label="Ampliar silhueta"
-                className="shrink-0 rounded-2xl overflow-hidden bg-white p-1 cursor-zoom-in" style={{ width: 88 }}>
+                className="shrink-0 rounded-2xl overflow-hidden bg-white p-1 cursor-zoom-in mb-3" style={{ width: 120 }}>
                 <Silhouette clouds={entry.meta.clouds} intensity={entry.meta.intensity} showOrgans />
               </button>
             )}
+            <div className="w-full flex flex-col items-center text-center">
+              <div className="w-full max-w-[200px]">
+                <IntensityBar value={entry.meta.intensity} />
+              </div>
+              <p className="entry-text text-[11px] font-semibold uppercase tracking-wider mt-2.5"
+                style={{ color: corIntensidade(entry.meta.intensity) }}>
+                Intensidade {entry.meta.intensity}/10
+              </p>
+            </div>
           </div>
         )}
 

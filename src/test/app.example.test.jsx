@@ -133,8 +133,7 @@ describe('Fonte cursiva e Evacuação (RF 4 e 5)', () => {
 describe('Card de dor — termômetro de intensidade (RF 2)', () => {
   it('exibe a legenda de intensidade e o valor do registro semente', () => {
     render(<App />);
-    expect(screen.getByText('Intensidade da dor')).toBeInTheDocument();
-    expect(screen.getByText('7/10')).toBeInTheDocument();
+    expect(screen.getByText('Intensidade 7/10')).toBeInTheDocument();
   });
 });
 
