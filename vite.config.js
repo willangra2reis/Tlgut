@@ -12,4 +12,16 @@ export default defineConfig({
     setupFiles: './src/test/setup.js',
     css: true,
   },
+  server: {
+    proxy: {
+      // Em desenvolvimento local, redireciona /api/* para um servidor
+      // local de simulação. Em produção (Cloudflare Pages) a function
+      // em /functions/api/transcribe.js é usada automaticamente.
+      '/api': {
+        target: 'http://localhost:8788',
+        changeOrigin: true,
+      },
+    },
+  },
 })
+

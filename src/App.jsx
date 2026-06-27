@@ -2452,17 +2452,113 @@ function EvacuationForm({ onSave }) {
 }
 
 // ─── Etapa de Observação (empurrão suave antes de salvar) ─────────────────────
+// Usa Whisper via Cloudflare Pages Function (/api/transcribe) como método
+// primário de transcrição. Faz fallback para Web Speech API se o endpoint
+// não estiver disponível (ex.: desenvolvimento local sem wrangler).
 function ObservationStep({ onConfirm }) {
   const [note, setNote] = useState('');
-  const [listening, setListening] = useState(false);
-  const recRef = useRef(null);
-  const Rec = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
 
-  const toggleMic = () => {
-    if (!Rec) return;
-    if (listening) { if (recRef.current) recRef.current.stop(); return; }
+  // Estados da gravação
+  const [recState, setRecState] = useState('idle'); // 'idle' | 'recording' | 'transcribing' | 'error'
+  const [recError, setRecError] = useState('');
+
+  // Refs de gravação
+  const mediaRecRef = useRef(null);
+  const chunksRef   = useRef([]);
+  const streamRef   = useRef(null);
+
+  // Web Speech API — fallback para dev local sem wrangler
+  const WebSpeech = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
+
+  // ── Limpa o stream de microfone ao desmontar ────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  // ── Envia o blob de áudio para a Pages Function ─────────────────────────────
+  const transcribeBlob = useCallback(async (blob) => {
+    setRecState('transcribing');
+    setRecError('');
     try {
-      const r = new Rec();
+      const res = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type || 'audio/webm' },
+        body: blob,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const { text } = await res.json();
+      if (text) setNote((prev) => (prev ? `${prev} ${text}` : text));
+      setRecState('idle');
+    } catch (err) {
+      console.error('[ObservationStep] Whisper error:', err);
+      setRecError('Não foi possível transcrever. Tente digitar manualmente.');
+      setRecState('error');
+    }
+  }, []);
+
+  // ── Inicia/para a gravação com MediaRecorder ────────────────────────────────
+  const toggleWhisper = useCallback(async () => {
+    if (recState === 'recording') {
+      // Para a gravação → dispara ondataavailable → onstop
+      mediaRecRef.current?.stop();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+      return;
+    }
+
+    setRecError('');
+    chunksRef.current = [];
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      // Escolhe o formato suportado pelo navegador
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+        .find((m) => MediaRecorder.isTypeSupported(m)) || '';
+
+      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecRef.current = rec;
+
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
+        transcribeBlob(blob);
+      };
+
+      rec.start();
+      setRecState('recording');
+    } catch (err) {
+      console.error('[ObservationStep] Microfone negado:', err);
+      setRecError('Permissão de microfone negada. Verifique as configurações do navegador.');
+      setRecState('error');
+    }
+  }, [recState, transcribeBlob]);
+
+  // ── Fallback: Web Speech API (desenvolvimento local) ────────────────────────
+  const webSpeechRef = useRef(null);
+  const toggleWebSpeech = useCallback(() => {
+    if (!WebSpeech) return;
+    if (recState === 'recording') {
+      webSpeechRef.current?.stop();
+      return;
+    }
+    setRecError('');
+    try {
+      const r = new WebSpeech();
       r.lang = 'pt-BR';
       r.interimResults = false;
       r.continuous = false;
@@ -2470,15 +2566,36 @@ function ObservationStep({ onConfirm }) {
         const t = Array.from(e.results).map((x) => x[0].transcript).join(' ');
         setNote((prev) => (prev ? `${prev} ${t}` : t));
       };
-      r.onend = () => setListening(false);
-      r.onerror = () => setListening(false);
-      recRef.current = r;
-      setListening(true);
+      r.onend  = () => setRecState('idle');
+      r.onerror = () => { setRecState('error'); setRecError('Falha no reconhecimento de voz.'); };
+      webSpeechRef.current = r;
       r.start();
+      setRecState('recording');
     } catch {
-      setListening(false);
+      setRecState('error');
+      setRecError('Reconhecimento de voz não suportado.');
     }
-  };
+  }, [recState, WebSpeech]);
+
+  // Decide qual método usar: Whisper (produção) ou Web Speech (fallback local)
+  // Em produção o endpoint /api/transcribe sempre existe; em dev local sem
+  // wrangler rodando, usamos a Web Speech API como fallback gracioso.
+  const hasMicApi  = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+  const toggleMic  = hasMicApi ? toggleWhisper : toggleWebSpeech;
+  const micSupported = hasMicApi || !!WebSpeech;
+
+  // ── Labels e cores do botão por estado ──────────────────────────────────────
+  const micStyle = (() => {
+    if (recState === 'recording')     return { background: '#E53935', color: '#fff' };
+    if (recState === 'transcribing')  return { background: '#F2C200', color: '#fff' };
+    return { background: 'var(--brand-soft)', color: 'var(--brand)' };
+  })();
+
+  const micLabel = (() => {
+    if (recState === 'recording')    return 'Parar gravação';
+    if (recState === 'transcribing') return 'Transcrevendo…';
+    return 'Ditar observação por voz';
+  })();
 
   return (
     <div className="space-y-4">
@@ -2486,27 +2603,69 @@ function ObservationStep({ onConfirm }) {
         <p className="titulo-cursivo font-serif text-lg text-[#2B2A28]">Quer anotar uma observação?</p>
         <p className="text-sm text-[#7D766A] mt-1">Uma nota rápida enriquece seu histórico — algo que vai além dos números.</p>
       </div>
+
+      {/* Indicador de gravação em andamento */}
+      {recState === 'recording' && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl animate-pulse"
+          style={{ background: 'rgba(229,57,53,0.08)', border: '1px solid rgba(229,57,53,0.25)' }}>
+          <span className="w-2 h-2 rounded-full bg-[#E53935]" style={{ animation: 'pulse 1s infinite' }} />
+          <span className="text-xs font-medium text-[#E53935]">Gravando… toque no microfone para parar</span>
+        </div>
+      )}
+
+      {/* Indicador de transcrição em andamento */}
+      {recState === 'transcribing' && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+          style={{ background: 'rgba(242,194,0,0.10)', border: '1px solid rgba(242,194,0,0.3)' }}>
+          <span className="text-xs font-medium text-[#9A7A00]">⏳ Transcrevendo com Whisper AI…</span>
+        </div>
+      )}
+
+      {/* Erro de gravação/transcrição */}
+      {recState === 'error' && recError && (
+        <div className="px-3 py-2 rounded-xl text-xs"
+          style={{ background: 'rgba(189,90,74,0.08)', border: '1px solid rgba(189,90,74,0.25)', color: '#BD5A4A' }}>
+          {recError}
+        </div>
+      )}
+
       <div className="relative">
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={4}
           autoFocus
-          placeholder="Ex: começou ~40 min após o almoço, junto com estufamento…"
-          className="w-full rounded-xl border border-[#EDE7DD] p-3 pr-12 text-sm resize-none focus:outline-none"
+          disabled={recState === 'transcribing'}
+          placeholder="Ex: começou ~40 min após o almoço, junto com estufamento… (ou use o microfone)"
+          className="w-full rounded-xl border border-[#EDE7DD] p-3 pr-12 text-sm resize-none focus:outline-none disabled:opacity-60"
         />
-        <button type="button" onClick={toggleMic} disabled={!Rec}
-          aria-label="Ditar observação por voz"
-          title={Rec ? 'Ditar por voz' : 'Ditado por voz não suportado neste navegador'}
-          className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
-          style={listening ? { background: '#E53935', color: '#fff' } : { background: 'var(--brand-soft)', color: 'var(--brand)' }}>
+        <button
+          type="button"
+          onClick={toggleMic}
+          disabled={!micSupported || recState === 'transcribing'}
+          aria-label={micLabel}
+          title={micSupported ? micLabel : 'Microfone não disponível neste navegador'}
+          className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40"
+          style={micStyle}
+        >
           <Mic size={18} />
         </button>
       </div>
+
+      {/* Hint sobre Whisper */}
+      {micSupported && recState === 'idle' && (
+        <p className="text-[11px] text-[#B6AE9F] -mt-2">
+          🎙 Transcrição por IA (Whisper) — fale em português e o texto aparece automaticamente.
+        </p>
+      )}
+
       <SaveButton color="var(--brand)" onClick={() => onConfirm(note.trim())} label="Salvar registro" />
-      <button type="button" onClick={() => onConfirm('')}
+      <button
+        type="button"
+        onClick={() => onConfirm('')}
         className="w-full py-2.5 rounded-2xl border text-sm font-medium"
-        style={{ borderColor: '#E4DDD2', color: '#7D766A', background: '#FAF7F2' }}>
+        style={{ borderColor: '#E4DDD2', color: '#7D766A', background: '#FAF7F2' }}
+      >
         Salvar sem observação
       </button>
     </div>
