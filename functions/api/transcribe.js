@@ -39,13 +39,25 @@ export async function onRequestPost({ request, env }) {
     // sem estourar a pilha de execução / memória do Worker
     const audioArray = Array.from(new Uint8Array(audioBuffer));
 
-    // Chama o modelo Whisper via AI binding (seguro, server-side)
-    const result = await env.AI.run(
-      '@cf/openai/whisper-large-v3-turbo',
-      {
-        audio: audioArray,
-      }
-    );
+    let result;
+    try {
+      // Tenta rodar o modelo turbo primeiro
+      result = await env.AI.run(
+        '@cf/openai/whisper-large-v3-turbo',
+        {
+          audio: audioArray,
+        }
+      );
+    } catch (turboErr) {
+      console.warn('[transcribe] Whisper-large-v3-turbo falhou, tentando fallback para whisper standard:', turboErr);
+      // Fallback para o modelo whisper padrão caso o turbo esteja indisponível ou fora do ar
+      result = await env.AI.run(
+        '@cf/openai/whisper',
+        {
+          audio: audioArray,
+        }
+      );
+    }
 
     // Retorna a transcrição
     return Response.json({
@@ -54,7 +66,7 @@ export async function onRequestPost({ request, env }) {
   } catch (err) {
     console.error('[transcribe] Erro ao chamar Workers AI:', err);
     return Response.json(
-      { error: 'Falha na transcrição. Tente novamente.' },
+      { error: `Falha na transcrição: ${err.message || err.toString()}` },
       { status: 500 }
     );
   }

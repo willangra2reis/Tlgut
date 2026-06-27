@@ -2500,7 +2500,7 @@ function ObservationStep({ onConfirm }) {
       setRecState('idle');
     } catch (err) {
       console.error('[ObservationStep] Whisper error:', err);
-      setRecError('Não foi possível transcrever. Tente digitar manualmente.');
+      setRecError(err.message || 'Não foi possível transcrever. Tente digitar manualmente.');
       setRecState('error');
     }
   }, []);
