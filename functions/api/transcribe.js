@@ -35,11 +35,15 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ error: 'Áudio vazio.' }, { status: 400 });
     }
 
+    // Converte de maneira eficiente o Buffer para um Array normal
+    // sem estourar a pilha de execução / memória do Worker
+    const audioArray = Array.from(new Uint8Array(audioBuffer));
+
     // Chama o modelo Whisper via AI binding (seguro, server-side)
     const result = await env.AI.run(
       '@cf/openai/whisper-large-v3-turbo',
       {
-        audio: [...new Uint8Array(audioBuffer)],
+        audio: audioArray,
       }
     );
 
