@@ -124,3 +124,60 @@
 @media (prefers-reduced-motion: reduce) {
   .day-summary-mesh::before { animation: none; }
 }
+
+/* ─── Animações do ObservationStep (gravação por voz push-to-talk) ──────────
+   Pulso do mascote, onda sonora, breathing do texto e spinner de transcrição.
+   Respeitam prefers-reduced-motion. */
+@keyframes tgMascotePulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50%      { transform: scale(1.12); opacity: 1; }
+}
+.animate-mascote-pulse {
+  animation: tgMascotePulse 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-mascote-pulse { animation: none; opacity: 0.9; }
+}
+
+@keyframes tgWaveBar {
+  0%, 100% { transform: scaleY(0.25); }
+  50%      { transform: scaleY(1); }
+}
+.animate-wave-bar {
+  animation: tgWaveBar 0.55s ease-in-out infinite alternate;
+  transform-origin: bottom;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-wave-bar { animation: none; opacity: 0.5; }
+}
+
+@keyframes tgBreathing {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+.animate-breathing {
+  animation: tgBreathing 2.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-breathing { animation: none; opacity: 1; }
+}
+
+@keyframes tgDot {
+  0%, 30% { opacity: 0; }
+  70%, 100% { opacity: 1; }
+}
+.dots-anim span {
+  animation: tgDot 1.4s ease-in-out infinite;
+}
+.dots-anim span:nth-child(2) { animation-delay: 0.2s; }
+.dots-anim span:nth-child(3) { animation-delay: 0.4s; }
+@media (prefers-reduced-motion: reduce) {
+  .dots-anim span { animation: none; opacity: 1; }
+}
+
+@keyframes tgSpinner {
+  to { transform: rotate(360deg); }
+}
+.animate-spinner {
+  animation: tgSpinner 0.8s linear infinite;
+}

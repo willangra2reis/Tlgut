@@ -2455,30 +2455,50 @@ function EvacuationForm({ onSave }) {
 // Usa Whisper via Cloudflare Pages Function (/api/transcribe) como método
 // primário de transcrição. Faz fallback para Web Speech API se o endpoint
 // não estiver disponível (ex.: desenvolvimento local sem wrangler).
+// Funciona no estilo push-to-talk (estilo WhatsApp): pressiona e segura o
+// microfone para gravar; solta para enviar ao Whisper e transcrever.
 function ObservationStep({ onConfirm }) {
   const [note, setNote] = useState('');
 
   // Estados da gravação
   const [recState, setRecState] = useState('idle'); // 'idle' | 'recording' | 'transcribing' | 'error'
   const [recError, setRecError] = useState('');
+  const [timeLeft, setTimeLeft] = useState(30);
+
+  const MAX_REC_SECONDS = 30;
 
   // Refs de gravação
   const mediaRecRef = useRef(null);
   const chunksRef   = useRef([]);
   const streamRef   = useRef(null);
+  const timerRef    = useRef(null);
+  const shouldRecordRef = useRef(false);
 
   // Web Speech API — fallback para dev local sem wrangler
   const WebSpeech = typeof window !== 'undefined'
     ? (window.SpeechRecognition || window.webkitSpeechRecognition)
     : null;
 
-  // ── Limpa o stream de microfone ao desmontar ────────────────────────────────
+  // ── Limpa o stream de microfone e timer ao desmontar ────────────────────────
   useEffect(() => {
     return () => {
+      clearInterval(timerRef.current);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
     };
+  }, []);
+
+  // ── Para a gravação e dispara onstop → transcribeBlob ──────────────────────
+  const stopRecording = useCallback(() => {
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+    setTimeLeft(MAX_REC_SECONDS);
+    mediaRecRef.current?.stop();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
   }, []);
 
   // ── Envia o blob de áudio para a Pages Function ─────────────────────────────
@@ -2505,26 +2525,24 @@ function ObservationStep({ onConfirm }) {
     }
   }, []);
 
-  // ── Inicia/para a gravação com MediaRecorder ────────────────────────────────
-  const toggleWhisper = useCallback(async () => {
-    if (recState === 'recording') {
-      // Para a gravação → dispara ondataavailable → onstop
-      mediaRecRef.current?.stop();
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-      }
-      return;
-    }
-
+  // ── Inicia a gravação com MediaRecorder ─────────────────────────────────────
+  const startRecording = useCallback(async () => {
     setRecError('');
     chunksRef.current = [];
+    setTimeLeft(MAX_REC_SECONDS);
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Se o usuário soltou antes do microfone ser ativado, aborta
+      if (!shouldRecordRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecState('idle');
+        return;
+      }
+
       streamRef.current = stream;
 
-      // Escolhe o formato suportado pelo navegador
       const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
         .find((m) => MediaRecorder.isTypeSupported(m)) || '';
 
@@ -2536,17 +2554,29 @@ function ObservationStep({ onConfirm }) {
       };
       rec.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
-        transcribeBlob(blob);
+        if (blob.size > 0) transcribeBlob(blob);
+        else setRecState('idle');
       };
 
       rec.start();
       setRecState('recording');
+
+      // Timer regressivo de 30s — para automaticamente ao fim
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            stopRecording();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } catch (err) {
       console.error('[ObservationStep] Microfone negado:', err);
       setRecError('Permissão de microfone negada. Verifique as configurações do navegador.');
       setRecState('error');
     }
-  }, [recState, transcribeBlob]);
+  }, [transcribeBlob, stopRecording]);
 
   // ── Fallback: Web Speech API (desenvolvimento local) ────────────────────────
   const webSpeechRef = useRef(null);
@@ -2577,25 +2607,29 @@ function ObservationStep({ onConfirm }) {
     }
   }, [recState, WebSpeech]);
 
-  // Decide qual método usar: Whisper (produção) ou Web Speech (fallback local)
-  // Em produção o endpoint /api/transcribe sempre existe; em dev local sem
-  // wrangler rodando, usamos a Web Speech API como fallback gracioso.
   const hasMicApi  = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
-  const toggleMic  = hasMicApi ? toggleWhisper : toggleWebSpeech;
   const micSupported = hasMicApi || !!WebSpeech;
 
-  // ── Labels e cores do botão por estado ──────────────────────────────────────
-  const micStyle = (() => {
-    if (recState === 'recording')     return { background: '#E53935', color: '#fff' };
-    if (recState === 'transcribing')  return { background: '#F2C200', color: '#fff' };
-    return { background: 'var(--brand-soft)', color: 'var(--brand)' };
-  })();
+  // ── Push-to-talk: handlers de pointer ──────────────────────────────────────
+  const handleMicDown = useCallback((e) => {
+    if (recState !== 'idle' || !hasMicApi) return;
+    e.preventDefault();
+    shouldRecordRef.current = true;
+    startRecording();
+  }, [recState, hasMicApi, startRecording]);
 
-  const micLabel = (() => {
-    if (recState === 'recording')    return 'Parar gravação';
-    if (recState === 'transcribing') return 'Transcrevendo…';
-    return 'Ditar observação por voz';
-  })();
+  const handleMicUp = useCallback((e) => {
+    shouldRecordRef.current = false;
+    if (recState !== 'recording') return;
+    e.preventDefault();
+    stopRecording();
+  }, [recState, stopRecording]);
+
+  // Fallback toggle para Web Speech API (dev local sem mic API)
+  const handleMicClickFallback = useCallback(() => {
+    if (hasMicApi) return;
+    toggleWebSpeech();
+  }, [hasMicApi, toggleWebSpeech]);
 
   return (
     <div className="space-y-4">
@@ -2604,24 +2638,57 @@ function ObservationStep({ onConfirm }) {
         <p className="text-sm text-[#7D766A] mt-1">Uma nota rápida enriquece seu histórico — algo que vai além dos números.</p>
       </div>
 
-      {/* Indicador de gravação em andamento */}
+      {/* ── Card de gravação (push-to-talk ativo) ────────────────────────── */}
       {recState === 'recording' && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl animate-pulse"
-          style={{ background: 'rgba(229,57,53,0.08)', border: '1px solid rgba(229,57,53,0.25)' }}>
-          <span className="w-2 h-2 rounded-full bg-[#E53935]" style={{ animation: 'pulse 1s infinite' }} />
-          <span className="text-xs font-medium text-[#E53935]">Gravando… toque no microfone para parar</span>
+        <div className="rounded-xl border border-[#D8D1C4] p-5 flex flex-col items-center gap-3"
+          style={{ background: 'rgba(47,107,67,0.04)' }}>
+          {/* Mascote com pulso lento */}
+          <img
+            src={mascoteImage}
+            alt=""
+            className="w-16 h-16 object-contain animate-mascote-pulse"
+          />
+          {/* Texto com breathing */}
+          <p className="text-sm font-medium text-[#2B2A28] animate-breathing">
+            Estou te escutando
+            <span className="dots-anim">
+              <span>.</span><span>.</span><span>.</span>
+            </span>
+          </p>
+          {/* Timer com bolinha pulsante */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#E53935] animate-pulse" />
+            <span className="text-xs font-medium text-[#E53935]">{timeLeft}s</span>
+          </div>
+          {/* Barras de onda sonora */}
+          <div className="flex items-end gap-1 h-8">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="w-1.5 rounded-full animate-wave-bar"
+                style={{
+                  height: `${35 + i * 15}%`,
+                  background: 'var(--brand)',
+                  animationDelay: `${i * 0.12}s`,
+                }}
+              />
+            ))}
+          </div>
+          {/* Instrução */}
+          <p className="text-xs text-[#B6AE9F]">Solte para enviar</p>
         </div>
       )}
 
-      {/* Indicador de transcrição em andamento */}
+      {/* ── Indicador de transcrição ─────────────────────────────────────── */}
       {recState === 'transcribing' && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
           style={{ background: 'rgba(242,194,0,0.10)', border: '1px solid rgba(242,194,0,0.3)' }}>
-          <span className="text-xs font-medium text-[#9A7A00]">⏳ Transcrevendo com Whisper AI…</span>
+          <div className="w-4 h-4 border-2 border-[#9A7A00] border-t-transparent rounded-full animate-spinner" />
+          <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo com Whisper AI…</span>
         </div>
       )}
 
-      {/* Erro de gravação/transcrição */}
+      {/* ── Erro ─────────────────────────────────────────────────────────── */}
       {recState === 'error' && recError && (
         <div className="px-3 py-2 rounded-xl text-xs"
           style={{ background: 'rgba(189,90,74,0.08)', border: '1px solid rgba(189,90,74,0.25)', color: '#BD5A4A' }}>
@@ -2629,45 +2696,77 @@ function ObservationStep({ onConfirm }) {
         </div>
       )}
 
+      {/* ── Textarea + botão microfone ──────────────────────────────────────
+          O botão fica sempre no mesmo lugar (absolute) para que os eventos
+          de pointer (push-to-talk) funcionem corretamente. */}
       <div className="relative">
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={4}
           autoFocus
-          disabled={recState === 'transcribing'}
+          disabled={recState === 'transcribing' || recState === 'recording'}
           placeholder="Ex: começou ~40 min após o almoço, junto com estufamento… (ou use o microfone)"
           className="w-full rounded-xl border border-[#EDE7DD] p-3 pr-12 text-sm resize-none focus:outline-none disabled:opacity-60"
         />
-        <button
-          type="button"
-          onClick={toggleMic}
-          disabled={!micSupported || recState === 'transcribing'}
-          aria-label={micLabel}
-          title={micSupported ? micLabel : 'Microfone não disponível neste navegador'}
-          className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40"
-          style={micStyle}
-        >
-          <Mic size={18} />
-        </button>
+        {hasMicApi ? (
+          <button
+            type="button"
+            onPointerDown={handleMicDown}
+            onPointerUp={handleMicUp}
+            disabled={recState === 'transcribing'}
+            aria-label="Pressione e segure para gravar"
+            title={recState === 'recording' ? 'Solte para enviar' : 'Pressione e segure para gravar'}
+            className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40 active:scale-95 select-none"
+            style={
+              recState === 'recording'
+                ? { background: '#E53935', color: '#fff' }
+                : { background: 'var(--brand-soft)', color: 'var(--brand)' }
+            }
+          >
+            <Mic size={18} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleMicClickFallback}
+            disabled={!micSupported || recState === 'transcribing'}
+            aria-label="Ditar observação por voz"
+            title={micSupported ? 'Ditar observação por voz' : 'Microfone não disponível neste navegador'}
+            className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40"
+            style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+          >
+            <Mic size={18} />
+          </button>
+        )}
       </div>
 
-      {/* Hint sobre Whisper */}
+      {/* ── Hints ────────────────────────────────────────────────────────── */}
       {micSupported && recState === 'idle' && (
         <p className="text-[11px] text-[#B6AE9F] -mt-2">
-          🎙 Transcrição por IA (Whisper) — fale em português e o texto aparece automaticamente.
+          🎙 Pressione e segure o microfone para gravar — transcrição por IA (Whisper)
+        </p>
+      )}
+      {micSupported && recState === 'recording' && (
+        <p className="text-[11px] text-[#B6AE9F] -mt-1 text-center">
+          A gravação para automaticamente em 30s
         </p>
       )}
 
-      <SaveButton color="var(--brand)" onClick={() => onConfirm(note.trim())} label="Salvar registro" />
-      <button
-        type="button"
-        onClick={() => onConfirm('')}
-        className="w-full py-2.5 rounded-2xl border text-sm font-medium"
-        style={{ borderColor: '#E4DDD2', color: '#7D766A', background: '#FAF7F2' }}
-      >
-        Salvar sem observação
-      </button>
+      {/* ── Botões de confirmação (ocultos durante gravação) ─────────────── */}
+      {recState !== 'recording' && (
+        <>
+          <SaveButton color="var(--brand)" onClick={() => onConfirm(note.trim())} label="Salvar registro" />
+          <button
+            type="button"
+            onClick={() => onConfirm('')}
+            className="w-full py-2.5 rounded-2xl border text-sm font-medium"
+            style={{ borderColor: '#E4DDD2', color: '#7D766A', background: '#FAF7F2' }}
+          >
+            Salvar sem observação
+          </button>
+        </>
+      )}
     </div>
   );
 }
