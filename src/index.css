@@ -181,3 +181,16 @@
 .animate-spinner {
   animation: tgSpinner 0.8s linear infinite;
 }
+
+/* ─── Pulso sutil do botão microfone (idle) ──────────────────────────────────
+   Chama atenção para o recurso de voz sem ser agressivo. */
+@keyframes tgMicPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47,107,67,0.35); }
+  50%      { box-shadow: 0 0 0 6px rgba(47,107,67,0); }
+}
+.animate-mic-pulse {
+  animation: tgMicPulse 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-mic-pulse { animation: none; }
+}

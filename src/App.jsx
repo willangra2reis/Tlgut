@@ -2520,7 +2520,12 @@ function ObservationStep({ onConfirm }) {
       setRecState('idle');
     } catch (err) {
       console.error('[ObservationStep] Whisper error:', err);
-      setRecError(err.message || 'Não foi possível transcrever. Tente digitar manualmente.');
+      const msg = err.message || '';
+      if (/fetch|NetworkError|Failed to fetch|HTTP 5/.test(msg)) {
+        setRecError('Sem conexão com o servidor. Escreva manualmente por gentileza.');
+      } else {
+        setRecError('Não foi possível transcrever. Tente digitar manualmente.');
+      }
       setRecState('error');
     }
   }, []);
@@ -2634,7 +2639,7 @@ function ObservationStep({ onConfirm }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="titulo-cursivo font-serif text-lg text-[#2B2A28]">Quer anotar uma observação?</p>
+        <p className="titulo-cursivo font-serif text-xl text-[#2B2A28]">Quer anotar uma observação?</p>
         <p className="text-sm text-[#7D766A] mt-1">Uma nota rápida enriquece seu histórico — algo que vai além dos números.</p>
       </div>
 
@@ -2717,7 +2722,7 @@ function ObservationStep({ onConfirm }) {
             disabled={recState === 'transcribing'}
             aria-label="Pressione e segure para gravar"
             title={recState === 'recording' ? 'Solte para enviar' : 'Pressione e segure para gravar'}
-            className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40 active:scale-95 select-none"
+            className={`absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40 active:scale-95 select-none ${recState === 'idle' ? 'animate-mic-pulse' : ''}`}
             style={
               recState === 'recording'
                 ? { background: '#E53935', color: '#fff' }
@@ -2744,7 +2749,7 @@ function ObservationStep({ onConfirm }) {
       {/* ── Hints ────────────────────────────────────────────────────────── */}
       {micSupported && recState === 'idle' && (
         <p className="text-[11px] text-[#B6AE9F] -mt-2">
-          🎙 Pressione e segure o microfone para gravar — transcrição por IA (Whisper)
+          🎙 Pressione e segure o microfone para gravar
         </p>
       )}
       {micSupported && recState === 'recording' && (
@@ -3424,7 +3429,7 @@ export default function App() {
               <button onClick={() => { if (pending) setPending(null); else { setActiveForm(null); setSheetOpen(true); } }} className="text-[#B6AE9F]">
                 <ChevronLeft size={20} />
               </button>
-              <p className="titulo-cursivo font-serif text-base text-[#2B2A28]">{activeForm && ENTRY_TYPES[activeForm].label}</p>
+              <p className="titulo-cursivo font-serif text-xl text-[#2B2A28]">{activeForm && ENTRY_TYPES[activeForm].label}</p>
               <button onClick={() => { setPending(null); setActiveForm(null); }} className="text-[#B6AE9F]"><X size={20} /></button>
             </div>
             <div className="px-5 py-4 overflow-y-auto flex-1">
