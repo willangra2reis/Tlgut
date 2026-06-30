@@ -60,7 +60,7 @@ ${registrosTexto}`;
   try {
     const result = await env.AI.run(model, {
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 2048,
+      max_tokens: 4096,
     });
 
     const text = result.response || result.choices?.[0]?.message?.content || '';

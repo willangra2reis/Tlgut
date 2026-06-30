@@ -1755,7 +1755,7 @@ function RelatoriasIAScreen({ entries }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative z-10">
       <div className={CARDS_CLASS} style={{ background: CARDS_BG, borderColor: CARDS_BORDER }}>
         <div className="flex items-center gap-3">
           <span className="w-10 h-10 rounded-full flex items-center justify-center"
