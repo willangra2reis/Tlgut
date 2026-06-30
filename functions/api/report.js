@@ -10,7 +10,7 @@ const MODELO_PADRAO = '@cf/zai-org/glm-4.7-flash';
 export async function onRequestPost({ request, env }) {
   if (!env.AI) {
     return Response.json(
-      { error: 'AI binding não configurado. Adicione o binding "AI" nas configurações do Cloudflare Pages.' },
+      { error: 'AI binding não configurado.' },
       { status: 503 }
     );
   }
@@ -26,7 +26,7 @@ export async function onRequestPost({ request, env }) {
 
   if (!MODELOS_PERMITIDOS.includes(model)) {
     return Response.json({
-      error: `Modelo "${model}" não suportado. Disponíveis: ${MODELOS_PERMITIDOS.join(', ')}`,
+      error: `Modelo "${model}" não suportado.`,
     }, { status: 400 });
   }
 
@@ -46,17 +46,31 @@ export async function onRequestPost({ request, env }) {
     );
   }
 
-  const prompt = `Você é um assistente de saúde gastrointestinal. Analise os registros abaixo e gere um relatório em português brasileiro com:
+  const prompt = `Você é um assistente de saúde gastrointestinal. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro.
 
-1. **Resumo geral** — visão geral dos últimos dias
-2. **Padrões observados** — conexões entre alimentação, hidratação, sono, exercício e sintomas
-3. **Sugestões práticas** — observações úteis baseadas nos dados, sem diagnóstico médico
-4. **Perguntas** — Formule 5 perguntas baseda nessa analise para que o usuario faça ao seu médico para quando ele for se consultar essas perguntas deve ter profundidade. 
+Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
+{
+  "resumo_executivo": "Resumo curto (2-3 frases) sobre o período analisado",
+  "correlacoes": [
+    { "titulo": "Título curto da correlação", "descricao": "Explicação detalhada baseada nos dados" }
+  ],
+  "perguntas_medico": [
+    "Pergunta específica para o paciente levar ao médico",
+    "Outra pergunta relevante"
+  ]
+}
 
-Seja objetivo, use linguagem acessível. Não faça diagnósticos nem recomende medicamentos.
+Regras:
+- No mínimo 3 e no máximo 6 correlações
+- No mínimo 3 perguntas para o médico
+- Use linguagem acessível, sem diagnóstico médico
+- Correlações devem ser baseadas APENAS nos dados fornecidos
+- Perguntas devem ser específicas e úteis para uma consulta gastroenterológica
 
-Registros:
+Registros para análise:
 ${registrosTexto}`;
+
+  let rawText = '';
 
   try {
     const result = await env.AI.run(model, {
@@ -64,30 +78,70 @@ ${registrosTexto}`;
       max_tokens: 4096,
     });
 
-    const text = result.response || result.choices?.[0]?.message?.content || '';
-
-    if (!text) {
+    rawText = (result.response || result.choices?.[0]?.message?.content || '').trim();
+    if (!rawText) {
       return Response.json({ error: 'Modelo não retornou texto.' }, { status: 502 });
     }
 
+    const report = parseReportJSON(rawText);
     return Response.json({
-      text: text.trim(),
+      report,
       model,
       generated_at: new Date().toISOString(),
     });
   } catch (err) {
-    console.error('[report] Erro ao chamar Workers AI:', err);
+    console.error('[report] Erro:', err);
+    const report = parseReportJSON(rawText);
+    if (report) {
+      return Response.json({ report, model, generated_at: new Date().toISOString() });
+    }
     return Response.json(
-      { error: `Falha ao gerar relatório com ${model}: ${err.message || err}` },
+      { error: `Falha ao gerar relatório: ${err.message || err}` },
       { status: 500 }
     );
   }
 }
 
+function parseReportJSON(raw) {
+  if (!raw) return null;
+
+  const tentar = (texto) => {
+    try {
+      const obj = JSON.parse(texto);
+      if (valido(obj)) return obj;
+    } catch {}
+    return null;
+  };
+
+  const result = tentar(raw);
+  if (result) return result;
+
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    const extraido = tentar(jsonMatch[0]);
+    if (extraido) return extraido;
+  }
+
+  return {
+    resumo_executivo: raw,
+    correlacoes: [],
+    perguntas_medico: [],
+    isRaw: true,
+  };
+}
+
+function valido(obj) {
+  return obj &&
+    typeof obj.resumo_executivo === 'string' &&
+    obj.resumo_executivo.length > 0 &&
+    Array.isArray(obj.correlacoes) &&
+    (obj.perguntas_medico === undefined || Array.isArray(obj.perguntas_medico));
+}
+
 function formatEntry(e) {
-  const dia = e.day === 'hoje' ? 'Hoje' : e.day === 'ontem' ? 'Ontem' : e.day;
+  const dia = e.day || '';
   const horario = e.time || '';
-  const titulo = e.title || e.type;
+  const titulo = e.title || e.type || '';
   const desc = e.description || '';
   const metaStr = formatMeta(e);
   return `${dia} ${horario} — ${titulo}: ${desc}${metaStr}`;

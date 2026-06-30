@@ -7,12 +7,13 @@ import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
-  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, ThumbsUp,
+  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag,
 } from 'lucide-react';
 import {
   BRISTOL_DESCRICOES, EVAC_CORES, EVAC_ODORES, buildEvacuationEntry,
   periodoDoDia, horaLocalAtual, contarPorTipo, removerEntrada,
   GAS_INTENSIDADES, GAS_ODORES, GAS_ALIVIO, GAS_SOM, buildGasEntry,
+  gerarDadosRelatorioMock,
 } from './lib/diary.js';
 import {
   gerarHistoricoMock, seriePorDia, mediaMovel,
@@ -20,6 +21,7 @@ import {
   faseDoCiclo,
   DIA,
 } from './lib/insights.js';
+import RelatoriasIAScreen from './components/RelatoriasIAScreen';
 
 const ENTRY_TYPES = {
   meal:       { label: 'Refeição',   icon: Utensils, color: '#C9763A', soft: '#F6E9DD' },
@@ -41,15 +43,6 @@ const CHIP_LABELS = {
   medication: 'Medicamento',
   cycle: 'Ciclo',
 };
-
-// Modelos de IA disponíveis para o Relatório IA.
-const MODELOS = [
-  { id: '@cf/zai-org/glm-4.7-flash',         label: 'GLM 4.7 Flash',     descricao: 'Multilíngue, rápido, 131K de contexto',     recommended: true },
-  { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B', descricao: 'MoE com 16 especialistas, Meta',              recommended: false },
-  { id: '@cf/google/gemma-4-26b-a4b-it',      label: 'Gemma 4 26B',      descricao: 'Alta inteligência por parâmetro, Google',     recommended: false },
-  { id: '@cf/openai/gpt-oss-120b',            label: 'GPT-OSS 120B',     descricao: 'Modelo grande, alta capacidade, OpenAI',      recommended: false },
-];
-const MODELO_PADRAO = '@cf/zai-org/glm-4.7-flash';
 
 // Abas do Menu_Inferior (RF 3.1). "Aulas" substitui a antiga aba "Hábitos".
 // Ordem: Diário, Insights, Aulas, Perfil. A navegação por gesto (swipe) usa
@@ -1640,201 +1633,7 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
   );
 }
 
-function RelatoriasIAScreen({ entries }) {
-  const [reports, setReports] = useState({});
-  const [compareMode, setCompareMode] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(MODELO_PADRAO);
-  const [votes, setVotes] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('tlgut_model_votes') || '{}'); }
-    catch { return {}; }
-  });
 
-  const CARDS_CLASS = "rounded-2xl border p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]";
-  const CARDS_BG = 'rgba(255,255,255,1)';
-  const CARDS_BORDER = 'rgba(150,140,120,0.25)';
-  const CARDS_BG_DARK = 'rgba(255,255,255,1)';
-
-  const gerarRelatorio = useCallback(async (entries, model) => {
-    const res = await fetch('/api/report', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entries, model }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    return await res.json();
-  }, []);
-
-  async function handleGerar() {
-    if (!Array.isArray(entries) || entries.length === 0) {
-      setReports({ _empty: { error: 'Você ainda não tem registros. Adicione entradas no diário primeiro.' } });
-      return;
-    }
-
-    if (compareMode) {
-      const models = MODELOS.map(m => m.id);
-      const init = {};
-      models.forEach(m => { init[m] = { loading: true, text: null, error: null }; });
-      setReports(init);
-
-      const results = await Promise.allSettled(models.map(m =>
-        gerarRelatorio(entries, m).then(r => ({ model: m, text: r.text })).catch(e => ({ model: m, error: e.message }))
-      ));
-
-      const next = {};
-      results.forEach(r => {
-        if (r.status === 'fulfilled') {
-          next[r.value.model] = { loading: false, text: r.value.text || '', error: r.value.error || null };
-        } else {
-          next[r.reason.model] = { loading: false, text: null, error: r.reason.message || 'Erro desconhecido' };
-        }
-      });
-      setReports(next);
-    } else {
-      setReports({ [selectedModel]: { loading: true, text: null, error: null } });
-      try {
-        const r = await gerarRelatorio(entries, selectedModel);
-        setReports({ [selectedModel]: { loading: false, text: r.text, error: null } });
-      } catch (err) {
-        setReports({ [selectedModel]: { loading: false, text: null, error: err.message } });
-      }
-    }
-  }
-
-  function votar(model) {
-    const novosVotos = { ...votes, [model]: (votes[model] || 0) + 1 };
-    setVotes(novosVotos);
-    localStorage.setItem('tlgut_model_votes', JSON.stringify(novosVotos));
-  }
-
-  const hasResults = Object.keys(reports).some(k => k !== '_empty');
-
-  function renderCard(modelId, { text, error, loading } = {}, mostrarVoto) {
-    const modelo = MODELOS.find(m => m.id === modelId);
-    const nomeModelo = modelo ? modelo.label : modelId;
-    return (
-      <div key={modelId} className={CARDS_CLASS}
-        style={{ background: loading ? CARDS_BG : CARDS_BG_DARK, borderColor: CARDS_BORDER }}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{ background: modelo?.recommended ? 'rgba(74,138,92,0.12)' : 'rgba(100,100,100,0.08)', color: modelo?.recommended ? '#4A8A5C' : '#7D766A' }}>
-            {nomeModelo}{modelo?.recommended ? ' ★' : ''}
-          </span>
-          {mostrarVoto && !loading && !error && (
-            <button type="button" onClick={() => votar(modelId)}
-              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
-              style={{ color: '#7D766A' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(74,138,92,0.1)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <ThumbsUp size={14} />
-              {(votes[modelId] || 0) > 0 && <span>{votes[modelId]}</span>}
-            </button>
-          )}
-        </div>
-        {loading && (
-          <div className="flex items-center gap-2 py-6">
-            <span className="w-5 h-5 border-2 rounded-full animate-spinner"
-              style={{ borderColor: '#D0CAB8', borderTopColor: '#4A8A5C' }} />
-            <span className="text-sm text-[#7D766A]">Gerando relatório...</span>
-          </div>
-        )}
-        {error && (
-          <div className="py-3">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-        )}
-        {text && (
-          <div className="text-sm text-[#4A443F] leading-relaxed whitespace-pre-wrap max-h-80 overflow-y-auto">
-            {text}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4 relative z-10">
-      <div className={CARDS_CLASS} style={{ background: CARDS_BG, borderColor: CARDS_BORDER }}>
-        <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(127,200,140,0.18)', color: '#4A8A5C' }}>
-            <Lightbulb size={20} />
-          </span>
-          <div>
-            <p className="font-medium text-[#2B2A28]">Relatório com IA</p>
-            <p className="text-xs text-[#7D766A]">Resumo personalizado dos seus registros</p>
-          </div>
-        </div>
-
-        <p className="text-sm text-[#4A443F] mt-3 leading-relaxed">
-          A IA analisa seus sintomas, alimentação, sono e humor para apontar padrões e sugerir pontos de atenção de forma clara e objetiva.
-        </p>
-
-        {!compareMode && (
-          <div className="mt-3 space-y-1.5">
-            <p className="text-xs font-medium text-[#7D766A]">Modelo de IA:</p>
-            {MODELOS.map(m => (
-              <label key={m.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer transition-colors"
-                style={{ background: selectedModel === m.id ? 'rgba(74,138,92,0.08)' : 'transparent' }}>
-                <input type="radio" name="aiModel" value={m.id} checked={selectedModel === m.id}
-                  onChange={() => setSelectedModel(m.id)} className="accent-[#4A8A5C]" />
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-[#2B2A28]">{m.label}</span>
-                  {m.recommended && <span className="text-[10px] ml-1.5 px-1.5 py-0.5 rounded-full"
-                    style={{ background: 'rgba(74,138,92,0.12)', color: '#4A8A5C' }}>Recomendado</span>}
-                  <p className="text-[11px] text-[#7D766A] truncate">{m.descricao}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        )}
-
-        <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
-          <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)}
-            className="accent-[#4A8A5C]" />
-          <span className="text-sm text-[#4A443F]">Comparar todos os modelos</span>
-        </label>
-
-        <button type="button" onClick={handleGerar}
-          disabled={Object.values(reports).some(r => r?.loading)}
-          className="mt-3 w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-60 transition-opacity"
-          style={{ background: 'var(--brand)', color: '#fff' }}>
-          {Object.values(reports).some(r => r?.loading) ? 'Gerando...' : hasResults ? 'Gerar novamente' : 'Gerar relatório'}
-        </button>
-      </div>
-
-      {hasResults && !compareMode && reports[selectedModel] && (
-        <div>
-          {renderCard(selectedModel, reports[selectedModel], false)}
-        </div>
-      )}
-
-      {hasResults && compareMode && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {MODELOS.map(m => {
-            if (!reports[m.id]) return null;
-            return renderCard(m.id, reports[m.id], true);
-          })}
-        </div>
-      )}
-
-      {reports._empty && (
-        <div className={CARDS_CLASS} style={{ background: CARDS_BG, borderColor: CARDS_BORDER }}>
-          <p className="text-sm text-[#7D766A]">{reports._empty.error}</p>
-        </div>
-      )}
-
-      {hasResults && (
-        <p className="text-[11px] text-[#7D766A] italic leading-snug">
-          Relatório gerado por IA com base nos seus registros. Não substitui avaliação médica.
-        </p>
-      )}
-    </div>
-  );
-}
 
 function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const history = useMemo(() => gerarHistoricoMock(), []);

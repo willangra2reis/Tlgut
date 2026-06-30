@@ -98,6 +98,93 @@ export const GAS_ALIVIO = ['Aliviou', 'Continua estufado'];
 export const GAS_SOM = ['Silencioso', 'Ruidoso'];
 
 // Normaliza o formulário de Gases numa entrada válida; todos os campos opcionais.
+// ─── Gerador de dados mock enriquecidos para Relatório IA ────────────────────
+// Gera ~80 entries distribuídos pelos últimos 90 dias com ts, day, time reais.
+// Usado apenas pelo RelatoriasIAScreen enquanto Supabase não está integrado.
+export function gerarDadosRelatorioMock() {
+  const agora = Date.now();
+  const DIA = 86400000;
+  const entries = [];
+  let id = 1000;
+
+  const comidas = ['Arroz, feijão e bife', 'Salada com frango grelhado', 'Macarrão ao sugo', 'Sopa de legumes', 'Pão com ovo', 'Omelete com queijo', 'Peixe cozido com batatas', 'Sanduíche natural', 'Frutas com iogurte', 'Café com leite e biscoito', 'Açaí com granola', 'Lasanha', 'Arroz integral com legumes', 'Batata assada com carne moída', 'Panqueca de frango'];
+  const bebidas = ['Café', 'Suco de laranja', 'Chá de camomila', 'Água de coco', 'Chá verde', 'Refrigerante', 'Suco de limão', 'Chá de hortelã', 'Leite morno', 'Suco de maracujá'];
+  const dores = ['Cólica', 'Queimação', 'Pontada', 'Peso no estômago', 'Cólica intensa', 'Desconforto difuso', 'Cólica leve'];
+  const orgaos = ['estomago', 'colon_sig', 'intestino_delgado', 'colon_desc', 'figado'];
+  const humores = ['Normal', 'Ansioso', 'Cansado', 'Irritado', 'Calmo', 'Alegre', 'Triste'];
+  const alimentos = ['Feijão', 'Leite', 'Pão/Trigo', 'Frituras', 'Açúcar/Doce', 'Álcool', 'Café', 'Picante', 'Refrigerante', 'Ovo'];
+
+  function mt(h, m) { return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; }
+  function pick(arr, seed) { return arr[(seed * 7 + 13) % arr.length]; }
+
+  for (let dAtras = 89; dAtras >= 0; dAtras--) {
+    const diaTs = agora - dAtras * DIA;
+    const data = new Date(diaTs);
+    const day = `${String(data.getDate()).padStart(2, '0')}/${String(data.getMonth() + 1).padStart(2, '0')}`;
+    const baseSeed = dAtras * 13 + 7;
+    const r = (i) => (baseSeed * (i + 1) * 7 + 11) % 1000 / 1000;
+
+    const push = (type, title, desc, meta, h, m) => {
+      entries.push({ id: id++, type, day, time: mt(h, m), ts: diaTs + h * 3600000 + m * 60000, title, description: desc, meta });
+    };
+
+    // Café da manhã (~07:00-08:30)
+    push('meal', 'Café da manhã', pick(comidas, baseSeed), { tags: [pick(alimentos, baseSeed)], ritmo: 'Normal', saciedade: 'Satisfeito' }, 7, 15 + Math.floor(r(1) * 60));
+
+    // Almoço (~11:30-13:00)
+    push('meal', 'Almoço', pick(comidas, baseSeed + 1), { tags: [pick(alimentos, baseSeed + 1), pick(alimentos, baseSeed + 2)], heavy: r(2) > 0.6 }, 11, 30 + Math.floor(r(3) * 90));
+
+    // Jantar (~18:00-20:00)
+    push('meal', 'Jantar', pick(comidas, baseSeed + 3), { tags: [pick(alimentos, baseSeed + 3)], ritmo: 'Lento' }, 18, Math.floor(r(4) * 120));
+
+    // Água (3-5 ao longo do dia)
+    for (let w = 0; w < 3 + Math.floor(r(5) * 3); w++) {
+      const hA = 7 + Math.floor(r(6 + w * 3) * 14);
+      push('water', 'Hidratação', `1 copo de água (~250 ml)`, {}, hA, Math.floor(r(7 + w * 3) * 60));
+    }
+
+    // Sono (se for noite)
+    push('sleep', 'Sono', r(8) > 0.3 ? 'Sono tranquilo' : 'Acordou 1x à noite', { quality: 2 + Math.floor(r(9) * 4) }, 23, Math.floor(r(10) * 30));
+
+    // Humor (1-2 por dia)
+    push('mood', pick(humores, baseSeed + 4), pick(humores, baseSeed + 4), { score: 1 + Math.floor(r(11) * 5) }, 10 + Math.floor(r(12) * 10), Math.floor(r(13) * 60));
+
+    // Exercício (a cada 2-3 dias)
+    if (r(14) > 0.65) {
+      push('exercise', 'Exercício', `Caminhada · ${20 + Math.floor(r(15) * 40)} min · Intensidade ${r(16) > 0.5 ? 'moderada' : 'leve'}`, {}, 8 + Math.floor(r(17) * 4), Math.floor(r(18) * 60));
+    }
+
+    // Evacuação (1-2 por dia)
+    const bristolVal = 1 + Math.floor(r(19) * 7);
+    push('evacuation', `Evacuação (Bristol ${bristolVal})`, BRISTOL_DESCRICOES[bristolVal],
+      { bristol: bristolVal, cor: pick(EVAC_CORES, baseSeed + 5), esforco: 1 + Math.floor(r(20) * 5) },
+      7 + Math.floor(r(21) * 14), Math.floor(r(22) * 60));
+
+    // Dor (0-2 por dia, com padrões: mais dias com gordura = mais dor)
+    if (r(23) > 0.5) {
+      const intensidade = 3 + Math.floor(r(24) * 6);
+      push('pain', pick(dores, baseSeed + 6), `${pick(dores, baseSeed + 6)} · intensidade ${intensidade}`,
+        { intensity: intensidade, organ: pick(orgaos, baseSeed + 7) },
+        13 + Math.floor(r(25) * 8), Math.floor(r(26) * 60));
+    }
+
+    // Gases (0-1 por dia)
+    if (r(27) > 0.55) {
+      push('gas', 'Gases', 'Gases moderados', { intensidade: 'Moderado', odor: 'Leve', alivio: 'Aliviou' },
+        14 + Math.floor(r(28) * 8), Math.floor(r(29) * 60));
+    }
+
+    // Medicamento (a cada 3-4 dias)
+    if (r(30) > 0.7) {
+      push('medication', 'Medicamento', pick(['Probiótico', 'Antibiótico', 'Vitamina D', 'Ômega 3', 'Magnésio'], baseSeed + 8),
+        { tags: [pick(['Probiótico', 'Antibiótico', 'Vitamina', 'Suplemento'], baseSeed + 8)] },
+        8 + Math.floor(r(31) * 3), Math.floor(r(32) * 60));
+    }
+  }
+
+  return entries.sort((a, b) => b.ts - a.ts);
+}
+
 export function buildGasEntry(form) {
   const f = form || {};
   const intensidade = GAS_INTENSIDADES.includes(f.intensidade) ? f.intensidade : null;
