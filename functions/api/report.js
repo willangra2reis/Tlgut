@@ -51,7 +51,7 @@ export async function onRequestPost({ request, env }) {
 
 ${dataConsultaStr}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
 {
-  "resumo_executivo": "Texto narrativo longo (4-8 frases) com análise detalhada do período: mencione contagens específicas (ex: 'você teve 12 episódios de diarreia em 30 dias'), datas de eventos marcantes, piores dias, padrões observados entre alimentação/sono/humor/sintomas, e uma conclusão com orientação prática. Se houver data da consulta, inclua frase contextual como 'Até sua consulta do dia ${consulta_date || '...'}, fique atento a...'",
+  "resumo_executivo": "Texto narrativo longo (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n) com análise detalhada do período: mencione contagens específicas (ex: 'você teve 12 episódios de diarreia em 30 dias'), datas de eventos marcantes, piores dias, padrões observados entre alimentação/sono/humor/sintomas, e uma conclusão com orientação prática. Se houver data da consulta, inclua frase contextual como 'Até sua consulta do dia ${consulta_date || '...'}, fique atento a...'",
   "correlacoes": [
     { "titulo": "Título curto da correlação", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, citando datas, contagens e exemplos concretos" }
   ],
@@ -63,48 +63,53 @@ ${dataConsultaStr}Retorne APENAS um objeto JSON válido, sem texto antes ou depo
 Regras:
 - No mínimo 3 e no máximo 6 correlações
 - No mínimo 3 e no máximo 6 perguntas para o médico
-- O campo 'resumo_executivo' DEVE ser um texto longo e narrativo (mínimo 4 frases), nunca apenas 2-3 frases curtas
+- O campo 'resumo_executivo' DEVE ser um texto longo e narrativo (mínimo 4 frases divididas em 2-3 parágrafos)
+- Formate o resumo_executivo em parágrafos: use \n\n entre parágrafos, cada parágrafo com 2-4 frases
 - Cada 'motivo' das perguntas DEVE conter evidências concretas (datas, contagens, exemplos) extraídas dos registros
 - Use linguagem acessível, sem diagnóstico médico
 - Correlações devem ser baseadas APENAS nos dados fornecidos
 - As perguntas são SEMPRE perguntas que o PACIENTE levará para perguntar ao MÉDICO, nunca o contrário
+- Respeite a ordem temporal dos eventos. Um evento no dia X NÃO pode ser citado como causa de algo registrado no dia X-1 ou antes
 
 Registros para análise:
 ${registrosTexto}`;
 
-  let rawText = '';
-
-  try {
-    const result = await env.AI.run(model, {
-      messages: [{ role: 'user', content: prompt }],
+  async function runModel(modelId, promptText) {
+    const result = await env.AI.run(modelId, {
+      messages: [{ role: 'user', content: promptText }],
       max_tokens: 4096,
     });
-
     const responseText = typeof result.response === 'string' ? result.response : (result.choices?.[0]?.message?.content || '');
-    rawText = (responseText || '').trim();
-    if (!rawText) {
-      return Response.json({ error: 'Modelo não retornou texto.' }, { status: 502 });
-    }
-
-    const report = parseReportJSON(rawText);
-    if (report && !report.isRaw) report.perguntas_medico = normalizePerguntas(report.perguntas_medico);
-    return Response.json({
-      report,
-      model,
-      generated_at: new Date().toISOString(),
-    });
-  } catch (err) {
-    console.error('[report] Erro:', err);
-    const report = parseReportJSON(rawText);
-    if (report) {
-      if (!report.isRaw) report.perguntas_medico = normalizePerguntas(report.perguntas_medico);
-      return Response.json({ report, model, generated_at: new Date().toISOString() });
-    }
-    return Response.json(
-      { error: `Falha ao gerar relatório: ${err.message || err}` },
-      { status: 500 }
-    );
+    return (responseText || '').trim();
   }
+
+  let rawText = '';
+  let modelUsado = model;
+
+  try {
+    rawText = await runModel(model, prompt);
+  } catch (err) {
+    console.error(`[report] Erro no modelo ${model}:`, err.message || err);
+    if (model !== MODELO_PADRAO) {
+      console.error(`[report] Retentando com ${MODELO_PADRAO}...`);
+      modelUsado = MODELO_PADRAO;
+      const promptFallback = prompt.replace(/Sua próxima consulta médica é dia [^.]*\. /, '');
+      try { rawText = await runModel(MODELO_PADRAO, promptFallback); }
+      catch (err2) { console.error('[report] Fallback também falhou:', err2.message || err2); }
+    }
+  }
+
+  if (!rawText) {
+    return Response.json({ error: 'Modelo não retornou texto.' }, { status: 502 });
+  }
+
+  const report = parseReportJSON(rawText);
+  if (report && !report.isRaw) report.perguntas_medico = normalizePerguntas(report.perguntas_medico);
+  return Response.json({
+    report,
+    model: modelUsado,
+    generated_at: new Date().toISOString(),
+  });
 }
 
 function parseReportJSON(raw) {

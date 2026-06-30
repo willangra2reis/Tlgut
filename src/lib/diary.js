@@ -112,7 +112,9 @@ export function gerarDadosRelatorioMock() {
   const dores = ['Cólica', 'Queimação', 'Pontada', 'Peso no estômago', 'Cólica intensa', 'Desconforto difuso', 'Cólica leve'];
   const orgaos = ['estomago', 'colon_sig', 'intestino_delgado', 'colon_desc', 'figado'];
   const humores = ['Normal', 'Ansioso', 'Cansado', 'Irritado', 'Calmo', 'Alegre', 'Triste'];
-  const alimentos = ['Feijão', 'Leite', 'Pão/Trigo', 'Frituras', 'Açúcar/Doce', 'Álcool', 'Café', 'Picante', 'Refrigerante', 'Ovo'];
+  const tagsBreakfast = ['Leite', 'Pão/Trigo', 'Açúcar/Doce', 'Café', 'Ovo', 'Frutas'];
+  const tagsLunch     = ['Feijão', 'Arroz', 'Carne', 'Frituras', 'Refrigerante', 'Açúcar/Doce', 'Ovo', 'Legumes'];
+  const tagsDinner    = ['Legumes', 'Frituras', 'Ovo', 'Picante', 'Pão/Trigo', 'Café', 'Feijão', 'Carne'];
 
   function mt(h, m) { return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; }
   function pick(arr, seed) { return arr[(seed * 7 + 13) % arr.length]; }
@@ -129,13 +131,13 @@ export function gerarDadosRelatorioMock() {
     };
 
     // Café da manhã (~07:00-08:30)
-    push('meal', 'Café da manhã', pick(comidas, baseSeed), { tags: [pick(alimentos, baseSeed)], ritmo: 'Normal', saciedade: 'Satisfeito' }, 7, 15 + Math.floor(r(1) * 60));
+    push('meal', 'Café da manhã', pick(comidas, baseSeed), { tags: [pick(tagsBreakfast, baseSeed)], ritmo: 'Normal', saciedade: 'Satisfeito' }, 7, 15 + Math.floor(r(1) * 60));
 
     // Almoço (~11:30-13:00)
-    push('meal', 'Almoço', pick(comidas, baseSeed + 1), { tags: [pick(alimentos, baseSeed + 1), pick(alimentos, baseSeed + 2)], heavy: r(2) > 0.6 }, 11, 30 + Math.floor(r(3) * 90));
+    push('meal', 'Almoço', pick(comidas, baseSeed + 1), { tags: [pick(tagsLunch, baseSeed + 1), pick(tagsLunch, baseSeed + 2)], heavy: r(2) > 0.6 }, 11, 30 + Math.floor(r(3) * 90));
 
     // Jantar (~18:00-20:00)
-    push('meal', 'Jantar', pick(comidas, baseSeed + 3), { tags: [pick(alimentos, baseSeed + 3)], ritmo: 'Lento' }, 18, Math.floor(r(4) * 120));
+    push('meal', 'Jantar', pick(comidas, baseSeed + 3), { tags: [pick(tagsDinner, baseSeed + 3)], ritmo: 'Lento' }, 18, Math.floor(r(4) * 120));
 
     // Água (3-5 ao longo do dia)
     for (let w = 0; w < 3 + Math.floor(r(5) * 3); w++) {
