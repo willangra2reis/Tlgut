@@ -1711,7 +1711,7 @@ function RelatoriasIAScreen({ entries }) {
 
   const hasResults = Object.keys(reports).some(k => k !== '_empty');
 
-  function renderCard(modelId, { text, error, loading }, mostrarVoto) {
+  function renderCard(modelId, { text, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
     return (
@@ -1806,7 +1806,7 @@ function RelatoriasIAScreen({ entries }) {
         </button>
       </div>
 
-      {hasResults && !compareMode && (
+      {hasResults && !compareMode && reports[selectedModel] && (
         <div>
           {renderCard(selectedModel, reports[selectedModel], false)}
         </div>
