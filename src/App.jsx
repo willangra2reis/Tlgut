@@ -1650,9 +1650,9 @@ function RelatoriasIAScreen({ entries }) {
   });
 
   const CARDS_CLASS = "rounded-2xl border p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]";
-  const CARDS_BG = 'rgba(255,255,255,0.7)';
+  const CARDS_BG = 'rgba(255,255,255,1)';
   const CARDS_BORDER = 'rgba(150,140,120,0.25)';
-  const CARDS_BG_DARK = 'rgba(255,255,255,0.85)';
+  const CARDS_BG_DARK = 'rgba(255,255,255,1)';
 
   const gerarRelatorio = useCallback(async (entries, model) => {
     const res = await fetch('/api/report', {

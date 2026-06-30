@@ -51,6 +51,7 @@ export async function onRequestPost({ request, env }) {
 1. **Resumo geral** — visão geral dos últimos dias
 2. **Padrões observados** — conexões entre alimentação, hidratação, sono, exercício e sintomas
 3. **Sugestões práticas** — observações úteis baseadas nos dados, sem diagnóstico médico
+4. **Perguntas** — Formule 5 perguntas baseda nessa analise para que o usuario faça ao seu médico para quando ele for se consultar essas perguntas deve ter profundidade. 
 
 Seja objetivo, use linguagem acessível. Não faça diagnósticos nem recomende medicamentos.
 
