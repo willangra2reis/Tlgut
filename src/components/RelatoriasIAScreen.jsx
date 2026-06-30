@@ -4,6 +4,12 @@ import {
 } from 'lucide-react';
 import { gerarDadosRelatorioMock } from '../lib/diary.js';
 
+function normalizePergunta(item) {
+  if (typeof item === 'string') return { pergunta: item, motivo: '' };
+  if (item && typeof item === 'object') return { pergunta: item.pergunta || '', motivo: item.motivo || '' };
+  return { pergunta: '', motivo: '' };
+}
+
 const MODELOS = [
   { id: '@cf/zai-org/glm-4.7-flash',         label: 'GLM 4.7 Flash',     descricao: 'Multilíngue, rápido, 131K de contexto',     recommended: true },
   { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B', descricao: 'MoE com 16 especialistas, Meta',              recommended: false },
@@ -25,22 +31,6 @@ const CARDS_CLASS = "rounded-2xl border p-4 shadow-[0_10px_24px_-10px_rgba(31,42
 const CARDS_BG = 'rgba(255,255,255,1)';
 const CARDS_BORDER = 'rgba(150,140,120,0.25)';
 const CARDS_BG_DARK = 'rgba(255,255,255,1)';
-
-function parseReportText(text) {
-  if (!text) return null;
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed && typeof parsed === 'object' && parsed.resumo_executivo) return parsed;
-  } catch {}
-  const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (match) {
-    try {
-      const parsed = JSON.parse(match[1].trim());
-      if (parsed && typeof parsed === 'object' && parsed.resumo_executivo) return parsed;
-    } catch {}
-  }
-  return null;
-}
 
 export default function RelatoriasIAScreen({ entries }) {
   const [reports, setReports] = useState({});
@@ -97,29 +87,29 @@ export default function RelatoriasIAScreen({ entries }) {
     if (compareMode) {
       const models = MODELOS.map(m => m.id);
       const init = {};
-      models.forEach(m => { init[m] = { loading: true, text: null, error: null }; });
+      models.forEach(m => { init[m] = { loading: true, report: null, error: null }; });
       setReports(init);
 
       const results = await Promise.allSettled(models.map(m =>
-        gerarRelatorio(filteredEntries, m).then(r => ({ model: m, text: r.text })).catch(e => ({ model: m, error: e.message }))
+        gerarRelatorio(filteredEntries, m).then(r => ({ model: m, report: r.report })).catch(e => ({ model: m, error: e.message }))
       ));
 
       const next = {};
       results.forEach(r => {
         if (r.status === 'fulfilled') {
-          next[r.value.model] = { loading: false, text: r.value.text || '', error: r.value.error || null };
+          next[r.value.model] = { loading: false, report: r.value.report || null, error: r.value.error || null };
         } else {
-          next[r.reason.model] = { loading: false, text: null, error: r.reason.message || 'Erro desconhecido' };
+          next[r.reason.model] = { loading: false, report: null, error: r.reason.message || 'Erro desconhecido' };
         }
       });
       setReports(next);
     } else {
-      setReports({ [selectedModel]: { loading: true, text: null, error: null } });
+      setReports({ [selectedModel]: { loading: true, report: null, error: null } });
       try {
         const r = await gerarRelatorio(filteredEntries, selectedModel);
-        setReports({ [selectedModel]: { loading: false, text: r.text, error: null } });
+        setReports({ [selectedModel]: { loading: false, report: r.report, error: null } });
       } catch (err) {
-        setReports({ [selectedModel]: { loading: false, text: null, error: err.message } });
+        setReports({ [selectedModel]: { loading: false, report: null, error: err.message } });
       }
     }
   }
@@ -142,8 +132,9 @@ export default function RelatoriasIAScreen({ entries }) {
     setExpandedCorr(prev => ({ ...prev, [idx]: !prev[idx] }));
   }
 
-  function renderStructuredContent(parsed) {
-    const { resumo_executivo, correlacoes, perguntas_medico } = parsed;
+  function renderStructuredContent(report) {
+    const { resumo_executivo, correlacoes, perguntas_medico } = report;
+    const perguntasNorm = Array.isArray(perguntas_medico) ? perguntas_medico.map(normalizePergunta) : [];
     return (
       <div className="space-y-4">
         {resumo_executivo && (
@@ -182,11 +173,11 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
 
-        {Array.isArray(perguntas_medico) && perguntas_medico.length > 0 && (
+        {perguntasNorm.length > 0 && (
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-[#7D766A] mb-1.5">Perguntas para o Médico</h4>
             <div className="space-y-1">
-              {perguntas_medico.map((item, idx) => (
+              {perguntasNorm.map((item, idx) => (
                 <label key={idx}
                   className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-[#F5F3EE] transition-colors">
                   <input type="checkbox" checked={selectedQuestions.includes(item.pergunta)}
@@ -214,10 +205,10 @@ export default function RelatoriasIAScreen({ entries }) {
     );
   }
 
-  function renderCardStructured(modelId, { text, error, loading } = {}, mostrarVoto) {
+  function renderCardStructured(modelId, { report, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
-    const parsed = !loading && !error && text ? parseReportText(text) : null;
+    const isRaw = report?.isRaw;
 
     return (
       <div key={modelId} className={CARDS_CLASS}
@@ -253,10 +244,12 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
 
-        {text && !error && !loading && (
+        {report && !error && !loading && (
           <div className="text-sm text-[#4A443F] leading-relaxed">
-            {parsed ? renderStructuredContent(parsed) : (
-              <div className="whitespace-pre-wrap max-h-80 overflow-y-auto">{text}</div>
+            {isRaw ? (
+              <div className="whitespace-pre-wrap max-h-80 overflow-y-auto">{report.resumo_executivo}</div>
+            ) : (
+              renderStructuredContent(report)
             )}
           </div>
         )}
@@ -264,10 +257,11 @@ export default function RelatoriasIAScreen({ entries }) {
     );
   }
 
-  function renderCardCompact(modelId, { text, error, loading } = {}, mostrarVoto) {
+  function renderCardCompact(modelId, { report, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
-    const parsed = !loading && !error && text ? parseReportText(text) : null;
+    const isRaw = report?.isRaw;
+    const perguntasNorm = report && Array.isArray(report.perguntas_medico) ? report.perguntas_medico.map(normalizePergunta) : [];
 
     return (
       <div key={modelId} className={CARDS_CLASS}
@@ -296,29 +290,29 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
         {error && <p className="text-xs text-red-600 py-2">{error}</p>}
-        {text && !error && !loading && (
+        {report && !error && !loading && (
           <div className="text-xs text-[#4A443F] leading-relaxed max-h-60 overflow-y-auto">
-            {parsed ? (
+            {isRaw ? (
+              <p className="text-xs whitespace-pre-wrap">{report.resumo_executivo.slice(0, 500)}{report.resumo_executivo.length > 500 ? '...' : ''}</p>
+            ) : (
               <div className="space-y-2">
-                {parsed.resumo_executivo && (
+                {report.resumo_executivo && (
                   <div>
                     <h5 className="text-[10px] font-semibold uppercase tracking-wider text-[#7D766A] mb-0.5">Resumo</h5>
-                    <p className="text-xs leading-relaxed">{parsed.resumo_executivo}</p>
+                    <p className="text-xs leading-relaxed">{report.resumo_executivo}</p>
                   </div>
                 )}
-                {Array.isArray(parsed.perguntas_medico) && parsed.perguntas_medico.length > 0 && (
+                {perguntasNorm.length > 0 && (
                   <div>
                     <h5 className="text-[10px] font-semibold uppercase tracking-wider text-[#7D766A] mb-0.5">Perguntas</h5>
                     <ul className="list-disc list-inside text-xs">
-                      {parsed.perguntas_medico.map((p, i) => (
+                      {perguntasNorm.map((p, i) => (
                         <li key={i}>{p.pergunta}</li>
                       ))}
                     </ul>
                   </div>
                 )}
               </div>
-            ) : (
-              <p className="text-xs whitespace-pre-wrap">{text.slice(0, 500)}{text.length > 500 ? '...' : ''}</p>
             )}
           </div>
         )}
