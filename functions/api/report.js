@@ -22,7 +22,7 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ error: 'Body inválido. Envie um JSON com { entries, model }.' }, { status: 400 });
   }
 
-  const { entries = [], model = MODELO_PADRAO } = body;
+  const { entries = [], model = MODELO_PADRAO, consulta_date } = body;
 
   if (!MODELOS_PERMITIDOS.includes(model)) {
     return Response.json({
@@ -46,26 +46,28 @@ export async function onRequestPost({ request, env }) {
     );
   }
 
+  const dataConsultaStr = consulta_date ? `Sua próxima consulta médica é dia ${consulta_date}. ` : '';
   const prompt = `Você é um assistente de saúde gastrointestinal. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro.
 
-Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
+${dataConsultaStr}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
 {
-  "resumo_executivo": "Resumo curto (2-3 frases) sobre o período analisado",
+  "resumo_executivo": "Texto narrativo longo (4-8 frases) com análise detalhada do período: mencione contagens específicas (ex: 'você teve 12 episódios de diarreia em 30 dias'), datas de eventos marcantes, piores dias, padrões observados entre alimentação/sono/humor/sintomas, e uma conclusão com orientação prática. Se houver data da consulta, inclua frase contextual como 'Até sua consulta do dia ${consulta_date || '...'}, fique atento a...'",
   "correlacoes": [
-    { "titulo": "Título curto da correlação", "descricao": "Explicação detalhada baseada nos dados" }
+    { "titulo": "Título curto da correlação", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, citando datas, contagens e exemplos concretos" }
   ],
   "perguntas_medico": [
-    "Pergunta específica para o paciente levar ao médico",
-    "Outra pergunta relevante"
+    { "pergunta": "Pergunta específica que o PACIENTE deve fazer ao MÉDICO", "motivo": "DEVE citar dados concretos dos registros — datas, contagens, exemplos específicos. NUNCA use genéricos como 'baseado nos seus sintomas' ou 'devido ao seu quadro'. Exemplo: 'Você registrou 8 episódios de diarreia nos últimos 15 dias, 5 deles após consumir frituras nos dias 05/06, 12/06...'" }
   ]
 }
 
 Regras:
 - No mínimo 3 e no máximo 6 correlações
-- No mínimo 3 perguntas para o médico
+- No mínimo 3 e no máximo 6 perguntas para o médico
+- O campo 'resumo_executivo' DEVE ser um texto longo e narrativo (mínimo 4 frases), nunca apenas 2-3 frases curtas
+- Cada 'motivo' das perguntas DEVE conter evidências concretas (datas, contagens, exemplos) extraídas dos registros
 - Use linguagem acessível, sem diagnóstico médico
 - Correlações devem ser baseadas APENAS nos dados fornecidos
-- Perguntas devem ser específicas e úteis para uma consulta gastroenterológica
+- As perguntas são SEMPRE perguntas que o PACIENTE levará para perguntar ao MÉDICO, nunca o contrário
 
 Registros para análise:
 ${registrosTexto}`;
@@ -78,12 +80,14 @@ ${registrosTexto}`;
       max_tokens: 4096,
     });
 
-    rawText = (result.response || result.choices?.[0]?.message?.content || '').trim();
+    const responseText = typeof result.response === 'string' ? result.response : (result.choices?.[0]?.message?.content || '');
+    rawText = (responseText || '').trim();
     if (!rawText) {
       return Response.json({ error: 'Modelo não retornou texto.' }, { status: 502 });
     }
 
     const report = parseReportJSON(rawText);
+    if (report && !report.isRaw) report.perguntas_medico = normalizePerguntas(report.perguntas_medico);
     return Response.json({
       report,
       model,
@@ -93,6 +97,7 @@ ${registrosTexto}`;
     console.error('[report] Erro:', err);
     const report = parseReportJSON(rawText);
     if (report) {
+      if (!report.isRaw) report.perguntas_medico = normalizePerguntas(report.perguntas_medico);
       return Response.json({ report, model, generated_at: new Date().toISOString() });
     }
     return Response.json(
@@ -136,6 +141,15 @@ function valido(obj) {
     obj.resumo_executivo.length > 0 &&
     Array.isArray(obj.correlacoes) &&
     (obj.perguntas_medico === undefined || Array.isArray(obj.perguntas_medico));
+}
+
+function normalizePerguntas(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(item => {
+    if (typeof item === 'string') return { pergunta: item, motivo: '' };
+    if (item && typeof item === 'object') return { pergunta: item.pergunta || '', motivo: item.motivo || '' };
+    return { pergunta: '', motivo: '' };
+  });
 }
 
 function formatEntry(e) {

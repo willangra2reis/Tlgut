@@ -14,7 +14,7 @@ const MODELOS = [
   { id: '@cf/zai-org/glm-4.7-flash',         label: 'GLM 4.7 Flash',     descricao: 'Multilíngue, rápido, 131K de contexto',     recommended: true },
   { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B', descricao: 'MoE com 16 especialistas, Meta',              recommended: false },
   { id: '@cf/google/gemma-4-26b-a4b-it',      label: 'Gemma 4 26B',      descricao: 'Alta inteligência por parâmetro, Google',     recommended: false },
-  { id: '@cf/neuralmagic/gpt-oss-120b-instruct-quantized', label: 'GPT-OSS 120B', descricao: 'Open-source quantizado 120B parâmetros', recommended: false },
+  { id: '@cf/openai/gpt-oss-120b', label: 'GPT-OSS 120B', descricao: 'Open-source quantizado 120B parâmetros', recommended: false },
 ];
 
 const MODELO_PADRAO = '@cf/zai-org/glm-4.7-flash';
@@ -43,6 +43,10 @@ export default function RelatoriasIAScreen({ entries }) {
     catch { return []; }
   });
   const [consultaAberta, setConsultaAberta] = useState(false);
+  const [consultaDate, setConsultaDate] = useState(() => {
+    try { return localStorage.getItem('tlgut_consulta_date') || ''; }
+    catch { return ''; }
+  });
   const [votes, setVotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tlgut_model_votes') || '{}'); }
     catch { return {}; }
@@ -66,19 +70,24 @@ export default function RelatoriasIAScreen({ entries }) {
   const hasResults = Object.keys(reports).some(k => k !== '_empty');
 
   const gerarRelatorio = useCallback(async (entriesFor, model) => {
+    const body = { entries: entriesFor, model };
+    const cd = consultaDate && consultaDate.trim() ? consultaDate.trim() : null;
+    if (cd) body.consulta_date = cd;
     const res = await fetch('/api/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ entries: entriesFor, model }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return await res.json();
-  }, []);
+  }, [consultaDate]);
 
   async function handleGerar() {
+    setSelectedQuestions([]);
+    localStorage.removeItem('tlgut_selected_questions');
     if (filteredEntries.length === 0) {
       setReports({ _empty: { error: 'Nenhum registro no período selecionado.' } });
       return;
@@ -342,6 +351,19 @@ export default function RelatoriasIAScreen({ entries }) {
         <p className="text-[11px] text-[#7D766A] mt-1.5">
           {filteredEntries.length} registro{filteredEntries.length !== 1 ? 's' : ''} no período
         </p>
+        <div className="mt-2 pt-2 border-t" style={{ borderColor: 'rgba(150,140,120,0.2)' }}>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Calendar size={14} style={{ color: '#7D766A' }} />
+            <span className="text-xs text-[#7D766A]">Data da consulta (opcional):</span>
+          </label>
+          <input type="date" value={consultaDate}
+            onChange={e => {
+              setConsultaDate(e.target.value);
+              localStorage.setItem('tlgut_consulta_date', e.target.value);
+            }}
+            className="mt-1 w-full px-3 py-2 rounded-xl text-sm border"
+            style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28' }} />
+        </div>
       </div>
 
       <div className={CARDS_CLASS} style={{ background: CARDS_BG, borderColor: CARDS_BORDER }}>
