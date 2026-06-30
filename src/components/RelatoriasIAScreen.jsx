@@ -11,13 +11,15 @@ function normalizePergunta(item) {
 }
 
 const MODELOS = [
-  { id: '@cf/zai-org/glm-4.7-flash',         label: 'GLM 4.7 Flash',     descricao: 'Multilíngue, rápido, 131K de contexto',     recommended: true },
-  { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B', descricao: 'MoE com 16 especialistas, Meta',              recommended: false },
-  { id: '@cf/google/gemma-4-26b-a4b-it',      label: 'Gemma 4 26B',      descricao: 'Alta inteligência por parâmetro, Google',     recommended: false },
-  { id: '@cf/openai/gpt-oss-120b', label: 'GPT-OSS 120B', descricao: 'Open-source quantizado 120B parâmetros', recommended: false },
+  { id: '@google/gemini-2.5-flash',            label: 'Gemini 2.5 Flash',  descricao: 'Google, 1500 req/dia grátis, alta qualidade', recommended: true },
+  { id: '@google/gemini-2.5-flash-lite',       label: 'Gemini 2.5 Flash Lite', descricao: 'Google, versão leve do 2.5 Flash',         recommended: false },
+  { id: '@cf/zai-org/glm-4.7-flash',           label: 'GLM 4.7 Flash',    descricao: 'Multilíngue, rápido, 131K de contexto, Cloudflare', recommended: false },
+  { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B', descricao: 'MoE com 16 especialistas, Meta, Cloudflare', recommended: false },
+  { id: '@cf/google/gemma-4-26b-a4b-it',       label: 'Gemma 4 26B',      descricao: 'Alta inteligência, Google, Cloudflare',      recommended: false },
+  { id: '@cf/openai/gpt-oss-120b',             label: 'GPT-OSS 120B',     descricao: 'Open-source 120B, Cloudflare',               recommended: false },
 ];
 
-const MODELO_PADRAO = '@cf/zai-org/glm-4.7-flash';
+const MODELO_PADRAO = '@google/gemini-2.5-flash';
 
 const PERIODOS = [
   { dias: 7, label: '7 dias' },

@@ -3,17 +3,14 @@ const MODELOS_PERMITIDOS = [
   '@cf/google/gemma-4-26b-a4b-it',
   '@cf/zai-org/glm-4.7-flash',
   '@cf/openai/gpt-oss-120b',
+  '@google/gemini-2.5-flash',
+  '@google/gemini-2.5-flash-lite',
 ];
 
-const MODELO_PADRAO = '@cf/zai-org/glm-4.7-flash';
+const MODELO_PADRAO = '@google/gemini-2.5-flash';
+const MODELO_FALLBACK_CF = '@cf/zai-org/glm-4.7-flash';
 
 export async function onRequestPost({ request, env }) {
-  if (!env.AI) {
-    return Response.json(
-      { error: 'AI binding não configurado.' },
-      { status: 503 }
-    );
-  }
 
   let body;
   try {
@@ -34,6 +31,20 @@ export async function onRequestPost({ request, env }) {
     return Response.json(
       { error: 'Nenhum registro disponível. Adicione entradas no diário primeiro.' },
       { status: 400 }
+    );
+  }
+
+  const isGemini = model.startsWith('@google/');
+  if (isGemini && !env.GEMINI_API_KEY) {
+    return Response.json(
+      { error: 'GEMINI_API_KEY não configurada nas environment variables.' },
+      { status: 503 }
+    );
+  }
+  if (!isGemini && !env.AI) {
+    return Response.json(
+      { error: 'AI binding não configurado.' },
+      { status: 503 }
     );
   }
 
@@ -74,7 +85,30 @@ Regras:
 Registros para análise:
 ${registrosTexto}`;
 
+  async function runGemini(modelName, promptText) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${env.GEMINI_API_KEY}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }],
+        generationConfig: { maxOutputTokens: 4096 },
+      }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Gemini HTTP ${res.status}: ${errBody}`);
+    }
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return text.trim();
+  }
+
   async function runModel(modelId, promptText) {
+    if (modelId.startsWith('@google/')) {
+      const geminiName = modelId.slice(8); // strip '@google/'
+      return await runGemini(geminiName, promptText);
+    }
     const result = await env.AI.run(modelId, {
       messages: [{ role: 'user', content: promptText }],
       max_tokens: 4096,
@@ -83,21 +117,39 @@ ${registrosTexto}`;
     return (responseText || '').trim();
   }
 
+  function isCFModel(id) { return id.startsWith('@cf/'); }
+
+  async function tentarModelos(lista, promptTexto) {
+    for (let i = 0; i < lista.length; i++) {
+      const mid = lista[i];
+      try {
+        const text = await runModel(mid, promptTexto);
+        if (text) return { text, model: mid };
+      } catch (e) {
+        console.error(`[report] Falha em ${mid}:`, e.message || e);
+      }
+    }
+    return { text: '', model: lista[0] };
+  }
+
   let rawText = '';
   let modelUsado = model;
+  let fallbacks = [];
 
-  try {
-    rawText = await runModel(model, prompt);
-  } catch (err) {
-    console.error(`[report] Erro no modelo ${model}:`, err.message || err);
-    if (model !== MODELO_PADRAO) {
-      console.error(`[report] Retentando com ${MODELO_PADRAO}...`);
-      modelUsado = MODELO_PADRAO;
-      const promptFallback = prompt.replace(/Sua próxima consulta médica é dia [^.]*\. /, '');
-      try { rawText = await runModel(MODELO_PADRAO, promptFallback); }
-      catch (err2) { console.error('[report] Fallback também falhou:', err2.message || err2); }
-    }
+  if (isGemini) {
+    fallbacks = ['@google/gemini-2.5-flash', '@google/gemini-2.5-flash-lite', MODELO_FALLBACK_CF];
+    const idx = fallbacks.indexOf(model);
+    if (idx > 0) fallbacks.splice(idx, 1);
+    fallbacks = [model, ...fallbacks];
+  } else {
+    fallbacks = [model];
+    if (model !== MODELO_FALLBACK_CF) fallbacks.push(MODELO_FALLBACK_CF);
   }
+
+  const promptFallback = prompt.replace(/Sua próxima consulta médica é dia [^.]*\. /, '');
+  const tentativa = await tentarModelos(fallbacks, promptFallback);
+  rawText = tentativa.text;
+  modelUsado = tentativa.model;
 
   if (!rawText) {
     return Response.json({ error: 'Modelo não retornou texto.' }, { status: 502 });
