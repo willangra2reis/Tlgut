@@ -183,7 +183,7 @@
 }
 
 /* ─── Pulso sutil do botão microfone (idle) ──────────────────────────────────
-   Chama atenção para o recurso de voz sem ser agressivo. */
+    Chama atenção para o recurso de voz sem ser agressivo. */
 @keyframes tgMicPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(47,107,67,0.35); }
   50%      { box-shadow: 0 0 0 6px rgba(47,107,67,0); }
@@ -193,4 +193,31 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-mic-pulse { animation: none; }
+}
+
+/* ─── Animação de loading do Relatório IA (mascote + frases subindo) ────────
+   Container com altura fixa, frases sobem em loop com fade no topo e na base. */
+@keyframes tgReportScrollUp {
+  0%   { transform: translateY(100%); }
+  100% { transform: translateY(-100%); }
+}
+.tg-report-loading-scroll {
+  position: relative;
+  height: 3rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 30%, black 70%, transparent 100%);
+}
+.tg-report-loading-scroll-inner {
+  animation: tgReportScrollUp 9s linear infinite;
+}
+.tg-report-loading-scroll-inner > div {
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tg-report-loading-scroll-inner { animation: none; }
+  .tg-report-loading-scroll { -webkit-mask-image: none; mask-image: none; height: auto; }
 }

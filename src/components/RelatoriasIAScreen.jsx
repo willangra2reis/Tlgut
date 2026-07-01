@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { gerarDadosRelatorioMock } from '../lib/diary.js';
 import { jsPDF } from 'jspdf';
+import mascoteImage from '../assets/mascote.png';
 
 function normalizePergunta(item) {
   if (typeof item === 'string') return { pergunta: item, motivo: '' };
@@ -22,6 +23,21 @@ const MODELOS = [
 ];
 
 const MODELO_PADRAO = '@google/gemini-2.5-flash';
+
+const LOADING_FRASES = [
+  'Lendo todo o seu histórico...',
+  'Analisando com profundidade...',
+  'Fazendo correlações...',
+  'Observando o consumo de água...',
+  'Verificando padrões de sono...',
+  'Conectando humor e sintomas...',
+  'Localizando pontos de dor...',
+  'Analisando tempo de evacuação...',
+  'Cruzando alimentação e sintomas...',
+  'Identificando gatilhos alimentares...',
+  'Preparando perguntas para o médico...',
+  'Lendo todo o seu histórico...',
+];
 
 const PERIODOS = [
   { dias: 7, label: '7 dias' },
@@ -363,22 +379,47 @@ export default function RelatoriasIAScreen({ entries }) {
   function baixarPDF(reportData, modelLabel) {
     try {
       const doc = gerarPDF(reportData, modelLabel);
-      doc.save(`relatorio-tlgut-${new Date().toISOString().slice(0, 10)}.pdf`);
+      const fileName = `relatorio-tlgut-${new Date().toISOString().slice(0, 10)}.pdf`;
+      if (navigator.userAgent.includes('Firefox')) {
+        const blobUrl = doc.output('bloburl');
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } else {
+        doc.save(fileName);
+      }
     } catch (e) { console.error('Erro ao gerar PDF:', e); }
+  }
+
+  function isShareSupported() {
+    return typeof navigator !== 'undefined' &&
+           !!navigator.share &&
+           !!navigator.canShare &&
+           !navigator.userAgent.includes('Firefox') &&
+           !navigator.userAgent.includes('iPhone');
   }
 
   async function compartilharPDF(reportData, modelLabel) {
     try {
       const doc = gerarPDF(reportData, modelLabel);
-      const blob = doc.output('blob');
-      const file = new File([blob], `relatorio-tlgut.pdf`, { type: 'application/pdf' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Relatório Tlgut', text: 'Relatório gastrointestinal gerado por IA' });
-      } else {
-        doc.save(`relatorio-tlgut-${new Date().toISOString().slice(0, 10)}.pdf`);
+      if (isShareSupported()) {
+        const blob = doc.output('blob');
+        const file = new File([blob], `relatorio-tlgut.pdf`, { type: 'application/pdf' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Relatório Tlgut', text: 'Relatório gastrointestinal gerado por IA' });
+          return;
+        }
       }
+      baixarPDF(reportData, modelLabel);
     } catch (e) {
-      if (e.name !== 'AbortError') console.error('Erro ao compartilhar:', e);
+      if (e.name !== 'AbortError') {
+        console.error('Erro ao compartilhar:', e);
+        baixarPDF(reportData, modelLabel);
+      }
     }
   }
 
@@ -397,26 +438,6 @@ export default function RelatoriasIAScreen({ entries }) {
             {nomeModelo}{modelo?.recommended ? ' ★' : ''}
           </span>
           <div className="flex items-center gap-1.5">
-            {canPDF && (
-              <>
-                <button type="button" onClick={() => compartilharPDF(report, nomeModelo)}
-                  title="Compartilhar PDF"
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
-                  style={{ color: '#5D5FA0', background: 'rgba(93,95,160,0.08)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(93,95,160,0.18)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(93,95,160,0.08)'}>
-                  <Share2 size={14} />
-                </button>
-                <button type="button" onClick={() => baixarPDF(report, nomeModelo)}
-                  title="Baixar PDF"
-                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
-                  style={{ color: '#5D5FA0', background: 'rgba(93,95,160,0.08)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(93,95,160,0.18)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(93,95,160,0.08)'}>
-                  <Download size={14} />
-                </button>
-              </>
-            )}
             {mostrarVoto && !loading && !error && (
               <button type="button" onClick={() => votar(modelId)}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
@@ -431,10 +452,15 @@ export default function RelatoriasIAScreen({ entries }) {
         </div>
 
         {loading && (
-          <div className="flex items-center gap-2 py-6">
-            <span className="w-5 h-5 border-2 rounded-full animate-spinner"
-              style={{ borderColor: '#D0CAB8', borderTopColor: '#4A8A5C' }} />
-            <span className="text-sm text-[#7D766A]">Gerando relatório...</span>
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <img src={mascoteImage} alt="Mascote" className="w-16 h-16 animate-mascote-pulse" />
+            <div className="tg-report-loading-scroll w-full">
+              <div className="tg-report-loading-scroll-inner">
+                {LOADING_FRASES.map((frase, i) => (
+                  <div key={i} className="text-sm font-semibold text-[#4A8A5C]">{frase}</div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -451,6 +477,23 @@ export default function RelatoriasIAScreen({ entries }) {
             ) : (
               renderStructuredContent(report)
             )}
+          </div>
+        )}
+
+        {canPDF && (
+          <div className="flex gap-2.5 mt-4 pt-4 border-t" style={{ borderColor: 'rgba(150,140,120,0.2)' }}>
+            <button type="button" onClick={() => baixarPDF(report, nomeModelo)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+              style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
+              <Download size={16} />
+              Baixar PDF
+            </button>
+            <button type="button" onClick={() => compartilharPDF(report, nomeModelo)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+              style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
+              <Share2 size={16} />
+              Compartilhar
+            </button>
           </div>
         )}
       </div>
