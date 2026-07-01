@@ -196,16 +196,16 @@
 }
 
 /* ─── Animação de loading do Relatório IA (mascote + frases com pausa) ────
-   Cada frase entra suavemente, fica visível ~1.7s, e sai suavemente.
-   Animação de 2.2s = 0.33s fade-in + 1.5s visível + 0.33s fade-out. */
+   Cada frase entra suavemente, fica visível ~3s, e sai suavemente.
+   Animação de 3.8s = 0.38s fade-in + 3.04s visível + 0.38s fade-out. */
 @keyframes tgPhraseCycle {
   0%   { opacity: 0; transform: translateY(10px); }
-  15%  { opacity: 1; transform: translateY(0); }
-  80%  { opacity: 1; transform: translateY(0); }
+  10%  { opacity: 1; transform: translateY(0); }
+  90%  { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-10px); }
 }
 .tg-phrase-cycle {
-  animation: tgPhraseCycle 2.2s ease-in-out both;
+  animation: tgPhraseCycle 3.8s ease-in-out both;
 }
 @media (prefers-reduced-motion: reduce) {
   .tg-phrase-cycle { animation: none; }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
   Download, Share2, FileText, Sparkles, Stethoscope,
@@ -27,7 +27,7 @@ const MODELO_PADRAO = '@google/gemini-2.5-flash';
 const LOADING_FRASES = [
   'Lendo todo o seu histórico...',
   'Analisando com profundidade...',
-  'Fazendo correlações...',
+  'Fazendo correlações entre sintomas...',
   'Observando o consumo de água...',
   'Verificando padrões de sono...',
   'Conectando humor e sintomas...',
@@ -35,8 +35,17 @@ const LOADING_FRASES = [
   'Analisando tempo de evacuação...',
   'Cruzando alimentação e sintomas...',
   'Identificando gatilhos alimentares...',
+  'Examinando seus marcadores de saúde...',
+  'Comparando dias bons e ruins...',
+  'Analisando a qualidade do sono...',
+  'Mapeando sua hidratação semanal...',
+  'Detectando padrões de estresse...',
+  'Verificando frequência das refeições...',
+  'Relacionando medicamentos e sintomas...',
+  'Observando sua evolução no período...',
+  'Analisando variações de humor...',
+  'Avaliando consistência dos registros...',
   'Preparando perguntas para o médico...',
-  'Lendo todo o seu histórico...',
 ];
 
 const PERIODOS = [
@@ -80,7 +89,7 @@ export default function RelatoriasIAScreen({ entries }) {
     setActivePhraseIndex(0);
     const interval = setInterval(() => {
       setActivePhraseIndex(prev => (prev + 1) % LOADING_FRASES.length);
-    }, 2200);
+    }, 3800);
     return () => clearInterval(interval);
   }, [isLoading]);
 
@@ -441,16 +450,32 @@ export default function RelatoriasIAScreen({ entries }) {
     const isRaw = report?.isRaw;
     const canPDF = report && !error && !loading && !isRaw;
 
+    if (loading) {
+      return (
+        <div key={modelId}
+          className="day-summary-mesh relative z-10 rounded-2xl border border-[#EDE7DD] p-6 overflow-hidden shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+          <div className="relative z-10 flex flex-col items-center justify-center py-2 gap-3">
+            <img src={mascoteImage} alt="Mascote" className="w-16 h-16 animate-mascote-pulse" />
+            <div className="relative h-8 w-full flex items-center justify-center overflow-hidden">
+              <div key={activePhraseIndex} className="text-[15px] font-semibold text-[#4A8A5C] tg-phrase-cycle">
+                {LOADING_FRASES[activePhraseIndex]}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={modelId} className={CARDS_CLASS}
-        style={{ background: loading ? CARDS_BG : CARDS_BG_DARK, borderColor: CARDS_BORDER }}>
+        style={{ background: CARDS_BG_DARK, borderColor: CARDS_BORDER }}>
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-medium px-2 py-0.5 rounded-full"
             style={{ background: modelo?.recommended ? 'rgba(74,138,92,0.12)' : 'rgba(100,100,100,0.08)', color: modelo?.recommended ? '#4A8A5C' : '#7D766A' }}>
             {nomeModelo}{modelo?.recommended ? ' ★' : ''}
           </span>
           <div className="flex items-center gap-1.5">
-            {mostrarVoto && !loading && !error && (
+            {mostrarVoto && !error && (
               <button type="button" onClick={() => votar(modelId)}
                 className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
                 style={{ color: '#7D766A' }}
@@ -463,24 +488,13 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         </div>
 
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-8 gap-3">
-            <img src={mascoteImage} alt="Mascote" className="w-16 h-16 animate-mascote-pulse" />
-            <div className="relative h-8 w-full flex items-center justify-center overflow-hidden">
-              <div key={activePhraseIndex} className="text-sm font-semibold text-[#4A8A5C] tg-phrase-cycle">
-                {LOADING_FRASES[activePhraseIndex]}
-              </div>
-            </div>
-          </div>
-        )}
-
         {error && (
           <div className="py-3">
             <p className="text-sm text-red-600">{error}</p>
           </div>
         )}
 
-        {report && !error && !loading && (
+        {report && !error && (
           <div className="text-sm text-[#4A443F] leading-relaxed">
             {isRaw ? (
               <div className="whitespace-pre-wrap max-h-80 overflow-y-auto">{report.resumo_executivo}</div>
@@ -516,15 +530,31 @@ export default function RelatoriasIAScreen({ entries }) {
     const isRaw = report?.isRaw;
     const perguntasNorm = report && Array.isArray(report.perguntas_medico) ? report.perguntas_medico.map(normalizePergunta) : [];
 
+    if (loading) {
+      return (
+        <div key={modelId}
+          className="day-summary-mesh relative z-10 rounded-2xl border border-[#EDE7DD] p-4 overflow-hidden shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+          <div className="relative z-10 flex flex-col items-center justify-center py-2 gap-2">
+            <img src={mascoteImage} alt="Mascote" className="w-10 h-10 animate-mascote-pulse" />
+            <div className="relative h-6 w-full flex items-center justify-center overflow-hidden">
+              <div key={activePhraseIndex} className="text-[11px] font-semibold text-[#4A8A5C] tg-phrase-cycle">
+                {LOADING_FRASES[activePhraseIndex]}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={modelId} className={CARDS_CLASS}
-        style={{ background: loading ? CARDS_BG : CARDS_BG_DARK, borderColor: CARDS_BORDER }}>
+        style={{ background: CARDS_BG_DARK, borderColor: CARDS_BORDER }}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
             style={{ background: modelo?.recommended ? 'rgba(74,138,92,0.12)' : 'rgba(100,100,100,0.08)', color: modelo?.recommended ? '#4A8A5C' : '#7D766A' }}>
             {nomeModelo}
           </span>
-          {mostrarVoto && !loading && !error && (
+          {mostrarVoto && !error && (
             <button type="button" onClick={() => votar(modelId)}
               className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-lg transition-colors"
               style={{ color: '#7D766A' }}
@@ -535,18 +565,8 @@ export default function RelatoriasIAScreen({ entries }) {
             </button>
           )}
         </div>
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-4 gap-2">
-            <img src={mascoteImage} alt="Mascote" className="w-10 h-10 animate-mascote-pulse" />
-            <div className="relative h-6 w-full flex items-center justify-center overflow-hidden">
-              <div key={activePhraseIndex} className="text-[11px] font-semibold text-[#4A8A5C] tg-phrase-cycle">
-                {LOADING_FRASES[activePhraseIndex]}
-              </div>
-            </div>
-          </div>
-        )}
         {error && <p className="text-xs text-red-600 py-2">{error}</p>}
-        {report && !error && !loading && (
+        {report && !error && (
           <div className="text-xs text-[#4A443F] leading-relaxed max-h-60 overflow-y-auto">
             {isRaw ? (
               <p className="text-xs whitespace-pre-wrap">{report.resumo_executivo.slice(0, 500)}{report.resumo_executivo.length > 500 ? '...' : ''}</p>
