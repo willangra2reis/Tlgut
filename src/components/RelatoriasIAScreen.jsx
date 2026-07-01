@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
   Download, Share2, FileText, Sparkles, Stethoscope,
@@ -71,6 +71,18 @@ export default function RelatoriasIAScreen({ entries }) {
     try { return JSON.parse(localStorage.getItem('tlgut_model_votes') || '{}'); }
     catch { return {}; }
   });
+
+  const [activePhraseIndex, setActivePhraseIndex] = useState(0);
+  const isLoading = Object.values(reports).some(r => r?.loading);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    setActivePhraseIndex(0);
+    const interval = setInterval(() => {
+      setActivePhraseIndex(prev => (prev + 1) % LOADING_FRASES.length);
+    }, 2200);
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   const workingEntries = useMemo(() => {
     if (!Array.isArray(entries)) return gerarDadosRelatorioMock();
@@ -454,11 +466,9 @@ export default function RelatoriasIAScreen({ entries }) {
         {loading && (
           <div className="flex flex-col items-center justify-center py-8 gap-3">
             <img src={mascoteImage} alt="Mascote" className="w-16 h-16 animate-mascote-pulse" />
-            <div className="tg-report-loading-scroll w-full">
-              <div className="tg-report-loading-scroll-inner">
-                {LOADING_FRASES.map((frase, i) => (
-                  <div key={i} className="text-sm font-semibold text-[#4A8A5C]">{frase}</div>
-                ))}
+            <div className="relative h-8 w-full flex items-center justify-center overflow-hidden">
+              <div key={activePhraseIndex} className="text-sm font-semibold text-[#4A8A5C] tg-phrase-cycle">
+                {LOADING_FRASES[activePhraseIndex]}
               </div>
             </div>
           </div>
@@ -526,10 +536,13 @@ export default function RelatoriasIAScreen({ entries }) {
           )}
         </div>
         {loading && (
-          <div className="flex items-center gap-2 py-4">
-            <span className="w-4 h-4 border-2 rounded-full animate-spinner"
-              style={{ borderColor: '#D0CAB8', borderTopColor: '#4A8A5C' }} />
-            <span className="text-xs text-[#7D766A]">Gerando...</span>
+          <div className="flex flex-col items-center justify-center py-4 gap-2">
+            <img src={mascoteImage} alt="Mascote" className="w-10 h-10 animate-mascote-pulse" />
+            <div className="relative h-6 w-full flex items-center justify-center overflow-hidden">
+              <div key={activePhraseIndex} className="text-[11px] font-semibold text-[#4A8A5C] tg-phrase-cycle">
+                {LOADING_FRASES[activePhraseIndex]}
+              </div>
+            </div>
           </div>
         )}
         {error && <p className="text-xs text-red-600 py-2">{error}</p>}
@@ -643,10 +656,10 @@ export default function RelatoriasIAScreen({ entries }) {
         </label>
 
         <button type="button" onClick={handleGerar}
-          disabled={Object.values(reports).some(r => r?.loading)}
+          disabled={isLoading}
           className="mt-3 w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-60 transition-opacity"
           style={{ background: 'var(--brand)', color: '#fff' }}>
-          {Object.values(reports).some(r => r?.loading) ? 'Gerando...' : hasResults ? 'Gerar novamente' : 'Gerar relatório'}
+          {isLoading ? 'Gerando...' : hasResults ? 'Gerar novamente' : 'Gerar relatório'}
         </button>
       </div>
 
