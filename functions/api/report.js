@@ -57,30 +57,33 @@ export async function onRequestPost({ request, env }) {
     );
   }
 
+  const consultaFrase = consulta_date
+    ? `Para a sua consulta do dia ${consulta_date}, leve esses pontos...`
+    : 'Para a sua próxima consulta, leve esses pontos...';
   const dataConsultaStr = consulta_date ? `Sua próxima consulta médica é dia ${consulta_date}. ` : '';
-  const prompt = `Você é um assistente de saúde gastrointestinal. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro.
+  const prompt = `Você é um assistente de saúde gastrointestinal focado em empoderar e preparar o paciente para sua consulta médica. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro para que o paciente entenda seus próprios padrões de forma clara e simples.
 
 ${dataConsultaStr}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
 {
-  "resumo_executivo": "Texto narrativo longo (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n) com análise detalhada do período: mencione contagens específicas (ex: 'você teve 12 episódios de diarreia em 30 dias'), datas de eventos marcantes, piores dias, padrões observados entre alimentação/sono/humor/sintomas, e uma conclusão com orientação prática. Se houver data da consulta, inclua frase contextual como 'Até sua consulta do dia ${consulta_date || '...'}, fique atento a...'",
+  "resumo_executivo": "Texto narrativo acolhedor e educativo direcionado ao paciente (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n). Faça uma análise detalhada: mencione frequências (ex: 'você teve episódios de diarreia frequentes...'), padrões entre alimentação/sono/humor/sintomas. Conclua com orientação prática focada na preparação para a consulta. Inclua: '${consultaFrase}'",
   "correlacoes": [
-    { "titulo": "Título curto da correlação", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, citando datas, contagens e exemplos concretos" }
+    { "titulo": "Título curto da correlação (Ex: Sono e Cólicas)", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, ajudando o paciente a ver a ligação. Use linguagem acessível e evite listar datas excessivas." }
   ],
   "perguntas_medico": [
-    { "pergunta": "Pergunta específica que o PACIENTE deve fazer ao MÉDICO", "motivo": "DEVE citar dados concretos dos registros — datas, contagens, exemplos específicos. NUNCA use genéricos como 'baseado nos seus sintomas' ou 'devido ao seu quadro'. Exemplo: 'Você registrou 8 episódios de diarreia nos últimos 15 dias, 5 deles após consumir frituras nos dias 05/06, 12/06...'" }
+    { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "motivo": "O 'argumento' de apoio do paciente. DEVE citar evidências dos registros para justificar a pergunta de forma natural (ex: 'Notei episódios frequentes de diarreia após ingerir frituras na última semana...'). Este texto servirá de base de segurança para o usuário." }
   ]
 }
 
-Regras:
-- No mínimo 3 e no máximo 6 correlações
-- No mínimo 3 e no máximo 6 perguntas para o médico
-- O campo 'resumo_executivo' DEVE ser um texto longo e narrativo (mínimo 4 frases divididas em 2-3 parágrafos)
-- Formate o resumo_executivo em parágrafos: use \n\n entre parágrafos, cada parágrafo com 2-4 frases
-- Cada 'motivo' das perguntas DEVE conter evidências concretas (datas, contagens, exemplos) extraídas dos registros
-- Use linguagem acessível, sem diagnóstico médico
-- Correlações devem ser baseadas APENAS nos dados fornecidos
-- As perguntas são SEMPRE perguntas que o PACIENTE levará para perguntar ao MÉDICO, nunca o contrário
-- Respeite a ordem temporal dos eventos. Um evento no dia X NÃO pode ser citado como causa de algo registrado no dia X-1 ou antes
+Regras rigorosas que você DEVE seguir:
+1. QUANTIDADE: Gere no mínimo 3 e no máximo 6 correlações e perguntas.
+2. FORMATO DO RESUMO: O campo 'resumo_executivo' DEVE ser um texto narrativo, formatado em parágrafos usando \\n\\n.
+3. TRADUÇÃO DE TERMOS MÉDICOS (MUITO IMPORTANTE): O paciente não é médico. NUNCA use jargões como "Escala de Bristol", "Bristol 1" ou "Bristol 7". Traduza e substitua SEMPRE por descrições visuais fáceis de entender (ex: "fezes muito duras em formato de bolinhas", "fezes totalmente líquidas", "fezes normais", "diarreia").
+4. FISIOLOGIA INTESTINAL: Respeite o tempo do corpo. Sintomas altos e rápidos (gases, estufamento, azia) costumam ter gatilhos nas últimas 1 a 6 horas. Sintomas de trânsito lento (constipação, alteração na consistência das fezes) refletem os hábitos (água, dieta, sono) de 24 a 72 horas ANTES. Não aponte um alimento como causa de uma constipação que ocorreu no mesmo dia.
+5. AGRUPAMENTO DE DATAS: É PROIBIDO listar várias datas em sequência no texto (ex: 12/06, 13/06 e 15/06). Substitua por expressões naturais de frequência (ex: "em 3 ocasiões na mesma semana", "frequentemente aos finais de semana", "nos dias seguintes ao sintoma"). Use datas exatas apenas para eventos únicos e graves.
+6. SEM ALUCINAÇÃO DE TAGS: NUNCA invente ingredientes, categorias ou deduza tags. Use ESTRITAMENTE as tags exatas que o usuário marcou nos registros.
+7. BASE EM DADOS: O campo 'motivo' e as 'correlacoes' DEVEM conter evidências concretas extraídas do diário. Só aponte causa e efeito se houver um padrão real.
+8. ORDEM TEMPORAL: Respeite a linha do tempo estritamente. Um evento no dia X não pode causar algo no dia X-1.
+9. PERSPECTIVA: As perguntas ('pergunta') são SEMPRE formuladas na primeira pessoa (o paciente perguntando ao médico).
 
 Registros para análise:
 ${registrosTexto}`;
@@ -92,7 +95,7 @@ ${registrosTexto}`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: { maxOutputTokens: 4096 },
+        generationConfig: { maxOutputTokens: 8192 },
       }),
     });
     if (!res.ok) {
@@ -111,7 +114,7 @@ ${registrosTexto}`;
     }
     const result = await env.AI.run(modelId, {
       messages: [{ role: 'user', content: promptText }],
-      max_tokens: 4096,
+      max_tokens: 8192,
     });
     const responseText = typeof result.response === 'string' ? result.response : (result.choices?.[0]?.message?.content || '');
     return (responseText || '').trim();
@@ -177,6 +180,12 @@ function parseReportJSON(raw) {
 
   const result = tentar(raw);
   if (result) return result;
+
+  const mdMatch = raw.match(/```(?:json)?\s*(\{[\s\S]*?\})```/);
+  if (mdMatch) {
+    const extraidoMd = tentar(mdMatch[1]);
+    if (extraidoMd) return extraidoMd;
+  }
 
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
