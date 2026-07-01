@@ -1,8 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
+  Download, Share2, FileText, Sparkles, Stethoscope,
 } from 'lucide-react';
 import { gerarDadosRelatorioMock } from '../lib/diary.js';
+import { jsPDF } from 'jspdf';
 
 function normalizePergunta(item) {
   if (typeof item === 'string') return { pergunta: item, motivo: '' };
@@ -146,33 +148,49 @@ export default function RelatoriasIAScreen({ entries }) {
   function renderStructuredContent(report) {
     const { resumo_executivo, correlacoes, perguntas_medico } = report;
     const perguntasNorm = Array.isArray(perguntas_medico) ? perguntas_medico.map(normalizePergunta) : [];
+    const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     return (
-      <div className="space-y-4">
-        {resumo_executivo && (
+      <div className="space-y-5">
+        {paragrafos.length > 0 && (
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-[#7D766A] mb-1.5">Resumo Executivo</h4>
-            <p className="text-sm text-[#4A443F] leading-relaxed">{resumo_executivo}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(93,95,160,0.12)' }}>
+                <FileText size={15} style={{ color: '#5D5FA0' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5D5FA0' }}>Resumo Executivo</h4>
+            </div>
+            <div className="space-y-2 pl-1">
+              {paragrafos.map((p, i) => (
+                <p key={i} className="text-sm text-[#4A443F] leading-relaxed">{p.trim()}</p>
+              ))}
+            </div>
           </div>
         )}
 
         {Array.isArray(correlacoes) && correlacoes.length > 0 && (
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-[#7D766A] mb-1.5">Correlações Encontradas</h4>
-            <div className="space-y-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,118,58,0.12)' }}>
+                <Sparkles size={15} style={{ color: '#C9763A' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#C9763A' }}>Correlações Encontradas</h4>
+            </div>
+            <div className="space-y-1.5">
               {correlacoes.map((corr, idx) => (
-                <div key={idx} className="rounded-xl border overflow-hidden"
-                  style={{ borderColor: 'rgba(150,140,120,0.2)' }}>
+                <div key={idx} className="rounded-xl overflow-hidden"
+                  style={{ border: '1px solid rgba(201,118,58,0.2)' }}>
                   <button type="button" onClick={() => toggleAccordion(idx)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm font-medium text-[#2B2A28] hover:bg-[#F5F3EE] transition-colors">
+                    className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm font-medium text-[#2B2A28] hover:bg-[#F6E9DD] transition-colors">
                     <span>{corr.titulo || `Correlação ${idx + 1}`}</span>
-                    <span style={{ color: expandedCorr[idx] ? '#4A8A5C' : '#7D766A' }}>
+                    <span style={{ color: expandedCorr[idx] ? '#C9763A' : '#7D766A' }}>
                       <ChevronDown size={16}
                         className={`transition-transform duration-200 ${expandedCorr[idx] ? 'rotate-180' : ''}`} />
                     </span>
                   </button>
                   {expandedCorr[idx] && (
-                    <div className="px-3 pb-3 text-sm text-[#4A443F] space-y-1">
-                      {corr.descricao && <p>{corr.descricao}</p>}
+                    <div className="px-3 pb-3 text-sm text-[#4A443F] space-y-1"
+                      style={{ background: 'rgba(246,233,221,0.3)' }}>
+                      {corr.descricao && <p className="pt-1">{corr.descricao}</p>}
                       {corr.forca && (
                         <p className="text-xs text-[#7D766A]">Força da correlação: {corr.forca}</p>
                       )}
@@ -186,27 +204,37 @@ export default function RelatoriasIAScreen({ entries }) {
 
         {perguntasNorm.length > 0 && (
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-[#7D766A] mb-1.5">Perguntas para o Médico</h4>
-            <div className="space-y-1">
-              {perguntasNorm.map((item, idx) => (
-                <label key={idx}
-                  className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-[#F5F3EE] transition-colors">
-                  <input type="checkbox" checked={selectedQuestions.includes(item.pergunta)}
-                    onChange={() => toggleQuestao(item.pergunta)}
-                    className="mt-0.5 accent-[#4A8A5C]" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm text-[#2B2A28]">{item.pergunta}</span>
-                    {item.motivo && (
-                      <p className="text-[11px] text-[#7D766A] mt-0.5">{item.motivo}</p>
-                    )}
-                  </div>
-                </label>
-              ))}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(74,138,92,0.12)' }}>
+                <Stethoscope size={15} style={{ color: '#4A8A5C' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#4A8A5C' }}>Perguntas para o Médico</h4>
+            </div>
+            <div className="space-y-1.5">
+              {perguntasNorm.map((item, idx) => {
+                const checked = selectedQuestions.includes(item.pergunta);
+                return (
+                  <label key={idx}
+                    className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors"
+                    style={{ background: checked ? 'rgba(74,138,92,0.08)' : 'transparent' }}>
+                    <input type="checkbox" checked={checked}
+                      onChange={() => toggleQuestao(item.pergunta)}
+                      className="mt-0.5 accent-[#4A8A5C]" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-[#2B2A28] block">{item.pergunta}</span>
+                      {item.motivo && (
+                        <p className="text-[11px] text-[#7D766A] mt-1 leading-relaxed italic">{item.motivo}</p>
+                      )}
+                    </div>
+                  </label>
+                );
+              })}
             </div>
             {selectedQuestions.length > 0 && (
               <button type="button" onClick={() => setConsultaAberta(true)}
-                className="mt-3 w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
+                className="mt-3 w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
                 style={{ background: 'var(--brand)', color: '#fff' }}>
+                <ClipboardList size={16} />
                 Abrir Modo Consulta ({selectedQuestions.length})
               </button>
             )}
@@ -216,10 +244,149 @@ export default function RelatoriasIAScreen({ entries }) {
     );
   }
 
+  function gerarPDF(reportData, modelLabel) {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 48;
+    const maxW = pageW - margin * 2;
+    let y = margin;
+
+    const ensureSpace = (need) => {
+      if (y + need > pageH - margin) { doc.addPage(); y = margin; }
+    };
+
+    const heading = (text, color) => {
+      ensureSpace(28);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(text, margin, y);
+      y += 8;
+      doc.setDrawColor(color[0], color[1], color[2]);
+      doc.setLineWidth(1.5);
+      doc.line(margin, y, margin + 18, y);
+      y += 16;
+    };
+
+    const paragraph = (text, fontColor = [68, 68, 63]) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(fontColor[0], fontColor[1], fontColor[2]);
+      const lines = doc.splitTextToSize(text, maxW);
+      lines.forEach(line => {
+        ensureSpace(14);
+        doc.text(line, margin, y);
+        y += 14;
+      });
+    };
+
+    const spacer = (h = 8) => { y += h; };
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(43, 42, 40);
+    doc.text('Relatório Gastrointestinal', margin, y);
+    y += 22;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(125, 118, 106);
+    const periodoTxt = `${periodo} dias · Gerado em ${new Date().toLocaleDateString('pt-BR')} · ${modelLabel}`;
+    doc.text(periodoTxt, margin, y);
+    y += 6;
+    doc.setDrawColor(200, 195, 185);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 20;
+
+    const r = reportData || {};
+    const paragrafos = r.resumo_executivo ? r.resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
+
+    if (paragrafos.length > 0) {
+      heading('Resumo Executivo', [93, 95, 160]);
+      paragrafos.forEach(p => { paragraph(p.trim()); spacer(6); });
+      spacer(8);
+    }
+
+    if (Array.isArray(r.correlacoes) && r.correlacoes.length > 0) {
+      heading('Correlações Encontradas', [201, 118, 58]);
+      r.correlacoes.forEach((c, i) => {
+        ensureSpace(30);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(43, 42, 40);
+        const tLines = doc.splitTextToSize(`${i + 1}. ${c.titulo || ''}`, maxW);
+        tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        if (c.descricao) { paragraph(c.descricao, [100, 100, 95]); }
+        spacer(10);
+      });
+      spacer(4);
+    }
+
+    const perguntas = Array.isArray(r.perguntas_medico) ? r.perguntas_medico.map(normalizePergunta).filter(p => p.pergunta) : [];
+    if (perguntas.length > 0) {
+      heading('Perguntas para o Médico', [74, 138, 92]);
+      perguntas.forEach((item, i) => {
+        ensureSpace(20);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(43, 42, 40);
+        const qLines = doc.splitTextToSize(`${i + 1}. ${item.pergunta}`, maxW);
+        qLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        if (item.motivo) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(9);
+          doc.setTextColor(125, 118, 106);
+          const mLines = doc.splitTextToSize(item.motivo, maxW - 12);
+          mLines.forEach(l => { ensureSpace(12); doc.text(l, margin + 12, y); y += 12; });
+        }
+        spacer(10);
+      });
+    }
+
+    ensureSpace(20);
+    y += 4;
+    doc.setDrawColor(200, 195, 185);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 12;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(125, 118, 106);
+    const disclaimer = 'Relatório gerado por IA com base nos seus registros. Não substitui avaliação médica.';
+    doc.text(doc.splitTextToSize(disclaimer, maxW), margin, y);
+
+    return doc;
+  }
+
+  function baixarPDF(reportData, modelLabel) {
+    try {
+      const doc = gerarPDF(reportData, modelLabel);
+      doc.save(`relatorio-tlgut-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (e) { console.error('Erro ao gerar PDF:', e); }
+  }
+
+  async function compartilharPDF(reportData, modelLabel) {
+    try {
+      const doc = gerarPDF(reportData, modelLabel);
+      const blob = doc.output('blob');
+      const file = new File([blob], `relatorio-tlgut.pdf`, { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Relatório Tlgut', text: 'Relatório gastrointestinal gerado por IA' });
+      } else {
+        doc.save(`relatorio-tlgut-${new Date().toISOString().slice(0, 10)}.pdf`);
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('Erro ao compartilhar:', e);
+    }
+  }
+
   function renderCardStructured(modelId, { report, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
     const isRaw = report?.isRaw;
+    const canPDF = report && !error && !loading && !isRaw;
 
     return (
       <div key={modelId} className={CARDS_CLASS}
@@ -229,16 +396,38 @@ export default function RelatoriasIAScreen({ entries }) {
             style={{ background: modelo?.recommended ? 'rgba(74,138,92,0.12)' : 'rgba(100,100,100,0.08)', color: modelo?.recommended ? '#4A8A5C' : '#7D766A' }}>
             {nomeModelo}{modelo?.recommended ? ' ★' : ''}
           </span>
-          {mostrarVoto && !loading && !error && (
-            <button type="button" onClick={() => votar(modelId)}
-              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
-              style={{ color: '#7D766A' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(74,138,92,0.1)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <ThumbsUp size={14} />
-              {(votes[modelId] || 0) > 0 && <span>{votes[modelId]}</span>}
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {canPDF && (
+              <>
+                <button type="button" onClick={() => compartilharPDF(report, nomeModelo)}
+                  title="Compartilhar PDF"
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
+                  style={{ color: '#5D5FA0', background: 'rgba(93,95,160,0.08)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(93,95,160,0.18)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(93,95,160,0.08)'}>
+                  <Share2 size={14} />
+                </button>
+                <button type="button" onClick={() => baixarPDF(report, nomeModelo)}
+                  title="Baixar PDF"
+                  className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
+                  style={{ color: '#5D5FA0', background: 'rgba(93,95,160,0.08)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(93,95,160,0.18)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(93,95,160,0.08)'}>
+                  <Download size={14} />
+                </button>
+              </>
+            )}
+            {mostrarVoto && !loading && !error && (
+              <button type="button" onClick={() => votar(modelId)}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
+                style={{ color: '#7D766A' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(74,138,92,0.1)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <ThumbsUp size={14} />
+                {(votes[modelId] || 0) > 0 && <span>{votes[modelId]}</span>}
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && (
