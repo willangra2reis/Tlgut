@@ -20,6 +20,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
   const [nome, setNome] = useState('');
   const [condicoes, setCondicoes] = useState([]);
   const [outros, setOutros] = useState('');
+  const [tentouAvancar, setTentouAvancar] = useState(false);
   const [idade, setIdade] = useState('');
   const [peso, setPeso] = useState('');
   const [altura, setAltura] = useState('');
@@ -36,9 +37,15 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
   }, [initialProfile]);
 
   const toggleCond = (id) => {
-    setCondicoes((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+    if (id === 'nenhuma') {
+      setCondicoes((prev) => prev.includes('nenhuma') ? [] : ['nenhuma']);
+    } else {
+      setCondicoes((prev) => {
+        const next = prev.includes(id) ? prev.filter((c) => c !== id) : [...prev.filter((c) => c !== 'nenhuma'), id];
+        setTentouAvancar(false);
+        return next;
+      });
+    }
   };
 
   const buildProfile = () => ({
@@ -59,6 +66,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
   };
 
   const podeAvancarStep1 = nome.trim().length > 0;
+  const temCondSelecionada = condicoes.length > 0;
 
   const alturaValor = altura ? Number(altura) : 160;
   const formatarAltura = (cm) => {
@@ -97,10 +105,13 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
                   <p className="text-sm text-[#5C5650] mt-1">Como podemos te chamar?</p>
                 </div>
                 <input autoFocus type="text" value={nome} placeholder="Seu nome"
-                  onChange={(e) => setNome(e.target.value)} maxLength={30}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && podeAvancarStep1) setStep(1); }}
+                  onChange={(e) => { setNome(e.target.value); setTentouAvancar(false); }} maxLength={30}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && podeAvancarStep1) { setTentouAvancar(false); setStep(1); } }}
                   className={INPUT_CLASS} style={INPUT_STYLE} />
-                <button type="button" disabled={!podeAvancarStep1} onClick={() => setStep(1)}
+                {tentouAvancar && !podeAvancarStep1 && (
+                  <p className="text-xs text-[#BD5A4A] mt-1">Preencha seu nome para continuar</p>
+                )}
+                <button type="button" disabled={!podeAvancarStep1} onClick={() => { if (!podeAvancarStep1) setTentouAvancar(true); else { setTentouAvancar(false); setStep(1); } }}
                   className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50 transition-opacity"
                   style={{ background: 'var(--brand)', color: '#fff' }}>
                   Continuar
@@ -113,7 +124,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
               <div className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-[#2B2A28]">Você possui alguma destas condições?</h2>
-                  <p className="text-xs text-[#5C5650] mt-1">Selecione todas que se aplicam. Isso ajuda a IA a não confundir sintomas de doenças com efeitos da dieta.</p>
+                  <p className="text-sm text-[#4A443F] mt-1">Selecione todas que se aplicam. Isso ajuda a IA a não confundir sintomas de doenças com efeitos da dieta.</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {CONDICOES.map((c) => {
@@ -150,8 +161,12 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
                     style={{ background: 'rgba(255,255,255,0.5)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
                     <ChevronLeft size={16} />
                   </button>
-                  <button type="button" onClick={() => setStep(2)}
-                    className="flex-1 py-3 rounded-xl text-sm font-semibold"
+                  {tentouAvancar && !temCondSelecionada && (
+                    <p className="text-xs text-[#BD5A4A] text-center mt-1">Selecione ao menos uma condição ou marque "Nenhuma"</p>
+                  )}
+                  <button type="button" disabled={!temCondSelecionada}
+                    onClick={() => { if (!temCondSelecionada) setTentouAvancar(true); else { setTentouAvancar(false); setStep(2); } }}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
                     style={{ background: 'var(--brand)', color: '#fff' }}>
                     Continuar
                   </button>
@@ -164,27 +179,31 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
               <div className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-[#2B2A28]">Dados básicos</h2>
-                  <p className="text-xs text-[#5C5650] mt-1">Usados para personalizar a análise de hidratação e metabolismo.</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="text-[11px] text-[#7D766A]">Idade</label>
-                    <input type="number" inputMode="numeric" value={idade} placeholder="42" min={5} max={100}
-                      onChange={(e) => setIdade(e.target.value)} className={`mt-1 ${INPUT_CLASS} text-center`} style={INPUT_STYLE} />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-[#7D766A]">Peso (kg)</label>
-                    <input type="number" inputMode="decimal" value={peso} placeholder="68" min={25} max={300}
-                      onChange={(e) => setPeso(e.target.value)} className={`mt-1 ${INPUT_CLASS} text-center`} style={INPUT_STYLE} />
-                  </div>
+                  <p className="text-sm text-[#4A443F] mt-1">Usados para personalizar a análise de hidratação e metabolismo.</p>
                 </div>
                 <div>
-                  <label className="text-[11px] text-[#7D766A]">Altura</label>
-                  <p className="text-sm font-medium text-[#2B2A28] mt-0.5 mb-1">{formatarAltura(alturaValor)}</p>
+                  <label className="text-sm text-[#5C5650] font-medium">Idade</label>
+                  <p className="text-lg font-bold text-[#2B2A28] mt-1 mb-0.5">{idade ? `${idade} anos` : '—'}</p>
+                  <input type="range" min={5} max={100} step={1}
+                    value={idade || 30}
+                    onChange={(e) => setIdade(e.target.value)}
+                    className="w-full accent-[#4A8A5C]" style={{ accentColor: 'var(--brand)' }} />
+                </div>
+                <div>
+                  <label className="text-sm text-[#5C5650] font-medium">Peso (kg)</label>
+                  <p className="text-lg font-bold text-[#2B2A28] mt-1 mb-0.5">{peso ? `${peso} kg` : '—'}</p>
+                  <input type="range" min={25} max={300} step={1}
+                    value={peso || 65}
+                    onChange={(e) => setPeso(e.target.value)}
+                    className="w-full accent-[#4A8A5C]" style={{ accentColor: 'var(--brand)' }} />
+                </div>
+                <div>
+                  <label className="text-sm text-[#5C5650] font-medium">Altura</label>
+                  <p className="text-lg font-bold text-[#2B2A28] mt-1 mb-0.5">{formatarAltura(alturaValor)}</p>
                   <input type="range" min={100} max={220} step={1}
                     value={alturaValor}
                     onChange={(e) => setAltura(e.target.value)}
-                    className="w-full mt-1 accent-[#4A8A5C]" style={{ accentColor: 'var(--brand)' }} />
+                    className="w-full accent-[#4A8A5C]" style={{ accentColor: 'var(--brand)' }} />
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setStep(1)}
