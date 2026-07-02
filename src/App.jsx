@@ -23,6 +23,7 @@ import {
   DIA,
 } from './lib/insights.js';
 import RelatoriasIAScreen from './components/RelatoriasIAScreen';
+import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
 
 const ENTRY_TYPES = {
   meal:       { label: 'Refeição',   icon: Utensils, color: '#C9763A', soft: '#F6E9DD' },
@@ -75,27 +76,6 @@ const MED_TAGS = [
   'Antibiótico', 'Laxante', 'Probiótico', 'Antidepressivo', 'Anti-inflamatório',
   'Analgésico', 'Antiácido', 'Suplemento', 'Vitamina',
 ];
-const CONDICOES_LABELS = {
-  diabetes:    'Diabetes',
-  hipertensao: 'Hipertensão',
-  tireoide:    'Alterações na Tireoide',
-  celiaca:     'Doença Celíaca',
-  lactose:     'Intolerância à Lactose',
-  gluten:      'Sensibilidade ao Glúten',
-};
-
-function loadProfile() {
-  try { return JSON.parse(localStorage.getItem('tlgut_profile') || '{}'); }
-  catch { return {}; }
-}
-
-function saveProfile(p) {
-  localStorage.setItem('tlgut_profile', JSON.stringify(p));
-}
-
-function isOnboarded() {
-  return localStorage.getItem('tlgut_onboarded') === '1';
-}
 
 // ─── Aulas (vídeo-aulas) — FASE 1: dados mockados ────────────────────────────
 // Estrutura pronta para depois vir do Supabase. Os campos capa/preview/links

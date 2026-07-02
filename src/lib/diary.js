@@ -206,3 +206,35 @@ export function buildGasEntry(form) {
     meta: { intensidade, odor, alivio, som },
   };
 }
+
+// Estatísticas de uso do diário usadas no cabeçalho do PDF e (futuramente)
+// em um endpoint /api/stats. Função pura: não depende de localStorage nem de
+// I/O. Aceita o array de entries (com `ts` ou `timestamp`) e Retorna um
+// resumo com data do primeiro registro, total, média/dia e classificação.
+export function calcularEstatisticas(entries) {
+  const arr = Array.isArray(entries) ? entries : [];
+  const tsArr = arr
+    .map(e => e.ts || e.timestamp || 0)
+    .filter(t => Number.isFinite(t) && t > 0)
+    .sort((a, b) => a - b);
+  if (tsArr.length === 0) {
+    return { primeiroRegistro: '', totalRegistros: 0, diasNoPeriodo: 0, frequenciaMediaDia: 0, classificacao: '' };
+  }
+  const primeiro = tsArr[0];
+  const ultimo = tsArr[tsArr.length - 1];
+  const umDia = 24 * 3600 * 1000;
+  const diasCalendario = Math.max(1, Math.round((ultimo - primeiro) / umDia) + 1);
+  const freq = arr.length / diasCalendario;
+  let classificacao = 'Esporádica';
+  if (freq >= 1.5) classificacao = 'Assídua';
+  else if (freq >= 0.5) classificacao = 'Regular';
+  const d = new Date(primeiro);
+  const dataFmt = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  return {
+    primeiroRegistro: dataFmt,
+    totalRegistros: arr.length,
+    diasNoPeriodo: diasCalendario,
+    frequenciaMediaDia: Math.round(freq * 10) / 10,
+    classificacao,
+  };
+}

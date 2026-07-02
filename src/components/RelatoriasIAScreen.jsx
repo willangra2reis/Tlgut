@@ -1,9 +1,10 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
-  Download, Share2, FileText, Sparkles, Stethoscope,
+  Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle,
 } from 'lucide-react';
-import { gerarDadosRelatorioMock } from '../lib/diary.js';
+import { gerarDadosRelatorioMock, calcularEstatisticas } from '../lib/diary.js';
+import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import { jsPDF } from 'jspdf';
 import mascoteImage from '../assets/mascote.png';
 
@@ -17,7 +18,7 @@ const MODELOS = [
   { id: '@google/gemini-2.5-flash',            label: 'Gemini 2.5 Flash',  descricao: 'Google, 1500 req/dia grátis, alta qualidade', recommended: true },
   { id: '@google/gemini-2.5-flash-lite',       label: 'Gemini 2.5 Flash Lite', descricao: 'Google, versão leve do 2.5 Flash',         recommended: false },
   { id: '@cf/zai-org/glm-4.7-flash',           label: 'GLM 4.7 Flash',    descricao: 'Multilíngue, rápido, 131K de contexto, Cloudflare', recommended: false },
-  { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B', descricao: 'MoE com 16 especialistas, Meta, Cloudflare', recommended: false },
+  { id: '@cf/meta/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B (Experimental)', descricao: 'MoE com 16 especialistas, Meta, Cloudflare', recommended: false },
   { id: '@cf/google/gemma-4-26b-a4b-it',       label: 'Gemma 4 26B',      descricao: 'Alta inteligência, Google, Cloudflare',      recommended: false },
   { id: '@cf/openai/gpt-oss-120b',             label: 'GPT-OSS 120B',     descricao: 'Open-source 120B, Cloudflare',               recommended: false },
 ];
@@ -111,11 +112,11 @@ export default function RelatoriasIAScreen({ entries }) {
   const hasResults = Object.keys(reports).some(k => k !== '_empty');
 
   const gerarRelatorio = useCallback(async (entriesFor, model) => {
-    const body = { entries: entriesFor, model };
+    const body = { entries: entriesFor, model, periodo };
     const cd = consultaDate && consultaDate.trim() ? consultaDate.trim() : null;
     if (cd) body.consulta_date = cd;
     try {
-      const pr = JSON.parse(localStorage.getItem('tlgut_profile') || '{}');
+      const pr = loadProfile();
       if (pr && Object.keys(pr).length > 0) body.profile = pr;
     } catch {}
     const res = await fetch('/api/report', {
@@ -128,7 +129,7 @@ export default function RelatoriasIAScreen({ entries }) {
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return await res.json();
-  }, [consultaDate]);
+  }, [consultaDate, periodo]);
 
   async function handleGerar() {
     setSelectedQuestions([]);
@@ -187,11 +188,35 @@ export default function RelatoriasIAScreen({ entries }) {
   }
 
   function renderStructuredContent(report) {
-    const { resumo_executivo, correlacoes, perguntas_medico } = report;
+    const { resumo_executivo, evolucao, sinais_alerta, correlacoes, perguntas_medico } = report;
     const perguntasNorm = Array.isArray(perguntas_medico) ? perguntas_medico.map(normalizePergunta) : [];
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
+    const alertas = Array.isArray(sinais_alerta) ? sinais_alerta.filter(a => a && (a.titulo || a.descricao)) : [];
+    const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
     return (
       <div className="space-y-5">
+        {alertas.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(189,90,74,0.12)' }}>
+                <AlertTriangle size={15} style={{ color: '#BD5A4A' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#BD5A4A' }}>Sinais de Alerta — procure atendimento se persistirem</h4>
+            </div>
+            <div className="space-y-1.5">
+              {alertas.map((a, idx) => (
+                <div key={idx} className="rounded-xl p-3"
+                  style={{ background: 'rgba(189,90,74,0.06)', border: '1px solid rgba(189,90,74,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">
+                    {a.titulo || `Sinal ${idx + 1}`}{a.data ? ` · ${a.data}` : ''}
+                  </p>
+                  {a.descricao && <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">{a.descricao}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {paragrafos.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -205,6 +230,18 @@ export default function RelatoriasIAScreen({ entries }) {
                 <p key={i} className="text-sm text-[#4A443F] leading-relaxed">{p.trim()}</p>
               ))}
             </div>
+          </div>
+        )}
+
+        {temEvolucao && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(62,142,150,0.12)' }}>
+                <TrendingUp size={15} style={{ color: '#3E8E96' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3E8E96' }}>Evolução no período</h4>
+            </div>
+            <p className="text-sm text-[#4A443F] leading-relaxed pl-1">{evolucao.trim()}</p>
           </div>
         )}
 
@@ -322,20 +359,49 @@ export default function RelatoriasIAScreen({ entries }) {
       });
     };
 
+    const microLine = (text) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(125, 118, 106);
+      const lines = doc.splitTextToSize(text, maxW);
+      lines.forEach(line => {
+        ensureSpace(12);
+        doc.text(line, margin, y);
+        y += 12;
+      });
+    };
+
     const spacer = (h = 8) => { y += h; };
 
+    // ── Cabeçalho enriquecido ──
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     doc.setTextColor(43, 42, 40);
-    doc.text('Relatório Gastrointestinal', margin, y);
+    doc.text('Smart Gut · Relatório Gastrointestinal', margin, y);
     y += 22;
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(125, 118, 106);
-    const periodoTxt = `${periodo} dias · Gerado em ${new Date().toLocaleDateString('pt-BR')} · ${modelLabel}`;
-    doc.text(periodoTxt, margin, y);
-    y += 6;
+    const dataGer = new Date().toLocaleDateString('pt-BR');
+    const pr = (typeof loadProfile === 'function') ? loadProfile() : {};
+    const nomeProf = pr && pr.nome ? String(pr.nome).trim() : '';
+    const bio = [];
+    if (pr && pr.idade) bio.push(`${pr.idade} anos`);
+    if (pr && pr.peso)  bio.push(`${pr.peso} kg`);
+    if (pr && pr.altura) bio.push(`${pr.altura} cm`);
+    const condArr = Array.isArray(pr && pr.condicoes) ? pr.condicoes.map(c => CONDICOES_LABELS[c] || c).filter(Boolean) : [];
+    if (pr && pr.outros) condArr.push(pr.outros);
+
+    microLine(`Paciente: ${nomeProf || '—'}${bio.length ? '  ·  ' + bio.join(' · ') : ''}${condArr.length ? '  ·  Condições: ' + condArr.join(', ') : ''}`);
+    microLine(`${periodo} dias  ·  Gerado em ${dataGer}  ·  Modelo: ${modelLabel}`);
+
+    const stats = calcularEstatisticas(workingEntries);
+    if (stats && stats.totalRegistros > 0) {
+      const freqTxt = stats.classificacao
+        ? `Primeiro registro: ${stats.primeiroRegistro}  ·  Total: ${stats.totalRegistros} registros  ·  Frequência: ${stats.frequenciaMediaDia}/dia (${stats.classificacao})`
+        : `Primeiro registro: ${stats.primeiroRegistro}  ·  Total: ${stats.totalRegistros} registros`;
+      microLine(freqTxt);
+    }
+
+    y += 4;
     doc.setDrawColor(200, 195, 185);
     doc.setLineWidth(0.5);
     doc.line(margin, y, pageW - margin, y);
@@ -348,6 +414,28 @@ export default function RelatoriasIAScreen({ entries }) {
       heading('Resumo Executivo', [93, 95, 160]);
       paragrafos.forEach(p => { paragraph(p.trim()); spacer(6); });
       spacer(8);
+    }
+
+    if (typeof r.evolucao === 'string' && r.evolucao.trim()) {
+      heading('Evolução no período', [62, 142, 150]);
+      paragraph(r.evolucao.trim());
+      spacer(8);
+    }
+
+    if (Array.isArray(r.sinais_alerta) && r.sinais_alerta.length > 0) {
+      heading('Sinais de Alerta — procure atendimento se persistirem', [189, 90, 74]);
+      r.sinais_alerta.forEach((a, i) => {
+        ensureSpace(24);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(43, 42, 40);
+        const titulo = `${i + 1}. ${a.titulo || ''}${a.data ? ' · ' + a.data : ''}`;
+        const tLines = doc.splitTextToSize(titulo, maxW);
+        tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        if (a.descricao) paragraph(a.descricao, [120, 70, 60]);
+        spacer(8);
+      });
+      spacer(4);
     }
 
     if (Array.isArray(r.correlacoes) && r.correlacoes.length > 0) {
@@ -401,10 +489,19 @@ export default function RelatoriasIAScreen({ entries }) {
     return doc;
   }
 
+  function montarNomeArquivoPDF() {
+    const data = new Date().toISOString().slice(0, 10);
+    let pr = {};
+    try { pr = loadProfile(); } catch {}
+    const nome = pr && pr.nome ? String(pr.nome).trim().replace(/[^\p{L}\p{N}_-]+/gu, '_') : '';
+    const base = nome ? `SmartGut_Relatorio_${nome}_${data}` : `SmartGut_Relatorio_${data}`;
+    return base + '.pdf';
+  }
+
   function baixarPDF(reportData, modelLabel) {
     try {
       const doc = gerarPDF(reportData, modelLabel);
-      const fileName = `relatorio-tlgut-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const fileName = montarNomeArquivoPDF();
       if (navigator.userAgent.includes('Firefox')) {
         const blobUrl = doc.output('bloburl');
         const a = document.createElement('a');
@@ -431,11 +528,12 @@ export default function RelatoriasIAScreen({ entries }) {
   async function compartilharPDF(reportData, modelLabel) {
     try {
       const doc = gerarPDF(reportData, modelLabel);
+      const fileName = montarNomeArquivoPDF();
       if (isShareSupported()) {
         const blob = doc.output('blob');
-        const file = new File([blob], `relatorio-tlgut.pdf`, { type: 'application/pdf' });
+        const file = new File([blob], fileName, { type: 'application/pdf' });
         if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'Relatório Tlgut', text: 'Relatório gastrointestinal gerado por IA' });
+          await navigator.share({ files: [file], title: 'Smart Gut — Relatório Gastrointestinal', text: 'Relatório gastrointestinal gerado por IA' });
           return;
         }
       }

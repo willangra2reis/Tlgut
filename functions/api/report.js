@@ -19,7 +19,9 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ error: 'Body inválido. Envie um JSON com { entries, model }.' }, { status: 400 });
   }
 
-  const { entries = [], model = MODELO_PADRAO, consulta_date, profile } = body;
+  const { entries = [], model = MODELO_PADRAO, consulta_date, profile, periodo } = body;
+
+  const periodoDias = Number.isFinite(periodo) && periodo > 0 ? periodo : 0;
 
   const profileBlock = buildProfileBlock(profile);
 
@@ -63,11 +65,18 @@ export async function onRequestPost({ request, env }) {
     ? `Para a sua consulta do dia ${consulta_date}, leve esses pontos...`
     : 'Para a sua próxima consulta, leve esses pontos...';
   const dataConsultaStr = consulta_date ? `Sua próxima consulta médica é dia ${consulta_date}. ` : '';
+  const periodoEvolucaoStr = periodoDias >= 30
+    ? `O período analisado é de ${periodoDias} dias. `
+    : '';
   const prompt = `Você é um assistente de saúde gastrointestinal focado em empoderar e preparar o paciente para sua consulta médica. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro para que o paciente entenda seus próprios padrões de forma clara e simples.
 
-${dataConsultaStr}${profileBlock}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
+${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
 {
   "resumo_executivo": "Texto narrativo acolhedor e educativo direcionado ao paciente (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n). Faça uma análise detalhada: mencione frequências (ex: 'você teve episódios de diarreia frequentes...'), padrões entre alimentação/sono/humor/sintomas. Conclua com orientação prática focada na preparação para a consulta. Inclua: '${consultaFrase}'",
+  "evolucao": "${periodoDias >= 30 ? 'Texto de 1-2 frases sobre a trajetória do paciente ao longo do período: comparando início e fim, houve melhora, piora ou estabilidade? Cite um marcador concreto (frequência de sintomas, consistência das fezes, humor). OBRIGATÓRIO.' : 'OMITIR este campo.'}",
+  "sinais_alerta": [
+    { "titulo": "Título curto do sinal de alerta", "descricao": "Por que este sinal merece atenção médica.", "data": "DD/MM/AAAA da ocorrência, se aplicável" }
+  ],
   "correlacoes": [
     { "titulo": "Título curto da correlação (Ex: Sono e Cólicas)", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, ajudando o paciente a ver a ligação. Use linguagem acessível e evite listar datas excessivas." }
   ],
@@ -86,6 +95,13 @@ Regras rigorosas que você DEVE seguir:
 7. BASE EM DADOS: O campo 'motivo' e as 'correlacoes' DEVEM conter evidências concretas extraídas do diário. Só aponte causa e efeito se houver um padrão real.
 8. ORDEM TEMPORAL: Respeite a linha do tempo estritamente. Um evento no dia X não pode causar algo no dia X-1.
 9. PERSPECTIVA: As perguntas ('pergunta') são SEMPRE formuladas na primeira pessoa (o paciente perguntando ao médico).
+10. ESTATÍSTICA: Não use a palavra "padrão" para sequências com menos de 3 ocorrências documentadas. Use "sinal", "indício" ou "tendência inicial". Para padrões reais, indique a frequência (ex: "em 4 dos últimos 10 dias"). Contar ocorrências é obrigatório antes de afirmar periodicidade.
+11. NEUTRALIDADE MÉDICA: NÃO atribua sintomas gastrointestinais a efeitos diretos e imediatos de condições crônicas. Diabetes NÃO causa diarreia imediata após ingestão de açúcar. Hipertensão NÃO causa sintomas GI diretos. Tireoide afeta metabolismo e trânsito com ATRASO de dias ou semanas. Use sempre "pode estar relacionado" e deixe o médico interpretar a causalidade clínica.
+12. QUEBRA DE TAGS: Substitua tags internas por descrições naturais no texto. "Açúcar/Doce" → "alimentos açucarados"; "Pão/Trigo" → "pães e produtos com trigo"; "Refrigerante" → "refrigerantes"; "Frituras" → "frituras"; "Picante" → "temperos picantes"; "Feijão" → "feijão e leguminosas"; "Legumes" → "legumes e verduras". NUNCA mantenha aspas simples, barras ou nomes literais de tags no texto visto pelo paciente.
+13. VOCABULÁRIO HÍDRICO: Expresse hidratação sempre em ml/dia (ex: "cerca de 1250 ml/dia") e a meta também em ml (ex: "meta de 3430 ml"). Não use "copos" sem equivalente em ml. Nunca exiba a fórmula "35ml/kg" no texto direcionado ao paciente.
+14. EVOLUÇÃO TEMPORAL: ${periodoDias >= 30 ? `Como o período analisado é de ${periodoDias} dias (≥ 30), o campo 'resumo_executivo' DEVE incluir ao menos uma frase comparando o início e o fim do período (melhora, piora ou estabilidade), e o campo 'evolucao' é OBRIGATÓRIO e não pode ser vazio.` : 'Como o período analisado é curto (< 30 dias), OMITA o campo evolucao e não-force comparações temporais longas.'}
+15. SINAIS DE ALERTA (RED FLAGS): Identifique nos registros: (a) sinais da lista padrão — sangue nas fezes, perda de peso, febre, dor noturna severa, anemia ou sintomas associados; (b) sintomas extremos — intensidade 9 ou 10 em 10, palavras como "sangue", "inchado", "vômito", "febre", "emagrecimento". Quando detectar, preencha 'sinais_alerta' com {titulo, descricao, data}. Se não houver nenhum sinal, OMITA o campo 'sinais_alerta' inteiramente (não envie array vazio).
+16. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e sintomas físicos (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como conexão bidirecional: o desconforto físico pode afetar o humor E vice-versa. Formule 'pergunta' e 'motivo' como dúvida aberta (ex: "Será que meu humor afeta meu intestino, ou é o contrário?"), deixando o médico interpretar a direção.
 
 Registros para análise:
 ${registrosTexto}`;
@@ -208,7 +224,9 @@ function valido(obj) {
     typeof obj.resumo_executivo === 'string' &&
     obj.resumo_executivo.length > 0 &&
     Array.isArray(obj.correlacoes) &&
-    (obj.perguntas_medico === undefined || Array.isArray(obj.perguntas_medico));
+    (obj.perguntas_medico === undefined || Array.isArray(obj.perguntas_medico)) &&
+    (obj.sinais_alerta === undefined || Array.isArray(obj.sinais_alerta)) &&
+    (obj.evolucao === undefined || typeof obj.evolucao === 'string');
 }
 
 function normalizePerguntas(arr) {
@@ -277,8 +295,8 @@ function buildProfileBlock(p) {
   const bloco = linhas.join('\n');
   return '## Perfil do paciente\n' + bloco +
     '\n\nUse estes dados para contextualizar suas an\u00e1lises:\n' +
-    '- Hidrata\u00e7\u00e3o ideal \u2248 35ml/kg. Avalie a ingest\u00e3o registrada contra esta meta.\n' +
+    '- Hidrata\u00e7\u00e3o ideal \u2248 35ml/kg. Trate a rela\u00e7\u00e3o entre hidrata\u00e7\u00e3o e consist\u00eancia das fezes sempre como CORRELA\u00c7\u00c3O (\u201caparece coincidir\u201d, \u201cacompanha\u201d), nunca como causalidade direta (\u201c\u00e9 a causa\u201d, \u201cdificulta o tr\u00e2nsito\u201d).\n' +
     '- Considere SEMPRE as condi\u00e7\u00f5es pr\u00e9-existentes e o biotipo antes de atribuir correla\u00e7\u00f5es exclusivamente \u00e0 dieta. Doen\u00e7as de base e medicamentos podem ser a verdadeira causa dos sintomas.\n' +
-    'Regra 10 - CONTEXTO CL\u00cdNICO: N\u00e3o fa\u00e7a falsas correla\u00e7\u00f5es exclusivas com a dieta quando h\u00e1 condi\u00e7\u00f5es pr\u00e9-existentes que explicam o quadro.\n' +
-    'Regra 11 - SA\u00daDA\u00c7\u00c3O PERSONALIZADA: Inicie o resumo_executivo chamando o paciente pelo nome (\u201c' + (p.nome || 'paciente') + '\u201d) em tom acolhedor.\n\n';
+    '- CONTEXTO CL\u00cdNICO: N\u00e3o fa\u00e7a falsas correla\u00e7\u00f5es exclusivas com a dieta quando h\u00e1 condi\u00e7\u00f5es pr\u00e9-existentes que explicam o quadro.\n' +
+    '- SA\u00daDA\u00c7\u00c3O PERSONALIZADA: Inicie o resumo_executivo chamando o paciente pelo nome (\u201c' + (p.nome || 'paciente') + '\u201d) em tom acolhedor.\n\n';
 }
