@@ -1,0 +1,205 @@
+import { useState, useEffect } from 'react';
+import { ChevronLeft, Check, Plus, X } from 'lucide-react';
+import mascoteImage from '../assets/mascote.png';
+
+const CONDICOES = [
+  { id: 'diabetes',  label: 'Diabetes' },
+  { id: 'hipertensao', label: 'Hipertensão' },
+  { id: 'tireoide',  label: 'Alterações na Tireoide' },
+  { id: 'celiaca',   label: 'Doença Celíaca' },
+  { id: 'lactose',   label: 'Intolerância à Lactose' },
+  { id: 'gluten',    label: 'Sensibilidade ao Glúten' },
+];
+
+const MESH = 'day-summary-mesh relative z-10 rounded-2xl border border-[#EDE7DD] overflow-hidden shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]';
+const INPUT_CLASS = 'w-full px-4 py-3 rounded-xl text-base outline-none';
+const INPUT_STYLE = { background: '#FBF9F4', border: '1px solid rgba(150,140,120,0.25)', color: '#2B2A28' };
+
+export default function OnboardingModal({ initialProfile, onConcluir, onPularTudo }) {
+  const [step, setStep] = useState(0);
+  const [nome, setNome] = useState('');
+  const [condicoes, setCondicoes] = useState([]);
+  const [outros, setOutros] = useState('');
+  const [idade, setIdade] = useState('');
+  const [peso, setPeso] = useState('');
+  const [altura, setAltura] = useState('');
+
+  useEffect(() => {
+    if (initialProfile) {
+      setNome(initialProfile.nome || '');
+      setCondicoes(initialProfile.condicoes || []);
+      setOutros(initialProfile.outros || '');
+      setIdade(initialProfile.idade || '');
+      setPeso(initialProfile.peso || '');
+      setAltura(initialProfile.altura || '');
+    }
+  }, [initialProfile]);
+
+  const toggleCond = (id) => {
+    setCondicoes((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  };
+
+  const buildProfile = () => ({
+    nome: nome.trim() || '',
+    idade: idade ? Number(idade) : null,
+    peso: peso ? Number(peso) : null,
+    altura: altura ? Number(altura) : null,
+    condicoes: condicoes.includes('nenhuma') ? [] : condicoes,
+    outros: outros.trim() || '',
+  });
+
+  const concluir = () => {
+    onConcluir(buildProfile());
+  };
+
+  const pularBiometria = () => {
+    onConcluir(buildProfile());
+  };
+
+  const podeAvancarStep1 = nome.trim().length > 0;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="w-full max-w-[400px] max-h-[92vh] mx-3 overflow-y-auto">
+        <div className={MESH}>
+          <div className="relative z-10 p-6 space-y-5">
+            {/* Mascote + progresso */}
+            <div className="flex flex-col items-center pt-2">
+              <img src={mascoteImage} alt="" className="w-20 h-20 animate-mascote-pulse" />
+              <div className="flex gap-1.5 mt-3">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="h-1.5 rounded-full transition-all"
+                    style={{ width: i === step ? 24 : 8, background: i <= step ? '#4A8A5C' : 'rgba(150,140,120,0.3)' }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Tela 0 — Nome */}
+            {step === 0 && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-bold text-[#2B2A28]">Olá! 👋</h2>
+                  <p className="text-sm text-[#5C5650] mt-1">Como você gostaria de ser chamado?</p>
+                </div>
+                <input autoFocus type="text" value={nome} placeholder="Seu nome"
+                  onChange={(e) => setNome(e.target.value)} maxLength={30}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && podeAvancarStep1) setStep(1); }}
+                  className={INPUT_CLASS} style={INPUT_STYLE} />
+                <button type="button" disabled={!podeAvancarStep1} onClick={() => setStep(1)}
+                  className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50 transition-opacity"
+                  style={{ background: 'var(--brand)', color: '#fff' }}>
+                  Continuar
+                </button>
+              </div>
+            )}
+
+            {/* Tela 1 — Condições */}
+            {step === 1 && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-bold text-[#2B2A28]">Você possui alguma destas condições?</h2>
+                  <p className="text-xs text-[#5C5650] mt-1">Selecione todas que se aplicam. Isso ajuda a IA a não confundir sintomas de doenças com efeitos da dieta.</p>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {CONDICOES.map((c) => {
+                    const sel = condicoes.includes(c.id);
+                    return (
+                      <button key={c.id} type="button" onClick={() => toggleCond(c.id)}
+                        className="px-3 py-2 rounded-full text-sm font-medium transition-all"
+                        style={sel
+                          ? { background: 'var(--brand)', color: '#fff', border: '1px solid var(--brand)' }
+                          : { background: 'rgba(255,255,255,0.6)', color: '#4A443F', border: '1px solid rgba(150,140,120,0.3)' }}>
+                        {sel && <Check size={14} className="inline mr-1" />}
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                  <button type="button" onClick={() => toggleCond('nenhuma')}
+                    className="px-3 py-2 rounded-full text-sm font-medium transition-all"
+                    style={condicoes.includes('nenhuma')
+                      ? { background: 'var(--brand)', color: '#fff', border: '1px solid var(--brand)' }
+                      : { background: 'rgba(255,255,255,0.6)', color: '#4A443F', border: '1px solid rgba(150,140,120,0.3)' }}>
+                    {condicoes.includes('nenhuma') && <Check size={14} className="inline mr-1" />}
+                    Nenhuma
+                  </button>
+                </div>
+                <div>
+                  <label className="text-xs text-[#7D766A]">Outras (opcional):</label>
+                  <input type="text" value={outros} placeholder="Ex.: Síndrome do intestino irritável"
+                    onChange={(e) => setOutros(e.target.value)} maxLength={60}
+                    className={`mt-1 ${INPUT_CLASS}`} style={INPUT_STYLE} />
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setStep(0)}
+                    className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.5)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button type="button" onClick={() => setStep(2)}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--brand)', color: '#fff' }}>
+                    Continuar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Tela 2 — Biometria */}
+            {step === 2 && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-bold text-[#2B2A28]">Dados básicos</h2>
+                  <p className="text-xs text-[#5C5650] mt-1">Usados para personalizar a análise de hidratação e metabolismo.</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="text-[11px] text-[#7D766A]">Idade</label>
+                    <input type="number" inputMode="numeric" value={idade} placeholder="42" min={5} max={100}
+                      onChange={(e) => setIdade(e.target.value)} className={`mt-1 ${INPUT_CLASS} text-center`} style={INPUT_STYLE} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#7D766A]">Peso (kg)</label>
+                    <input type="number" inputMode="decimal" value={peso} placeholder="68" min={25} max={300}
+                      onChange={(e) => setPeso(e.target.value)} className={`mt-1 ${INPUT_CLASS} text-center`} style={INPUT_STYLE} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#7D766A]">Altura (cm)</label>
+                    <input type="number" inputMode="numeric" value={altura} placeholder="165" min={100} max={250}
+                      onChange={(e) => setAltura(e.target.value)} className={`mt-1 ${INPUT_CLASS} text-center`} style={INPUT_STYLE} />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setStep(1)}
+                    className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.5)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button type="button" onClick={concluir}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--brand)', color: '#fff' }}>
+                    {nome.trim() ? `Concluir, ${nome.trim()}!` : 'Concluir'}
+                  </button>
+                </div>
+                <button type="button" onClick={pularBiometria}
+                  className="w-full text-center text-xs text-[#7D766A] underline pt-1">
+                  Pular / Preencher no meu perfil depois
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {onPularTudo && (
+          <div className="text-center mt-3">
+            <button type="button" onClick={onPularTudo}
+              className="text-xs text-white/70 underline hover:text-white">
+              Pular tudo por agora
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

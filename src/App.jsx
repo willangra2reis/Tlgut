@@ -7,8 +7,9 @@ import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
-  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag,
+  ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
 } from 'lucide-react';
+import OnboardingModal from './components/OnboardingModal';
 import {
   BRISTOL_DESCRICOES, EVAC_CORES, EVAC_ODORES, buildEvacuationEntry,
   periodoDoDia, horaLocalAtual, contarPorTipo, removerEntrada,
@@ -74,6 +75,27 @@ const MED_TAGS = [
   'Antibiótico', 'Laxante', 'Probiótico', 'Antidepressivo', 'Anti-inflamatório',
   'Analgésico', 'Antiácido', 'Suplemento', 'Vitamina',
 ];
+const CONDICOES_LABELS = {
+  diabetes:    'Diabetes',
+  hipertensao: 'Hipertensão',
+  tireoide:    'Alterações na Tireoide',
+  celiaca:     'Doença Celíaca',
+  lactose:     'Intolerância à Lactose',
+  gluten:      'Sensibilidade ao Glâten',
+};
+
+function loadProfile() {
+  try { return JSON.parse(localStorage.getItem('tlgut_profile') || '{}'); }
+  catch { return {}; }
+}
+
+function saveProfile(p) {
+  localStorage.setItem('tlgut_profile', JSON.stringify(p));
+}
+
+function isOnboarded() {
+  return localStorage.getItem('tlgut_onboarded') === '1';
+}
 
 // ─── Aulas (vídeo-aulas) — FASE 1: dados mockados ────────────────────────────
 // Estrutura pronta para depois vir do Supabase. Os campos capa/preview/links
@@ -1170,7 +1192,13 @@ function AulasScreen({ selecionado, onSelecionado }) {
 }
 
 // ─── Tela de Perfil (configurações — hospeda a Fonte Cursiva, RF 4) ───────────
-function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, cicloAtivo, onCiclo }) {
+function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, cicloAtivo, onCiclo, profile, onEditarProfile }) {
+  const condLabels = (profile?.condicoes || []).map(id => CONDICOES_LABELS[id] || id).join(', ');
+  const biometria = [
+    profile?.idade ? `${profile.idade} anos` : null,
+    profile?.peso ? `${profile.peso} kg` : null,
+    profile?.altura ? `${profile.altura} cm` : null,
+  ].filter(Boolean).join(' - ');
   return (
     <main className="relative z-10 flex-1 overflow-y-auto px-5 pt-3 pb-28">
       <p className="titulo-cursivo text-2xl font-serif mb-4" style={{ color: 'var(--amb-text)' }}>Perfil</p>
@@ -1222,7 +1250,42 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
         </div>
       </div>
 
-      <p className="text-xs mt-4" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>Mais opções de perfil em breve.</p>
+            {/* Meus dados de saúde */}
+      <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Heart size={16} style={{ color: '#BD5A4A' }} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Meus dados de saúde</p>
+          </div>
+          <button type="button" onClick={onEditarProfile}
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg text-[#4A8A5C] transition-colors"
+            style={{ background: 'rgba(74,138,92,0.08)' }}>
+            <PencilIcon size={12} />
+            Editar
+          </button>
+        </div>
+        <div className="mt-3 space-y-1.5">
+          {profile?.nome ? (
+            <p className="text-sm font-medium text-[#2B2A28]">{profile.nome}</p>
+          ) : (
+            <p className="text-sm text-[#9A938A] italic">Nenhum dado preenchido ainda.</p>
+          )}
+          {biometria && (
+            <p className="text-xs text-[#7D766A]">{biometria}</p>
+          )}
+          {condLabels && (
+            <p className="text-xs text-[#7D766A]"><span className="font-medium">Condições:</span> {condLabels}</p>
+          )}
+          {profile?.outros && (
+            <p className="text-xs text-[#7D766A]"><span className="font-medium">Outras:</span> {profile.outros}</p>
+          )}
+        </div>
+        <p className="text-[11px] text-[#9A938A] mt-2 leading-snug">
+          Estes dados enriquecem o Relatério de IA com contexto clínico personalizado.
+        </p>
+      </div>
+
+<p className="text-xs mt-4" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>Mais opções de perfil em breve.</p>
     </main>
   );
 }
@@ -3039,6 +3102,9 @@ export default function App() {
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
   const [aulaSelecionada, setAulaSelecionada] = useState(null);                          // detalhe da aula (elevado de AulasScreen)
   const [calAberto,  setCalAberto]  = useState(false);                                   // calendário dos Insights (elevado de InsightsScreen)
+  const [onboarded,  setOnboarded]  = useState(() => isOnboarded());
+  const [profile,    setProfile]    = useState(() => loadProfile());
+  const [editandoProfile, setEditandoProfile] = useState(false);
   const idRef = useRef(100);
   const rafRef = useRef(0);
   const timelineRef = useRef(null);
@@ -3226,6 +3292,20 @@ export default function App() {
 
   // Edição genérica (RF 2.6): atualiza apenas time/day/title/description/meta.note,
   // preservando os demais campos de meta (bristol, intensity, clouds, tags, inicioTs…).
+  function concluirOnboarding(p) {
+    saveProfile(p);
+    localStorage.setItem('tlgut_onboarded', '1');
+    setProfile(p);
+    setOnboarded(true);
+    setEditandoProfile(false);
+  }
+
+  function pularOnboarding() {
+    localStorage.setItem('tlgut_onboarded', '1');
+    setOnboarded(true);
+    setEditandoProfile(false);
+  }
+
   function handleSaveEdit({ time, day, title, description, note }) {
     if (!editing) return;
     setEntries((prev) => prev.map((e) => {
@@ -3302,7 +3382,7 @@ export default function App() {
         ) : abaAtiva === 'insights' ? (
           <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} cicloAtivo={cicloAtivo} onCiclo={setCicloAtivo} />
+          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} cicloAtivo={cicloAtivo} onCiclo={setCicloAtivo} profile={profile} onEditarProfile={() => setEditandoProfile(true)} />
         ) : (
           <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}
@@ -3395,6 +3475,12 @@ export default function App() {
         </div>
 
       </div>
+      {(!onboarded || editandoProfile) && (
+        <OnboardingModal initialProfile={editandoProfile ? profile : undefined}
+          onConcluir={concluirOnboarding}
+          onPularTudo={!onboarded ? pularOnboarding : undefined} />
+      )}
+
     </div>
   );
 }

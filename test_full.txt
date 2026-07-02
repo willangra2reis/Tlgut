@@ -1,0 +1,44 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mF:/tlgut/Tlgut2[39m
+
+ [32m✓[39m src/test/diary.pbt.test.js[2m > [22mFunções puras do diário (PBT)[2m > [22mProperty 1: periodoDoDia é total e correta para qualquer hora
+ [32m✓[39m src/test/diary.pbt.test.js[2m > [22mFunções puras do diário (PBT)[2m > [22mProperty 2: buildEvacuationEntry produz sempre uma entrada válida
+ [32m✓[39m src/test/diary.pbt.test.js[2m > [22mFunções puras do diário (PBT)[2m > [22mProperty 3: contarPorTipo reflete a contagem exata por categoria
+ [32m✓[39m src/test/diary.pbt.test.js[2m > [22mFunções puras do diário (PBT)[2m > [22mProperty 4: removerEntrada remove apenas o alvo e decrementa a categoria
+ [32m✓[39m src/test/diary.pbt.test.js[2m > [22mFunções puras do diário (PBT)[2m > [22mProperty 7: conteúdo controlado é factual e sem termos proibidos
+ [32m✓[39m src/test/diary.pbt.test.js[2m > [22mFunções puras do diário (PBT)[2m > [22mProperty 8: buildGasEntry produz entrada válida
+ [32m✓[39m src/test/App.smoke.test.jsx[2m > [22mApp (smoke)[2m > [22mrenderiza sem erros, com a marca e o menu inferior[33m 441[2mms[22m[39m
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mTemas de ambiência por horário (RF 1)[2m > [22m05–11h aplica amanhecer com decorativos[33m 463[2mms[22m[39m
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mTemas de ambiência por horário (RF 1)[2m > [22m12–17h aplica tarde
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mTemas de ambiência por horário (RF 1)[2m > [22m18–04h aplica noite com estrelas/lua
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mTemas de ambiência por horário (RF 1)[2m > [22mcontraste do texto ≥ 4,5:1 (registros em cartão e rótulos por tema)
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mCabeçalho Hero e Resumo do Dia (RF 2)[2m > [22mexibe mascote e menu[33m 388[2mms[22m[39m
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mCabeçalho Hero e Resumo do Dia (RF 2)[2m > [22mexibe data e chips com rótulos amigáveis
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mCabeçalho Hero e Resumo do Dia (RF 2)[2m > [22mtimeline mostra o horário do registro e o título
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mCabeçalho Hero e Resumo do Dia (RF 2)[2m > [22midentidade verde: hero usa --brand-deep e FAB usa --brand
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mMenu de navegação inferior (RF 3)[2m > [22minicia no Diário com exatamente uma aba ativa e tem FAB[33m 394[2mms[22m[39m
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mMenu de navegação inferior (RF 3)[2m > [22maba Aulas mostra o catálogo e não altera os registros[33m 550[2mms[22m[39m
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mFonte cursiva e Evacuação (RF 4 e 5)[2m > [22mcursiva inicia ligada e alterna no Perfil[33m 344[2mms[22m[39m
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mFonte cursiva e Evacuação (RF 4 e 5)[2m > [22mo seletor de tipos inclui "Evacuação"
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mCard de dor — termômetro de intensidade (RF 2)[2m > [22mexibe a legenda de intensidade e o valor do registro semente
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mAba Insights (RF 9)[2m > [22mmostra a tela de Insights com cartões de tendência
+ [32m✓[39m src/test/app.example.test.jsx[2m > [22mAba Insights (RF 9)[2m > [22mmostra o mapa de calor e os cards de cruzamento[33m 326[2mms[22m[39m
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty 1: correlacao ∈ [-1, 1]
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty 2: eventosProximos respeita a Janela_Temporal
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty 3: gerarHistoricoMock determinístico e válido[33m 9177[2mms[22m[39m
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty 4: dorPorRegiao é consistente com os registros de dor
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty 5: mediaMovel preserva tamanho e fica dentro de [min, max]
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty 6: contextoRegiao é consistente
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty 7: gatilhoAlimentar é consistente
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty I-8: contextoRegiao é consistente e factual
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty I-9: gatilhoAlimentar expõe Risco_Relativo factual
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty I-11: gatilhoPorTag generaliza e é equivalente a gatilhoAlimentar
+ [32m✓[39m src/test/insights.pbt.test.js[2m > [22mInsights — funções puras (PBT)[2m > [22mProperty I-10: faseDoCiclo é total e factual
+ [32m✓[39m src/test/app.pbt.test.jsx[2m > [22mEstado de UI do App (PBT)[2m > [22mProperty 5: sempre exatamente uma aba ativa e registros preservados[33m 56095[2mms[22m[39m
+ [32m✓[39m src/test/app.pbt.test.jsx[2m > [22mEstado de UI do App (PBT)[2m > [22mProperty 6: alternar a cursiva é reversível (round-trip)[33m 55141[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m      Tests [22m [1m[32m35 passed[39m[22m[90m (35)[39m
+[2m   Start at [22m 00:00:35
+[2m   Duration [22m 115.95s[2m (transform 916ms, setup 3.22s, collect 4.68s, tests 126.08s, environment 9.79s, prepare 1.37s)[22m
+

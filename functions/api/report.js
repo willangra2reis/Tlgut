@@ -1,4 +1,4 @@
-const MODELOS_PERMITIDOS = [
+﻿const MODELOS_PERMITIDOS = [
   '@cf/meta/llama-4-scout-17b-16e-instruct',
   '@cf/google/gemma-4-26b-a4b-it',
   '@cf/zai-org/glm-4.7-flash',
@@ -19,7 +19,9 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ error: 'Body inválido. Envie um JSON com { entries, model }.' }, { status: 400 });
   }
 
-  const { entries = [], model = MODELO_PADRAO, consulta_date } = body;
+  const { entries = [], model = MODELO_PADRAO, consulta_date, profile } = body;
+
+  const profileBlock = buildProfileBlock(profile);
 
   if (!MODELOS_PERMITIDOS.includes(model)) {
     return Response.json({
@@ -63,7 +65,7 @@ export async function onRequestPost({ request, env }) {
   const dataConsultaStr = consulta_date ? `Sua próxima consulta médica é dia ${consulta_date}. ` : '';
   const prompt = `Você é um assistente de saúde gastrointestinal focado em empoderar e preparar o paciente para sua consulta médica. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro para que o paciente entenda seus próprios padrões de forma clara e simples.
 
-${dataConsultaStr}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
+${dataConsultaStr}${profileBlock}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
 {
   "resumo_executivo": "Texto narrativo acolhedor e educativo direcionado ao paciente (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n). Faça uma análise detalhada: mencione frequências (ex: 'você teve episódios de diarreia frequentes...'), padrões entre alimentação/sono/humor/sintomas. Conclua com orientação prática focada na preparação para a consulta. Inclua: '${consultaFrase}'",
   "correlacoes": [
@@ -247,4 +249,36 @@ function formatMeta(e) {
   if (m.colica != null) partes.push(`cólica: ${m.colica}/5`);
 
   return partes.length > 0 ? ` (${partes.join(' · ')})` : '';
+}
+
+function buildProfileBlock(p) {
+  if (!p || typeof p !== 'object') return '';
+  const has = (v) => v !== null && v !== undefined && v !== '';
+  if (!has(p.nome) && !has(p.idade) && !has(p.peso) && !has(p.altura)
+      && !(Array.isArray(p.condicoes) && p.condicoes.length > 0) && !has(p.outros)) return '';
+  const L = {
+    diabetes: 'Diabetes',
+    hipertensao: 'Hipertens\u00e3o',
+    tireoide: 'Altera\u00e7\u00f5es na Tireoide',
+    celiaca: 'Doen\u00e7a Cel\u00edaca',
+    lactose: 'Intoler\u00e2ncia \u00e0 Lactose',
+    gluten: 'Sensibilidade ao Gl\u00faten',
+  };
+  const linhas = [];
+  if (has(p.nome)) linhas.push('Nome: ' + p.nome);
+  const bio = [];
+  if (has(p.idade))  bio.push(p.idade + ' anos');
+  if (has(p.peso))   bio.push(p.peso + ' kg');
+  if (has(p.altura)) bio.push(p.altura + ' cm');
+  if (bio.length) linhas.push(bio.join(' | '));
+  const cond = Array.isArray(p.condicoes) ? p.condicoes.map(c => L[c] || c) : [];
+  if (cond.length) linhas.push('Condi\u00e7\u00f5es pr\u00e9-existentes: ' + cond.join(', '));
+  if (has(p.outros)) linhas.push('Outras: ' + p.outros);
+  const bloco = linhas.join('\n');
+  return '## Perfil do paciente\n' + bloco +
+    '\n\nUse estes dados para contextualizar suas an\u00e1lises:\n' +
+    '- Hidrata\u00e7\u00e3o ideal \u2248 35ml/kg. Avalie a ingest\u00e3o registrada contra esta meta.\n' +
+    '- Considere SEMPRE as condi\u00e7\u00f5es pr\u00e9-existentes e o biotipo antes de atribuir correla\u00e7\u00f5es exclusivamente \u00e0 dieta. Doen\u00e7as de base e medicamentos podem ser a verdadeira causa dos sintomas.\n' +
+    'Regra 10 - CONTEXTO CL\u00cdNICO: N\u00e3o fa\u00e7a falsas correla\u00e7\u00f5es exclusivas com a dieta quando h\u00e1 condi\u00e7\u00f5es pr\u00e9-existentes que explicam o quadro.\n' +
+    'Regra 11 - SA\u00daDA\u00c7\u00c3O PERSONALIZADA: Inicie o resumo_executivo chamando o paciente pelo nome (\u201c' + (p.nome || 'paciente') + '\u201d) em tom acolhedor.\n\n';
 }

@@ -114,6 +114,10 @@ export default function RelatoriasIAScreen({ entries }) {
     const body = { entries: entriesFor, model };
     const cd = consultaDate && consultaDate.trim() ? consultaDate.trim() : null;
     if (cd) body.consulta_date = cd;
+    try {
+      const pr = JSON.parse(localStorage.getItem('tlgut_profile') || '{}');
+      if (pr && Object.keys(pr).length > 0) body.profile = pr;
+    } catch {}
     const res = await fetch('/api/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
