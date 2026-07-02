@@ -81,7 +81,7 @@ const CONDICOES_LABELS = {
   tireoide:    'Alterações na Tireoide',
   celiaca:     'Doença Celíaca',
   lactose:     'Intolerância à Lactose',
-  gluten:      'Sensibilidade ao Glâten',
+  gluten:      'Sensibilidade ao Glúten',
 };
 
 function loadProfile() {

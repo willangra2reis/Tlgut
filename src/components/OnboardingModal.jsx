@@ -60,8 +60,21 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
 
   const podeAvancarStep1 = nome.trim().length > 0;
 
+  const alturaValor = altura ? Number(altura) : 160;
+  const formatarAltura = (cm) => {
+    const m = Math.floor(cm / 100);
+    const restante = cm - m * 100;
+    const cmStr = String(cm);
+    const mStr = (cm / 100).toFixed(2).replace('.', ',');
+    if (cm < 100) return `${cmStr} cm (${mStr} m)`;
+    if (m === 1 && restante === 0) return `1 metro (1,00)`;
+    if (m === 1) return `1 metro e ${restante} (${mStr})`;
+    if (restante === 0) return `${m} metros (${mStr})`;
+    return `${m} metros e ${restante} (${mStr})`;
+  };
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-sm" style={{ background: 'rgba(0,0,0,0.94)' }}>
       <div className="w-full max-w-[400px] max-h-[92vh] mx-3 overflow-y-auto">
         <div className={MESH}>
           <div className="relative z-10 p-6 space-y-5">
@@ -81,7 +94,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
               <div className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-[#2B2A28]">Olá! 👋</h2>
-                  <p className="text-sm text-[#5C5650] mt-1">Como você gostaria de ser chamado?</p>
+                  <p className="text-sm text-[#5C5650] mt-1">Como podemos te chamar?</p>
                 </div>
                 <input autoFocus type="text" value={nome} placeholder="Seu nome"
                   onChange={(e) => setNome(e.target.value)} maxLength={30}
@@ -153,7 +166,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
                   <h2 className="text-xl font-bold text-[#2B2A28]">Dados básicos</h2>
                   <p className="text-xs text-[#5C5650] mt-1">Usados para personalizar a análise de hidratação e metabolismo.</p>
                 </div>
-                <div className="grid grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="text-[11px] text-[#7D766A]">Idade</label>
                     <input type="number" inputMode="numeric" value={idade} placeholder="42" min={5} max={100}
@@ -164,11 +177,14 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
                     <input type="number" inputMode="decimal" value={peso} placeholder="68" min={25} max={300}
                       onChange={(e) => setPeso(e.target.value)} className={`mt-1 ${INPUT_CLASS} text-center`} style={INPUT_STYLE} />
                   </div>
-                  <div>
-                    <label className="text-[11px] text-[#7D766A]">Altura (cm)</label>
-                    <input type="number" inputMode="numeric" value={altura} placeholder="165" min={100} max={250}
-                      onChange={(e) => setAltura(e.target.value)} className={`mt-1 ${INPUT_CLASS} text-center`} style={INPUT_STYLE} />
-                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] text-[#7D766A]">Altura</label>
+                  <p className="text-sm font-medium text-[#2B2A28] mt-0.5 mb-1">{formatarAltura(alturaValor)}</p>
+                  <input type="range" min={100} max={220} step={1}
+                    value={alturaValor}
+                    onChange={(e) => setAltura(e.target.value)}
+                    className="w-full mt-1 accent-[#4A8A5C]" style={{ accentColor: 'var(--brand)' }} />
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setStep(1)}
