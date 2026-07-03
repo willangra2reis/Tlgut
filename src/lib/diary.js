@@ -184,6 +184,40 @@ export function gerarDadosRelatorioMock() {
     }
   }
 
+  // B.1 — Observações fictícias (texto livre ditado pelo paciente) sempre presentes no mock.
+  // Distribuídas em dias distintos do período para a IA poder correlacionar com eventos próximos.
+  const obs = [
+    { dAtras: 2,  type: 'pain',       title: 'Dor abdominal',  desc: 'Dor abdominal · intensidade 6', meta: { intensity: 6, organ: 'colon_sig', note: 'começou uns 40 min depois do almoço, junto com estufamento' } },
+    { dAtras: 5,  type: 'meal',       title: 'Almoço',         desc: 'Arroz, feijoada e refrigerante',  meta: { tags: ['Feijão', 'Refrigerante'], note: 'comi rapidamente, senti que exagerei no refrigerante' } },
+    { dAtras: 9,  type: 'evacuation', title: 'Evacuação',      desc: BRISTOL_DESCRICOES[1],            meta: { bristol: 1, esforco: 4, note: 'estou há 3 dias quase sem beber água' } },
+    { dAtras: 14, type: 'mood',       title: 'Triste',         desc: 'Triste',                         meta: { score: 2, note: 'dia estressante no trabalho, dor de cabeça desde a manhã' } },
+    { dAtras: 21, type: 'gas',        title: 'Gases',          desc: 'Gases moderados',                meta: { intensidade: 'Moderado', note: 'piora quando como feijão à noite' } },
+  ];
+  obs.forEach(o => {
+    const diaTs = agora - o.dAtras * DIA;
+    const d = new Date(diaTs);
+    const day = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    entries.push({ id: id++, type: o.type, day, time: '10:30', ts: diaTs + 10 * 3600000 + 30 * 60000, title: o.title, description: o.desc, meta: o.meta });
+  });
+
+  // B.2 — Sinais de alerta (red flags) injetados apenas quando o toggle
+  // localStorage 'tlgut_redflag_test' === '1'. Permite validar visualmente a
+  // regra 15 (Sinais de Alerta) sem poluir o mock padrão usado em produção.
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('tlgut_redflag_test') === '1') {
+      const flags = [
+        { dAtras: 3,  type: 'pain',       title: 'Dor abdominal', desc: 'Dor abdominal · intensidade 10', meta: { intensity: 10, organ: 'colon_desc', note: 'fezes com sangue vermelho vivo pela manhã' } },
+        { dAtras: 7,  type: 'mood',       title: 'Triste',         desc: 'Tristeza profunda',               meta: { score: 1, note: 'emagreci 4 kg nas últimas 2 semanas sem motivo' } },
+      ];
+      flags.forEach(o => {
+        const diaTs = agora - o.dAtras * DIA;
+        const d = new Date(diaTs);
+        const day = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        entries.push({ id: id++, type: o.type, day, time: '08:15', ts: diaTs + 8 * 3600000 + 15 * 60000, title: o.title, description: o.desc, meta: o.meta });
+      });
+    }
+  } catch {}
+
   return entries.sort((a, b) => b.ts - a.ts);
 }
 
