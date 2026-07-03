@@ -65,6 +65,17 @@ const CARDS_BG_DARK = 'rgba(255,255,255,1)';
 export default function RelatoriasIAScreen({ entries }) {
   const [reports, setReports] = useState({});
   const [compareMode, setCompareMode] = useState(false);
+  const [redFlagTest, setRedFlagTest] = useState(() => {
+    try { return localStorage.getItem('tlgut_redflag_test') === '1'; } catch { return false; }
+  });
+  const toggleRedFlag = (v) => {
+    const next = v ?? !redFlagTest;
+    setRedFlagTest(next);
+    try {
+      if (next) localStorage.setItem('tlgut_redflag_test', '1');
+      else localStorage.removeItem('tlgut_redflag_test');
+    } catch {}
+  };
   const [selectedModel, setSelectedModel] = useState(MODELO_PADRAO);
   const [periodo, setPeriodo] = useState(30);
   const [expandedCorr, setExpandedCorr] = useState({});
@@ -770,6 +781,16 @@ export default function RelatoriasIAScreen({ entries }) {
             ))}
           </div>
         )}
+
+        <label className="flex items-center gap-2 mt-3 cursor-pointer select-none"
+          title="Ativa 2 registros fictícios com sinais de alerta (sangue nas fezes, perda de peso) para validar o bloco de Sinais de Alerta da IA. Não afeta dados reais.">
+          <input type="checkbox" checked={redFlagTest} onChange={e => toggleRedFlag(e.target.checked)}
+            className="accent-[#BD5A4A]" />
+          <span className="text-sm text-[#4A443F] flex items-center gap-1.5">
+            <AlertTriangle size={14} style={{ color: '#BD5A4A' }} />
+            Modo teste: Sinais de Alerta
+          </span>
+        </label>
 
         <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
           <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)}
