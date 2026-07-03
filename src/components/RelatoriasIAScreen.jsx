@@ -110,7 +110,7 @@ export default function RelatoriasIAScreen({ entries }) {
     const hasTs = entries.some(e => e.ts || e.timestamp);
     if (!hasTs) return gerarDadosRelatorioMock();
     return entries;
-  }, [entries]);
+  }, [entries, redFlagTest]);
 
   const filteredEntries = useMemo(() => {
     const cutoff = Date.now() - periodo * 86400000;
