@@ -23,6 +23,7 @@ import {
   DIA,
 } from './lib/insights.js';
 import RelatoriasIAScreen from './components/RelatoriasIAScreen';
+import PainHeatmap from './components/PainHeatmap';
 import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
 
 const ENTRY_TYPES = {
@@ -252,116 +253,7 @@ function tipoDeVideo(url) {
 
 // ─── Digestive image (base64 webp) ───────────────────────────────────────────
 const DIGESTIVE_IMAGE = digestiveImage;
-
-// ─── Zonas de órgãos (pontos de referência em % da imagem) ───────────────────
-// Vários pontos por órgão (calibrados na silhueta) para melhorar a precisão do
-// mapeamento de toque → órgão. nearestOrgan escolhe o ponto mais próximo.
-const ORGAN_LABELS = {
-  esofago: 'Esôfago',
-  estomago: 'Estômago',
-  figado: 'Fígado',
-  intestino_delgado: 'Intestino delgado',
-  colon_asc: 'Cólon ascendente',
-  colon_trans: 'Cólon transverso',
-  colon_desc: 'Cólon descendente',
-  colon_sig: 'Cólon sigmoide',
-  apendice: 'Apêndice',
-  reto: 'Reto / Ânus',
-};
-
-const ORGAN_POINTS = {
-  esofago: [
-    [50.7, 26], [50.7, 27.6], [50.7, 29.2], [50.2, 30.6], [49.8, 32.2], [50.2, 33.8],
-    [50.2, 35.1], [50.2, 36.8], [50.2, 38.4], [50.2, 39.7], [51.1, 41.4], [51.6, 42.7],
-    [53, 44.3], [54.8, 45.5], [55.7, 46.2], [57, 46.9],
-  ],
-  estomago: [
-    [65.2, 49.6], [60.7, 48.9], [63.4, 48.2], [67, 49.9], [69.3, 50.8], [71.1, 52.6],
-    [71.1, 54.7], [71.1, 55.6], [71.1, 56.7], [69.8, 57.9], [66.1, 58.6], [63, 58.6],
-    [59.3, 58.8], [55.2, 59], [53, 58.8], [50.7, 58.6], [47, 58.1], [44.3, 58.1],
-    [41.6, 58.4], [40.2, 58.8], [38.4, 58.6], [38.4, 57.7], [40.2, 56.3], [43.4, 56.3],
-    [44.8, 57.4], [47.5, 56.1], [50.2, 56.3], [55.7, 55.4], [57.5, 54.7], [53, 55.8],
-    [60.2, 53.3], [60.7, 51.7], [60.7, 49.9], [64.3, 50.5], [63.9, 51.9], [67.5, 52.4],
-    [68.9, 54.2], [64.8, 54], [67.5, 54.7], [65.2, 56.1], [64.3, 54.4], [62.5, 54.7],
-    [61.6, 56.3], [68.4, 55.8], [59.8, 57.7], [56.1, 56.5], [58, 55.1], [53, 57.4],
-    [66.1, 57.7], [63.4, 57],
-  ],
-  figado: [
-    [55.7, 49.6], [55.7, 51], [53.4, 52.6], [50.2, 53.3], [50.7, 51.2], [50.7, 49.6],
-    [48.4, 49.2], [43.4, 48.9], [41.6, 48.9], [39.3, 49.4], [36.1, 49.6], [33.9, 49.6],
-    [31.6, 50.1], [29.8, 50.8], [28.4, 51.9], [28.4, 53.3], [28.4, 55.1], [28.9, 56.5],
-    [28.9, 57.7], [29.3, 58.6], [30.7, 58.8], [32, 57.9], [34.3, 57.4], [36.1, 55.8],
-    [38, 54.7], [40.2, 54], [43, 54], [47.5, 53.1], [51.1, 50.1], [46.1, 51], [43, 50.1],
-    [42, 51.5], [41.6, 51.9], [34.8, 53.3], [35.7, 51.7], [38, 52.8], [38.9, 51],
-    [33.4, 51], [33, 53.1], [31.6, 54.4], [31.6, 56.1],
-  ],
-  intestino_delgado: [
-    [35.2, 65.9], [38.9, 66.6], [47.5, 67.3], [55.2, 68], [62, 68], [66.6, 67.1],
-    [64.3, 66.9], [56.1, 68.2], [51.1, 67.8], [44.8, 67.3], [41.6, 67.1], [34.3, 67.5],
-    [34.8, 70.5], [35.7, 72.1], [35.7, 74], [35.2, 75.6], [35.7, 77.7], [36.1, 79.5],
-    [37.5, 68.9], [38.4, 71.2], [39.3, 74.2], [40.2, 77.2], [40.2, 79], [43, 79.7],
-    [43.9, 77.7], [44.3, 75.6], [43.4, 73.5], [42, 71.9], [42, 68.9], [43.9, 70.5],
-    [47.5, 69.8], [50.2, 71.2], [48.9, 73.3], [48, 75.4], [48.4, 77.9], [48.4, 79],
-    [51.1, 79.9], [55.2, 78.6], [55.7, 76.5], [53, 76.5], [52.5, 73.7], [53.9, 71.9],
-    [55.7, 70.8], [53, 69.4], [59.8, 70.3], [60.2, 67.8], [66.1, 68.7], [64.8, 72.1],
-    [60.2, 73.5], [61.6, 71], [58.9, 72.6], [61.1, 74.2], [56.1, 74.4], [58.4, 77.2],
-    [58.4, 78.8], [52, 78.3], [62.5, 77], [65.2, 75.1], [64.8, 77.9], [61.6, 79], [56.6, 79.5],
-  ],
-  colon_asc: [
-    [31.6, 79], [29.3, 79], [31.6, 77.7], [29.3, 77], [27.5, 76], [28, 74.9], [31.1, 76],
-    [31.6, 74.9], [31.1, 73.7], [28.9, 73.3], [28, 72.8], [28.4, 71.4], [31.1, 72.6],
-    [31.1, 71.9], [31.1, 70.1], [28.9, 70.3], [27.5, 69.8], [28.4, 68.2], [28.9, 66.6],
-    [29.3, 64.8], [30.2, 63.2], [29.8, 62.5], [32.5, 64.8], [32.5, 67.3], [31.1, 67.8],
-    [30.2, 70.1], [30.7, 68.9], [32, 69.4], [27.5, 77.7], [26.6, 74.4], [26.6, 78.6],
-    [27, 71.7], [28, 65.9],
-  ],
-  colon_trans: [
-    [30.2, 61.1], [33, 60.2], [33.4, 62.5], [33.4, 63.9], [34.3, 60.9], [35.7, 60],
-    [37, 61.8], [37.5, 63.4], [38.9, 63.2], [38.9, 61.3], [40.7, 60.9], [40.7, 62.7],
-    [40.2, 64.6], [40.7, 65.2], [44.3, 64.3], [42.5, 62.5], [44.8, 62.9], [46.1, 64.8],
-    [48, 65.2], [48, 64.1], [45.7, 62.5], [49.3, 63.2], [50.7, 65], [52, 65.5], [53, 64.3],
-    [53.4, 64.1], [54.8, 63.4], [54.8, 65.5], [57, 65.7], [59.3, 65.2], [57.5, 63.9],
-    [58.9, 63.6], [61.1, 62.7], [60.2, 64.1], [61.6, 65], [62.5, 64.6], [63.9, 64.6],
-    [63.4, 62.9], [63.9, 62.7], [67, 63.4], [67.5, 63.9], [68.4, 62], [65.2, 62.3],
-    [66.1, 61.3], [69.3, 60.4], [71.1, 61.3], [71.6, 62.5], [69.8, 63.9], [68.9, 64.1],
-  ],
-  colon_desc: [
-    [72, 65.2], [70.2, 66.4], [72.5, 66.4], [72, 68], [73.4, 68.5], [70.2, 68.7],
-    [72.5, 69.8], [70.2, 70.3], [72.5, 71.9], [69.3, 71.9], [71.6, 73.3], [69.3, 73.5],
-    [73.4, 74.9], [70.7, 75.1], [68.9, 74.9], [71.6, 76.3], [70.7, 76.7], [69.3, 77],
-    [72.5, 77.9], [71.1, 78.1], [69.8, 78.1], [68.9, 78.3], [73.4, 64.3],
-  ],
-  colon_sig: [
-    [54.3, 82.2], [58.4, 81.8], [60.2, 82.2], [63, 82], [63, 80.6], [66.1, 81.3],
-    [67, 80.9], [68.9, 80.2], [69.8, 79.3], [57, 81.1], [54.3, 81.6], [52, 81.6],
-    [56.1, 80.9], [60.7, 81.1], [64.3, 80.6], [69.8, 79.5], [62, 81.8], [57.5, 82.7],
-    [56.1, 83.4], [53.9, 83.4], [52.5, 82.7], [55.7, 82], [62.5, 80.4], [67.5, 79.5], [63.4, 82.2],
-  ],
-  apendice: [
-    [33, 81.6], [30.2, 80.6], [29.8, 82.2], [33.4, 82.5], [35.2, 81.6], [36.1, 82.5],
-    [37, 83.2], [36.6, 81.6], [37.5, 82.9], [34.8, 84.3], [32.5, 82.5], [30.7, 81.6],
-    [28.9, 81.3], [34.8, 83.4], [32, 82.9],
-  ],
-  reto: [
-    [50.2, 83.6], [49.3, 84.3], [49.3, 85.5], [52, 85], [52, 86.8], [51.1, 87.1],
-    [50.7, 88.2], [51.6, 88.9], [51.1, 89.6], [50.7, 89.8], [50.7, 90.3],
-  ],
-};
-
-const ORGAN_ZONES = Object.entries(ORGAN_POINTS).flatMap(([id, pts]) =>
-  pts.map(([cx, cy]) => ({ id, label: ORGAN_LABELS[id], cx, cy })),
-);
-
-// Lista única de órgãos (para o seletor da ferramenta de calibração).
-const ORGAN_LIST = Object.keys(ORGAN_LABELS).map((id) => ({ id, label: ORGAN_LABELS[id] }));
-
-// Centroide de cada órgão (média dos pontos) — usado no mapa de calor da dor.
-const ORGAN_CENTROIDES = Object.entries(ORGAN_POINTS).map(([id, pts]) => ({
-  id,
-  label: ORGAN_LABELS[id],
-  cx: pts.reduce((s, [x]) => s + x, 0) / pts.length,
-  cy: pts.reduce((s, [, y]) => s + y, 0) / pts.length,
-}));
+import { ORGAN_LABELS, ORGAN_POINTS, ORGAN_ZONES, ORGAN_LIST, ORGAN_CENTROIDES, nearestOrgan } from './lib/organs.js';
 
 const INITIAL_ENTRIES = [
   { id: 1, day: 'hoje',  time: '07:43', type: 'meal',     title: 'Café da manhã',  description: '2 fatias de bolo de chocolate' },
@@ -372,17 +264,6 @@ const INITIAL_ENTRIES = [
   { id: 6, day: 'ontem', time: '18:30', type: 'exercise', title: 'Exercício',      description: 'Caminhada · 30 min · Intensidade leve' },
   { id: 7, day: 'ontem', time: '23:10', type: 'sleep',    title: 'Sono',           description: 'Levantou 2x à noite · Acordou com desconforto abdominal', meta: { quality: 3 } },
 ];
-
-// ─── Utility: nearest organ to a tap point ───────────────────────────────────
-function nearestOrgan(px, py) {
-  let best = null, bestDist = Infinity;
-  ORGAN_ZONES.forEach((z) => {
-    const dx = px - z.cx, dy = py - z.cy;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d < bestDist) { bestDist = d; best = z; }
-  });
-  return best;
-}
 
 // ─── Smoky pain cloud (SVG turbulence filter) ────────────────────────────────
 function PainCloud({ x, y, intensity, id }) {
@@ -1335,101 +1216,8 @@ function forcaTexto(r) {
   return 'correlação forte';
 }
 
-// Mapa de calor da dor por região do corpo (RF 9.3) — tocar filtra a contagem.
-function PainHeatmap({ history }) {
-  const counts = useMemo(() => dorPorRegiao(history), [history]);
-  const [sel, setSel] = useState(null);
-  const ctx = useMemo(() => (sel ? contextoRegiao(history, sel) : null), [sel, history]);
-  const valores = Object.values(counts);
-  const max = Math.max(1, ...valores);
-  const total = valores.reduce((s, x) => s + x, 0);
-  return (
-    <div className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
-      <p className="entry-text text-sm font-medium text-[#2B2A28] mb-1">Onde a dor aparece</p>
-      {total === 0 ? (
-        <p className="text-xs text-[#9A938A]">Sem registros de dor com região definida.</p>
-      ) : (
-        <>
-          <div className="relative mx-auto" style={{ width: 190, aspectRatio: '374/740' }}>
-            <img src={DIGESTIVE_IMAGE} alt="Mapa de dor no corpo"
-              className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
-            {ORGAN_CENTROIDES.map((o) => {
-              const c = counts[o.id] || 0;
-              if (!c) return null;
-              const r = 10 + (c / max) * 22;
-              return (
-                <button key={o.id} type="button" onClick={() => setSel(o.id)} aria-label={`${o.label}: ${c}`}
-                  className="absolute rounded-full" style={{
-                    left: `${o.cx}%`, top: `${o.cy}%`, width: r, height: r, transform: 'translate(-50%,-50%)',
-                    background: `rgba(189,90,74,${0.3 + (c / max) * 0.5})`,
-                    border: sel === o.id ? '2px solid #BD5A4A' : '2px solid rgba(255,255,255,0.7)',
-                  }} />
-              );
-            })}
-          </div>
-          {sel && ctx ? (
-            <div className="mt-4 overflow-hidden rounded-2xl border shadow-sm transition-all" style={{ borderColor: 'rgba(189,90,74,0.15)', background: 'linear-gradient(to bottom, #FAF7F2, #FFF)' }}>
-              <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: 'rgba(189,90,74,0.1)', background: 'rgba(189,90,74,0.05)' }}>
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#BD5A4A', boxShadow: '0 0 0 2px rgba(189,90,74,0.2)' }} />
-                <p className="font-bold text-sm" style={{ color: '#BD5A4A' }}>{ORGAN_LABELS[sel]}</p>
-              </div>
-              <div className="p-4 pt-3 text-xs text-[#4A443F] space-y-3">
-                <div className="flex gap-4">
-                  <div><span className="block text-[#9A938A] text-[11px] uppercase font-semibold mb-0.5">Registros</span><strong className="text-xl text-[#2B2A28] leading-none">{ctx.n}</strong></div>
-                  <div><span className="block text-[#9A938A] text-[11px] uppercase font-semibold mb-0.5">Frequência</span><strong className="text-xl text-[#2B2A28] leading-none">{Math.round(ctx.share * 100)}%</strong></div>
-                  <div><span className="block text-[#9A938A] text-[11px] uppercase font-semibold mb-0.5">Intensidade</span><strong className="text-xl text-[#2B2A28] leading-none">{ctx.intensidadeMedia.toFixed(1)}</strong><span className="text-[11px] font-medium ml-0.5 text-[#9A938A]">/ 10</span></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-2 pt-3 border-t border-[#EFE7DD]">
-                  {ctx.aguaNesses != null && ctx.aguaGeral != null && (
-                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Água (média/dia)</span>
-                      <span className="font-medium text-[#2B2A28]">{ctx.aguaNesses.toFixed(1)} copos</span>
-                    </div>
-                  )}
-                  {ctx.sonoNesses != null && ctx.sonoGeral != null && (
-                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Sono (qualidade)</span>
-                      <span className="font-medium text-[#2B2A28]">{ctx.sonoNesses.toFixed(1)} <span className="text-[10px] text-[#9A938A]">/ 5</span></span>
-                    </div>
-                  )}
-                  {ctx.humorMedio != null && (
-                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Humor Médio</span>
-                      <span className="font-medium text-[#2B2A28]">{ctx.humorMedio.toFixed(1)} <span className="text-[10px] text-[#9A938A]">/ 5</span></span>
-                    </div>
-                  )}
-                  {ctx.bristolMedio != null && (
-                    <div className="bg-white p-2 rounded-lg border border-[#EDE7DD]">
-                      <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-0.5">Fezes (Bristol)</span>
-                      <span className="font-medium text-[#2B2A28]">Tipo {ctx.bristolMedio.toFixed(1)}</span>
-                    </div>
-                  )}
-                </div>
-
-                {ctx.alimentosFrequentes.length > 0 && (
-                  <div className="pt-2">
-                    <span className="block text-[#9A938A] text-[10px] uppercase font-bold tracking-wide mb-1.5">Gatilhos Alimentares Potenciais</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {ctx.alimentosFrequentes.map((a) => (
-                        <span key={a.tag}
-                          className="inline-flex items-center rounded-md bg-white border border-[#EFE7DD] px-2 py-1 text-xs font-medium text-[#4A443F] shadow-sm">
-                          {a.tag} <span className="ml-1 opacity-50 font-normal">({a.n})</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-center mt-2 text-[#9A938A]">Toque numa região para ver os detalhes</p>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
+// PainHeatmap extraído para src/components/PainHeatmap.jsx (reutilizado no
+// Relatório IA). Comportamento idêntico; `interactive` default true.
 
 // Card de cruzamento com explicação expansível ("O que isso significa?").
 function CrossCard({ titulo, explicacao, children }) {

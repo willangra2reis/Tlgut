@@ -1,12 +1,18 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
-  Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle,
+  Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle, Map,
 } from 'lucide-react';
 import { gerarDadosRelatorioMock, calcularEstatisticas } from '../lib/diary.js';
 import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
+import { dorPorRegiao } from '../lib/insights.js';
+import { ORGAN_CENTROIDES, ORGAN_LABELS } from '../lib/organs.js';
+import PainHeatmap from './PainHeatmap.jsx';
 import { jsPDF } from 'jspdf';
 import mascoteImage from '../assets/mascote.png';
+import digestiveImage from '../assets/sisdiges.jpg';
+const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
+if (digestiveImgEl) digestiveImgEl.src = digestiveImage;
 
 function normalizePergunta(item) {
   if (typeof item === 'string') return { pergunta: item, motivo: '' };
@@ -464,6 +470,55 @@ export default function RelatoriasIAScreen({ entries }) {
       spacer(4);
     }
 
+    const painCounts = dorPorRegiao(workingEntries);
+    const painValores = Object.values(painCounts);
+    const painTotal = painValores.reduce((s, x) => s + x, 0);
+    if (painTotal > 0) {
+      const painMax = Math.max(1, ...painValores);
+      const painItems = ORGAN_CENTROIDES
+        .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
+        .filter(o => o.n > 0)
+        .sort((a, b) => b.n - a.n);
+      const imgW = 140;
+      const imgH = imgW * 740 / 374;
+      ensureSpace(imgH + 90);
+      heading('Onde a dor aparece', [189, 90, 74]);
+      const imgX = margin + (maxW - imgW) / 2;
+      const imgY = y;
+      if (digestiveImgEl && digestiveImgEl.complete && digestiveImgEl.naturalWidth > 0) {
+        try { doc.addImage(digestiveImgEl, 'JPEG', imgX, imgY, imgW, imgH); } catch (e) {}
+      }
+      painItems.forEach((o) => {
+        const intensidade = 0.3 + (o.n / painMax) * 0.5;
+        const cr = Math.round(255 - (255 - 189) * intensidade);
+        const cg = Math.round(255 - (255 - 90) * intensidade);
+        const cb = Math.round(255 - (255 - 74) * intensidade);
+        const cx = imgX + (o.cx / 100) * imgW;
+        const cy = imgY + (o.cy / 100) * imgH;
+        const rr = 3 + (o.n / painMax) * 8;
+        doc.setFillColor(cr, cg, cb);
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.5);
+        doc.circle(cx, cy, rr, 'FD');
+      });
+      y = imgY + imgH + 10;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      painItems.forEach((it) => {
+        const txt = `${it.label} — ${Math.round((it.n / painTotal) * 100)}% (${it.n} episódio${it.n !== 1 ? 's' : ''})`;
+        const lines = doc.splitTextToSize(txt, maxW);
+        lines.forEach(l => { ensureSpace(12); doc.setTextColor(100, 100, 95); doc.text(l, margin, y); y += 12; });
+      });
+      spacer(6);
+      const caveat = 'Atenção: os pontos na silhueta indicam a região onde o paciente relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.';
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.setTextColor(125, 118, 106);
+      const cavLines = doc.splitTextToSize(caveat, maxW);
+      cavLines.forEach(l => { ensureSpace(11); doc.text(l, margin, y); y += 11; });
+      spacer(8);
+    }
+
     const perguntas = Array.isArray(r.perguntas_medico) ? r.perguntas_medico.map(normalizePergunta).filter(p => p.pergunta) : [];
     if (perguntas.length > 0) {
       heading('Perguntas para o Médico', [74, 138, 92]);
@@ -691,7 +746,60 @@ export default function RelatoriasIAScreen({ entries }) {
                     <p className="text-xs leading-relaxed">{report.resumo_executivo}</p>
                   </div>
                 )}
-                {perguntasNorm.length > 0 && (
+{(() => {
+          const painCounts = dorPorRegiao(filteredEntries);
+          const valores = Object.values(painCounts);
+          const painTotal = valores.reduce((s, x) => s + x, 0);
+          if (painTotal === 0) return null;
+          const painMax = Math.max(1, ...valores);
+          const painItems = ORGAN_CENTROIDES
+            .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
+            .filter(o => o.n > 0)
+            .sort((a, b) => b.n - a.n);
+          return (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(189,90,74,0.12)' }}>
+                  <Map size={15} style={{ color: '#BD5A4A' }} />
+                </span>
+                <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#BD5A4A' }}>Onde a dor aparece</h4>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4 items-start">
+                <div className="relative mx-auto shrink-0" style={{ width: 160, aspectRatio: '374/740' }}>
+                  <img src={digestiveImage} alt="Mapa de dor no corpo"
+                    className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
+                  {painItems.map(o => {
+                    const r = 9 + (o.n / painMax) * 18;
+                    return (
+                      <span key={o.id} aria-label={`${o.label}: ${o.n}`}
+                        className="absolute rounded-full"
+                        style={{
+                          left: `${o.cx}%`, top: `${o.cy}%`, width: r, height: r, transform: 'translate(-50%,-50%)',
+                          background: `rgba(189,90,74,${0.3 + (o.n / painMax) * 0.5})`,
+                          border: '2px solid rgba(255,255,255,0.7)',
+                          pointerEvents: 'none',
+                        }} />
+                    );
+                  })}
+                </div>
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  {painItems.map((it, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-[#4A443F]">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: `rgba(189,90,74,${0.3 + (it.n / painMax) * 0.5})` }} />
+                      <span className="font-medium text-[#2B2A28] shrink-0">{it.label}</span>
+                      <span className="text-[#7D766A]">— {Math.round((it.n / painTotal) * 100)}% ({it.n} episódio{it.n !== 1 ? 's' : ''})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[11px] text-[#9A938A] mt-3 leading-relaxed italic">
+                <strong>Atenção:</strong> Os pontos na silhueta indicam a região onde o paciente relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.
+              </p>
+            </div>
+          );
+        })()}
+
+        {perguntasNorm.length > 0 && (
                   <div>
                     <h5 className="text-[10px] font-semibold uppercase tracking-wider text-[#7D766A] mb-0.5">Perguntas</h5>
                     <ul className="list-disc list-inside text-xs">
