@@ -169,7 +169,12 @@ export function correlacaoAguaBristol(history, minDias = 7) {
 export function dorPorRegiao(history) {
   const counts = {};
   history.forEach((e) => {
-    if (e.type === 'pain' && e.organ) counts[e.organ] = (counts[e.organ] || 0) + 1;
+    if (e.type !== 'pain') return;
+    if (e.organ) { counts[e.organ] = (counts[e.organ] || 0) + 1; return; }
+    if (e.meta?.organ) { counts[e.meta.organ] = (counts[e.meta.organ] || 0) + 1; return; }
+    (e.meta?.clouds || []).forEach(c => {
+      if (c.organ) counts[c.organ] = (counts[c.organ] || 0) + 1;
+    });
   });
   return counts;
 }
@@ -234,7 +239,12 @@ export function correlacaoDefasada(aVals, bVals, maxLag = 4, minPares = 14) {
 // e comparação da água/sono nos dias com dor ali vs. a média geral. Observação
 // dos dados — não afirma causa (RF 6/9.6).
 export function contextoRegiao(history, organId) {
-  const dorReg = history.filter((e) => e.type === 'pain' && e.organ === organId);
+  const dorReg = history.filter((e) => {
+    if (e.type !== 'pain') return false;
+    if (e.organ === organId) return true;
+    if (e.meta?.organ === organId) return true;
+    return (e.meta?.clouds || []).some(c => c.organ === organId);
+  });
   const totalDor = history.filter((e) => e.type === 'pain').length;
   const n = dorReg.length;
   const intensidadeMedia = n ? dorReg.reduce((s, e) => s + (e.intensity || 0), 0) / n : 0;
