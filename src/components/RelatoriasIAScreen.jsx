@@ -697,7 +697,9 @@ export default function RelatoriasIAScreen({ entries }) {
   function renderCardStructured(modelId, { report, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
-    const effectiveReport = report?.isRaw ? (extractReportFromRaw(report.resumo_executivo) || report) : report;
+    const recoveredReport = report?.isRaw ? (extractReportFromRaw(report.resumo_executivo) || report) : report;
+    const isTruncated = (recoveredReport === report) && !!report?.truncated;
+    const effectiveReport = isTruncated ? null : recoveredReport;
     const isRaw = effectiveReport?.isRaw;
     const canPDF = effectiveReport && !error && !loading && !isRaw;
 
@@ -745,6 +747,16 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
 
+        {isTruncated && !error && (
+          <div className="flex flex-col items-center text-center py-6">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ background: 'rgba(189,90,74,0.12)' }}>
+              <AlertTriangle size={22} style={{ color: '#BD5A4A' }} />
+            </div>
+            <p className="text-sm text-[#4A443F] font-medium">O relatório ficou incompleto.</p>
+            <p className="text-sm text-[#7D766A] mt-1">Tente novamente em alguns minutos.</p>
+          </div>
+        )}
+
         {effectiveReport && !error && (
           <div className="text-sm text-[#4A443F] leading-relaxed">
             {isRaw ? (
@@ -778,7 +790,9 @@ export default function RelatoriasIAScreen({ entries }) {
   function renderCardCompact(modelId, { report, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
-    const effectiveReport = report?.isRaw ? (extractReportFromRaw(report.resumo_executivo) || report) : report;
+    const recoveredReport = report?.isRaw ? (extractReportFromRaw(report.resumo_executivo) || report) : report;
+    const isTruncated = (recoveredReport === report) && !!report?.truncated;
+    const effectiveReport = isTruncated ? null : recoveredReport;
     const isRaw = effectiveReport?.isRaw;
     const perguntasNorm = effectiveReport && Array.isArray(effectiveReport.perguntas_medico) ? effectiveReport.perguntas_medico.map(normalizePergunta) : [];
 
@@ -818,6 +832,15 @@ export default function RelatoriasIAScreen({ entries }) {
           )}
         </div>
         {error && <p className="text-xs text-red-600 py-2">{error}</p>}
+        {isTruncated && !error && (
+          <div className="flex flex-col items-center text-center py-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center mb-2" style={{ background: 'rgba(189,90,74,0.12)' }}>
+              <AlertTriangle size={16} style={{ color: '#BD5A4A' }} />
+            </div>
+            <p className="text-xs text-[#4A443F] font-medium">O relatório ficou incompleto.</p>
+            <p className="text-xs text-[#7D766A]">Tente novamente em alguns minutos.</p>
+          </div>
+        )}
         {effectiveReport && !error && (
           <div className="text-xs text-[#4A443F] leading-relaxed max-h-60 overflow-y-auto">
             {isRaw ? (

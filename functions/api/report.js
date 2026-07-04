@@ -120,7 +120,7 @@ ${registrosTexto}`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: { maxOutputTokens: 8192 },
+        generationConfig: { maxOutputTokens: 16384 },
       }),
     });
     if (!res.ok) {
@@ -139,7 +139,7 @@ ${registrosTexto}`;
     }
     const result = await env.AI.run(modelId, {
       messages: [{ role: 'user', content: promptText }],
-      max_tokens: 8192,
+      max_tokens: 16384,
     });
     const responseText = typeof result.response === 'string' ? result.response : (result.choices?.[0]?.message?.content || '');
     return (responseText || '').trim();
@@ -210,6 +210,16 @@ function parseReportJSON(raw) {
   if (extracted) {
     const parsed = tentar(extracted);
     if (parsed) return parsed;
+  }
+
+  const startsWithBrace = raw.trimStart().startsWith('{');
+  if (startsWithBrace) {
+    return {
+      resumo_executivo: raw,
+      correlacoes: [],
+      perguntas_medico: [],
+      truncated: true,
+    };
   }
 
   return {
