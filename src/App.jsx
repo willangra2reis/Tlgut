@@ -24,6 +24,17 @@ import {
 } from './lib/insights.js';
 import RelatoriasIAScreen from './components/RelatoriasIAScreen';
 import PainHeatmap from './components/PainHeatmap';
+import BristolImage from './components/BristolImage';
+import { CORES_TINT, BRISTOL_CURTOS, COR_PADRAO_TINT } from './lib/bristol-tints.js';
+import bristol1 from './assets/bristol/bristol-1.png';
+import bristol2 from './assets/bristol/bristol-2.png';
+import bristol3 from './assets/bristol/bristol-3.png';
+import bristol4 from './assets/bristol/bristol-4.png';
+import bristol5 from './assets/bristol/bristol-5.png';
+import bristol6 from './assets/bristol/bristol-6.png';
+import bristol7 from './assets/bristol/bristol-7.png';
+
+const BRISTOL_IMGS = { 1: bristol1, 2: bristol2, 3: bristol3, 4: bristol4, 5: bristol5, 6: bristol6, 7: bristol7 };
 import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
 
 const ENTRY_TYPES = {
@@ -2132,30 +2143,53 @@ function EvacuationForm({ onSave }) {
 
   return (
     <div className="space-y-5">
-      {/* Escala de Bristol — rótulos estritamente descritivos (RF 3.3 / 4.2) */}
+      {/* Escala de Bristol — grid de imagens com tintagem dinâmica (RF 3.3 / 4.2) */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Escala de Bristol</p>
-        <div className="space-y-2">
-          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-            <button key={n} type="button" onClick={() => setBristol(n)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors"
-              style={bristol === n ? { borderColor: color, background: soft } : { borderColor: '#EDE7DD' }}>
-              <span className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold shrink-0"
-                style={bristol === n ? { background: color, color: '#fff' } : { background: '#F1ECE3', color: '#7D766A' }}>
-                {n}
-              </span>
-              <span className="text-sm text-[#5C5650] leading-snug">{BRISTOL_DESCRICOES[n]}</span>
-            </button>
-          ))}
+        <div className="grid grid-cols-5 gap-2">
+          {[1, 2, 3, 4, 5, 6, 7].map((n) => {
+            const isSel = bristol === n;
+            // Tintagem aplicada APENAS na imagem selecionada; demais mostram cor padrão.
+            const hex = isSel ? (CORES_TINT[cor] || COR_PADRAO_TINT) : COR_PADRAO_TINT;
+            return (
+              <button key={n} type="button" onClick={() => setBristol(n)}
+                aria-label={`Tipo ${n}: ${BRISTOL_DESCRICOES[n]}`}
+                className="flex flex-col items-center rounded-xl border overflow-hidden transition-all"
+                style={isSel ? { borderColor: color, background: soft } : { borderColor: '#EDE7DD' }}>
+                <span className="w-7 h-5 flex items-center justify-center text-[10px] font-semibold shrink-0 w-full"
+                  style={isSel ? { background: color, color: '#fff' } : { background: '#F1ECE3', color: '#7D766A' }}>
+                  {n}
+                </span>
+                <BristolImage src={BRISTOL_IMGS[n]} tintColor={hex} alt={`Tipo ${n}`}
+                  className="w-full h-auto select-none" style={{ width: '100%' }} />
+                <span className="block text-[10px] text-[#7D766A] leading-snug text-center px-1 py-1 w-full">{BRISTOL_CURTOS[n]}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Cor (seleção única, RF 3.4) */}
+      {/* Cor — slider com 7 stops discretos (RF 3.4) */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Cor</p>
-        <div className="flex flex-wrap gap-2">
-          {EVAC_CORES.map((c) => (
-            <Chip key={c} active={cor === c} color={color} onClick={() => setCor(cor === c ? null : c)}>{c}</Chip>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Cor das fezes</p>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={0}
+            max={6}
+            step={1}
+            value={cor ? EVAC_CORES.indexOf(cor) : 1}
+            onChange={(e) => setCor(EVAC_CORES[Number(e.target.value)])}
+            className="flex-1 bristol-color-slider"
+            aria-label="Selecionar cor das fezes"
+          />
+          <span className="text-xs font-medium text-[#5C5650] min-w-[80px] text-right" style={{ color: CORES_TINT[cor] || '#7D766A' }}>
+            {cor || 'Marrom'}
+          </span>
+        </div>
+        <div className="flex justify-between mt-1 px-0.5">
+          {EVAC_CORES.map((c, i) => (
+            <span key={c} className="w-3 h-3 rounded-full -translate-x-1/2" style={{ background: CORES_TINT[c], opacity: cor === c ? 1 : 0.4, transition: 'opacity 150ms' }} title={c} />
           ))}
         </div>
       </div>

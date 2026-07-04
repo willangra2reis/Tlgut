@@ -210,3 +210,55 @@
 @media (prefers-reduced-motion: reduce) {
   .tg-phrase-cycle { animation: none; }
 }
+
+/* ─── Slider de cor da Escala de Bristol (EvacuationForm) ──────────────────────
+   Range nativo estilizado: trilho com gradiente representando as 7 cores das
+   fezes (Marrom claro → Escura). Polegar customizado. Os 7 dots coloridos
+   abaixo (renderizados no JS) ficam alinhados aos stops discretos (step=1). */
+.bristol-color-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(to right,
+    #B08E5E 0%, #B08E5E 14%,
+    #7A4E29 14%, #7A4E29 28%,
+    #4A2D18 28%, #4A2D18 42%,
+    #C9A227 42%, #C9A227 57%,
+    #6B8E23 57%, #6B8E23 71%,
+    #9B3A1A 71%, #9B3A1A 85%,
+    #1F1410 85%, #1F1410 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+.bristol-color-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 2px solid #2B2A28;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  cursor: pointer;
+  transition: transform 120ms ease-out;
+}
+.bristol-color-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+.bristol-color-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 2px solid #2B2A28;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+.bristol-color-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(47,107,67,0.3);
+}
+.bristol-color-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgba(47,107,67,0.3);
+}
