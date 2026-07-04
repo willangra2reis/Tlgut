@@ -70,7 +70,13 @@ export async function onRequestPost({ request, env }) {
     : '';
   const prompt = `Você é um assistente de saúde gastrointestinal focado em empoderar e preparar o paciente para sua consulta médica. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro para que o paciente entenda seus próprios padrões de forma clara e simples.
 
-${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}Retorne APENAS um objeto JSON válido, sem texto antes ou depois, com esta estrutura exata:
+${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}FORMATO DA RESPOSTA — REGRAS ABSOLUTAS:
+- Comece com "{" (abre-chaves) como PRIMEIRO caractere da sua resposta.
+- Termine com "}" (fecha-chaves) como ÚLTIMO caractere da sua resposta.
+- NÃO use \`\`\`json nem nenhum tipo de code fence.
+- NÃO inclua absolutamente nenhum texto antes ou depois do JSON.
+
+Retorne APENAS um objeto JSON válido com esta estrutura exata:
 {
   "resumo_executivo": "Texto narrativo acolhedor e educativo direcionado ao paciente (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n). Faça uma análise detalhada: mencione frequências (ex: 'você teve episódios de diarreia frequentes...'), padrões entre alimentação/sono/humor/sintomas. Conclua com orientação prática focada na preparação para a consulta. Inclua: '${consultaFrase}'",
   "evolucao": "${periodoDias >= 30 ? 'Texto de 1-2 frases sobre a trajetória do paciente ao longo do período: comparando início e fim, houve melhora, piora ou estabilidade? Cite um marcador concreto (frequência de sintomas, consistência das fezes, humor). OBRIGATÓRIO.' : 'OMITIR este campo.'}",
@@ -86,6 +92,7 @@ ${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}Retorne APENAS um objeto J
 }
 
 Regras rigorosas que você DEVE seguir:
+0. FORMATO DA RESPOSTA (MUITO IMPORTANTE): Sua resposta DEVE começar com "{" (abre-chaves) como primeiro caractere e terminar com "}" (fecha-chaves) como último caractere. NÃO use \`\`\`json nem nenhum tipo de code fence. NÃO inclua absolutamente nenhum texto antes ou depois do JSON. Se você colocar QUALQUER coisa antes do "{" ou depois do "}", o sistema NÃO conseguirá processar a resposta e o paciente ficará sem relatório.
 1. QUANTIDADE: Gere no mínimo 3 e no máximo 6 correlações e perguntas.
 2. FORMATO DO RESUMO: O campo 'resumo_executivo' DEVE ser um texto narrativo, formatado em parágrafos usando \\n\\n.
 3. TRADUÇÃO DE TERMOS MÉDICOS (MUITO IMPORTANTE): O paciente não é médico. NUNCA use jargões como "Escala de Bristol", "Bristol 1" ou "Bristol 7". Traduza e substitua SEMPRE por descrições visuais fáceis de entender (ex: "fezes muito duras em formato de bolinhas", "fezes totalmente líquidas", "fezes normais", "diarreia").
@@ -199,16 +206,10 @@ function parseReportJSON(raw) {
   const result = tentar(raw);
   if (result) return result;
 
-  const mdMatch = raw.match(/```(?:json)?\s*(\{[\s\S]*?\})```/);
-  if (mdMatch) {
-    const extraidoMd = tentar(mdMatch[1]);
-    if (extraidoMd) return extraidoMd;
-  }
-
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    const extraido = tentar(jsonMatch[0]);
-    if (extraido) return extraido;
+  const extracted = extractBalancedJSON(raw);
+  if (extracted) {
+    const parsed = tentar(extracted);
+    if (parsed) return parsed;
   }
 
   return {
@@ -217,6 +218,30 @@ function parseReportJSON(raw) {
     perguntas_medico: [],
     isRaw: true,
   };
+}
+
+function extractBalancedJSON(text) {
+  let i = text.indexOf('{');
+  if (i === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let j = i; j < text.length; j++) {
+    const ch = text[j];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"' && !escape) { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        const candidate = text.slice(i, j + 1);
+        return candidate;
+      }
+    }
+  }
+  return null;
 }
 
 function valido(obj) {

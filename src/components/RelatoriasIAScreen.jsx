@@ -3,16 +3,45 @@ import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
   Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle, Map,
 } from 'lucide-react';
-import { gerarDadosRelatorioMock, calcularEstatisticas } from '../lib/diary.js';
+import { jsPDF } from 'jspdf';
 import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
+import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
 import { dorPorRegiao } from '../lib/insights.js';
 import { ORGAN_CENTROIDES, ORGAN_LABELS } from '../lib/organs.js';
 import PainHeatmap from './PainHeatmap.jsx';
-import { jsPDF } from 'jspdf';
-import mascoteImage from '../assets/mascote.png';
 import digestiveImage from '../assets/sisdiges.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
 if (digestiveImgEl) digestiveImgEl.src = digestiveImage;
+import mascoteImage from '../assets/mascote.png';
+
+function extractReportFromRaw(rawText) {
+  if (!rawText) return null;
+  const i = rawText.indexOf('{');
+  if (i === -1) return null;
+  let depth = 0, inString = false, escape = false;
+  for (let j = i; j < rawText.length; j++) {
+    const ch = rawText[j];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        try {
+          const obj = JSON.parse(rawText.slice(i, j + 1));
+          if (obj && typeof obj.resumo_executivo === 'string' && obj.resumo_executivo.length > 0
+              && Array.isArray(obj.correlacoes)) {
+            return obj;
+          }
+        } catch {}
+        return null;
+      }
+    }
+  }
+  return null;
+}
 
 function normalizePergunta(item) {
   if (typeof item === 'string') return { pergunta: item, motivo: '' };
@@ -668,8 +697,9 @@ export default function RelatoriasIAScreen({ entries }) {
   function renderCardStructured(modelId, { report, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
-    const isRaw = report?.isRaw;
-    const canPDF = report && !error && !loading && !isRaw;
+    const effectiveReport = report?.isRaw ? (extractReportFromRaw(report.resumo_executivo) || report) : report;
+    const isRaw = effectiveReport?.isRaw;
+    const canPDF = effectiveReport && !error && !loading && !isRaw;
 
     if (loading) {
       return (
@@ -715,25 +745,25 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
 
-        {report && !error && (
+        {effectiveReport && !error && (
           <div className="text-sm text-[#4A443F] leading-relaxed">
             {isRaw ? (
-              <div className="whitespace-pre-wrap max-h-80 overflow-y-auto">{report.resumo_executivo}</div>
+              <div className="whitespace-pre-wrap max-h-80 overflow-y-auto">{effectiveReport.resumo_executivo}</div>
             ) : (
-              renderStructuredContent(report)
+              renderStructuredContent(effectiveReport)
             )}
           </div>
         )}
 
         {canPDF && (
           <div className="flex gap-2.5 mt-4 pt-4 border-t" style={{ borderColor: 'rgba(150,140,120,0.2)' }}>
-            <button type="button" onClick={() => baixarPDF(report, nomeModelo)}
+            <button type="button" onClick={() => baixarPDF(effectiveReport, nomeModelo)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Download size={16} />
               Baixar PDF
             </button>
-            <button type="button" onClick={() => compartilharPDF(report, nomeModelo)}
+            <button type="button" onClick={() => compartilharPDF(effectiveReport, nomeModelo)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Share2 size={16} />
@@ -748,8 +778,9 @@ export default function RelatoriasIAScreen({ entries }) {
   function renderCardCompact(modelId, { report, error, loading } = {}, mostrarVoto) {
     const modelo = MODELOS.find(m => m.id === modelId);
     const nomeModelo = modelo ? modelo.label : modelId;
-    const isRaw = report?.isRaw;
-    const perguntasNorm = report && Array.isArray(report.perguntas_medico) ? report.perguntas_medico.map(normalizePergunta) : [];
+    const effectiveReport = report?.isRaw ? (extractReportFromRaw(report.resumo_executivo) || report) : report;
+    const isRaw = effectiveReport?.isRaw;
+    const perguntasNorm = effectiveReport && Array.isArray(effectiveReport.perguntas_medico) ? effectiveReport.perguntas_medico.map(normalizePergunta) : [];
 
     if (loading) {
       return (
@@ -787,16 +818,16 @@ export default function RelatoriasIAScreen({ entries }) {
           )}
         </div>
         {error && <p className="text-xs text-red-600 py-2">{error}</p>}
-        {report && !error && (
+        {effectiveReport && !error && (
           <div className="text-xs text-[#4A443F] leading-relaxed max-h-60 overflow-y-auto">
             {isRaw ? (
-              <p className="text-xs whitespace-pre-wrap">{report.resumo_executivo.slice(0, 500)}{report.resumo_executivo.length > 500 ? '...' : ''}</p>
+              <p className="text-xs whitespace-pre-wrap">{effectiveReport.resumo_executivo.slice(0, 500)}{effectiveReport.resumo_executivo.length > 500 ? '...' : ''}</p>
             ) : (
               <div className="space-y-2">
-                {report.resumo_executivo && (
+                {effectiveReport.resumo_executivo && (
                   <div>
                     <h5 className="text-[10px] font-semibold uppercase tracking-wider text-[#7D766A] mb-0.5">Resumo</h5>
-                    <p className="text-xs leading-relaxed">{report.resumo_executivo}</p>
+                    <p className="text-xs leading-relaxed">{effectiveReport.resumo_executivo}</p>
                   </div>
                 )}
 
