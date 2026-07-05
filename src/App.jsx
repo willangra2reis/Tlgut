@@ -2146,22 +2146,21 @@ function EvacuationForm({ onSave }) {
       {/* Escala de Bristol — grid de imagens com tintagem dinâmica (RF 3.3 / 4.2) */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Escala de Bristol</p>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3, 4, 5, 6, 7].map((n) => {
             const isSel = bristol === n;
-            // Tintagem aplicada APENAS na imagem selecionada; demais mostram cor padrão.
             const hex = isSel ? (CORES_TINT[cor] || COR_PADRAO_TINT) : COR_PADRAO_TINT;
             return (
               <button key={n} type="button" onClick={() => setBristol(n)}
                 aria-label={`Tipo ${n}: ${BRISTOL_DESCRICOES[n]}`}
                 className="flex flex-col items-center rounded-xl border overflow-hidden transition-all"
                 style={isSel ? { borderColor: color, background: soft } : { borderColor: '#EDE7DD' }}>
-                <span className="w-7 h-5 flex items-center justify-center text-[10px] font-semibold shrink-0 w-full"
+                <span className="h-5 flex items-center justify-center text-[10px] font-semibold w-full"
                   style={isSel ? { background: color, color: '#fff' } : { background: '#F1ECE3', color: '#7D766A' }}>
                   {n}
                 </span>
                 <BristolImage src={BRISTOL_IMGS[n]} tintColor={hex} alt={`Tipo ${n}`}
-                  className="w-full h-auto select-none" style={{ width: '100%' }} />
+                  className="w-full h-auto select-none" />
                 <span className="block text-[10px] text-[#7D766A] leading-snug text-center px-1 py-1 w-full">{BRISTOL_CURTOS[n]}</span>
               </button>
             );
@@ -2187,11 +2186,10 @@ function EvacuationForm({ onSave }) {
             {cor || 'Marrom'}
           </span>
         </div>
-        <div className="flex justify-between mt-1 px-0.5">
-          {EVAC_CORES.map((c, i) => (
-            <span key={c} className="w-3 h-3 rounded-full -translate-x-1/2" style={{ background: CORES_TINT[c], opacity: cor === c ? 1 : 0.4, transition: 'opacity 150ms' }} title={c} />
-          ))}
-        </div>
+
+        <p className="text-[10px] text-[#9A938A] mt-2 leading-relaxed italic">
+          As imagens acima são uma referência visual. Na prática, formato e cor podem variar — escolha a opção mais próxima do que você observou.
+        </p>
       </div>
 
       {/* Odor (seleção única, RF 3.5) */}
@@ -2760,17 +2758,25 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
         )}
 
         {entry.type === 'evacuation' && entry.meta && (
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full shadow-[0_2px_5px_-2px_rgba(0,0,0,0.22)]"
-              style={{ background: meta.soft, color: meta.color }}>
-              Bristol {entry.meta.bristol}
-            </span>
-            {entry.meta.tempo && (
-              <span className="text-xs text-[#7D766A]">{entry.meta.tempo} min</span>
-            )}
-            {entry.meta.conforto && (
-              <span className="text-xs text-[#7D766A]">Conforto {entry.meta.conforto}/5</span>
-            )}
+          <div className="mt-2 flex items-start gap-2.5">
+            <BristolImage
+              src={BRISTOL_IMGS[entry.meta.bristol] || bristol4}
+              tintColor={CORES_TINT[entry.meta.cor] || COR_PADRAO_TINT}
+              alt={`Bristol ${entry.meta.bristol}`}
+              className="w-14 h-auto rounded-lg shrink-0"
+            />
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full shadow-[0_2px_5px_-2px_rgba(0,0,0,0.22)]"
+                style={{ background: meta.soft, color: meta.color }}>
+                Bristol {entry.meta.bristol}
+              </span>
+              {entry.meta.tempo && (
+                <span className="text-xs text-[#7D766A]">{entry.meta.tempo} min</span>
+              )}
+              {entry.meta.conforto && (
+                <span className="text-xs text-[#7D766A]">Conforto {entry.meta.conforto}/5</span>
+              )}
+            </div>
           </div>
         )}
 
