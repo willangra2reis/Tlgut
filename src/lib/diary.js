@@ -200,6 +200,20 @@ export function gerarDadosRelatorioMock() {
     entries.push({ id: id++, type: o.type, day, time: '10:30', ts: diaTs + 10 * 3600000 + 30 * 60000, title: o.title, description: o.desc, meta: o.meta });
   });
 
+  // B.1b — Pesagens fictícias para a IA detectar tendência (implícito: perda
+  // leve de ~2 kg ao longo do período). Distribuídas em 3 momentos distintos.
+  const pesos = [
+    { dAtras: 58, kg: 78.0 },
+    { dAtras: 30, kg: 77.1 },
+    { dAtras: 3,  kg: 76.2 },
+  ];
+  pesos.forEach(o => {
+    const diaTs = agora - o.dAtras * DIA;
+    const d = new Date(diaTs);
+    const day = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    entries.push({ id: id++, type: 'weight', day, time: '07:30', ts: diaTs + 7 * 3600000 + 30 * 60000, title: 'Peso', description: `${o.kg.toFixed(1).replace('.', ',')} kg`, meta: { weight: o.kg } });
+  });
+
   // B.2 — Sinais de alerta (red flags) injetados apenas quando o toggle
   // localStorage 'tlgut_redflag_test' === '1'. Permite validar visualmente a
   // regra 15 (Sinais de Alerta) sem poluir o mock padrão usado em produção.
@@ -238,6 +252,22 @@ export function buildGasEntry(form) {
     title: 'Gases',
     description: parts.join(' · ') || 'Gases',
     meta: { intensidade, odor, alivio, som },
+  };
+}
+
+// Normaliza o estado do formulário de peso em uma entrada válida.
+// Valida/clamp defensivo do valor numérico (segunda barreira além da UI).
+export function buildWeightEntry(form) {
+  const f = form || {};
+  const w = typeof f.weight === 'number' && isFinite(f.weight)
+    ? Math.min(200, Math.max(30, Math.round(f.weight * 10) / 10))
+    : null;
+  if (w == null) return { title: 'Peso', description: '—', meta: { weight: null } };
+  const wStr = w.toFixed(1).replace('.', ',');
+  return {
+    title: 'Peso',
+    description: `${wStr} kg`,
+    meta: { weight: w },
   };
 }
 

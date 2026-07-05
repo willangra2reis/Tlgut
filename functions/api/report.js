@@ -300,6 +300,7 @@ function formatMeta(e) {
   if (m.nivel != null) partes.push(`nível: ${m.nivel}/3`);
   if (typeof m.fluxo === 'string') partes.push(`fluxo: ${m.fluxo}`);
   if (m.colica != null) partes.push(`cólica: ${m.colica}/5`);
+  if (m.weight != null) partes.push(`peso: ${m.weight} kg`);
   if (typeof m.note === 'string' && m.note.trim()) partes.push(`observação: ${m.note.trim()}`);
 
   return partes.length > 0 ? ` (${partes.join(' · ')})` : '';

@@ -8,17 +8,17 @@ import {
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
+  Scale,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
   BRISTOL_DESCRICOES, EVAC_CORES, EVAC_ODORES, buildEvacuationEntry,
   periodoDoDia, horaLocalAtual, contarPorTipo, removerEntrada,
   GAS_INTENSIDADES, GAS_ODORES, GAS_ALIVIO, GAS_SOM, buildGasEntry,
-  gerarDadosRelatorioMock,
 } from './lib/diary.js';
 import {
   gerarHistoricoMock, seriePorDia, mediaMovel,
-  dorPorRegiao, correlacaoAguaBristol, intervalosRefeicaoDor, correlacaoDefasada, contextoRegiao, gatilhoAlimentar, gatilhoPorTag,
+  correlacaoAguaBristol, intervalosRefeicaoDor, correlacaoDefasada, gatilhoAlimentar, gatilhoPorTag,
   faseDoCiclo,
   DIA,
 } from './lib/insights.js';
@@ -48,6 +48,7 @@ const ENTRY_TYPES = {
   gas:        { label: 'Gases',      icon: Wind,     color: '#7C8CA6', soft: '#E6EAF1' },
   medication: { label: 'Medicamento', icon: Pill,    color: '#3F7E6E', soft: '#DDEBE5' },
   cycle:      { label: 'Ciclo',       icon: Droplets, color: '#B5557A', soft: '#F6E1EC' },
+  weight:     { label: 'Peso',        icon: Scale,   color: '#7C6F5A', soft: '#EFE9DE' },
 };
 
 // Rótulos amigáveis exibidos nos Chips_de_Resumo_do_Dia (RF 2.3).
@@ -56,6 +57,7 @@ const CHIP_LABELS = {
   exercise: 'Exercício', mood: 'Humor', evacuation: 'Evacuação', gas: 'Gases',
   medication: 'Medicamento',
   cycle: 'Ciclo',
+  weight: 'Peso',
 };
 
 // Abas do Menu_Inferior (RF 3.1). "Aulas" substitui a antiga aba "Hábitos".
@@ -264,7 +266,7 @@ function tipoDeVideo(url) {
 
 // ─── Digestive image (base64 webp) ───────────────────────────────────────────
 const DIGESTIVE_IMAGE = digestiveImage;
-import { ORGAN_LABELS, ORGAN_POINTS, ORGAN_ZONES, ORGAN_LIST, ORGAN_CENTROIDES, nearestOrgan } from './lib/organs.js';
+import { ORGAN_POINTS, ORGAN_LIST, nearestOrgan } from './lib/organs.js';
 
 const INITIAL_ENTRIES = [
   { id: 1, day: 'hoje',  time: '07:43', type: 'meal',     title: 'Café da manhã',  description: '2 fatias de bolo de chocolate' },
@@ -274,6 +276,7 @@ const INITIAL_ENTRIES = [
   { id: 5, day: 'hoje',  time: '14:50', type: 'pain',     title: 'Dor abdominal',  description: 'Cólica · Gases intensos · Cólon sigmoide', meta: { clouds: [{ x: 65, y: 82, organ: 'colon_sig' }], intensity: 7 } },
   { id: 6, day: 'ontem', time: '18:30', type: 'exercise', title: 'Exercício',      description: 'Caminhada · 30 min · Intensidade leve' },
   { id: 7, day: 'ontem', time: '23:10', type: 'sleep',    title: 'Sono',           description: 'Levantou 2x à noite · Acordou com desconforto abdominal', meta: { quality: 3 } },
+  { id: 8, day: 'ontem', time: '07:30', type: 'weight',   title: 'Peso',           description: '76,2 kg',                                     meta: { weight: 76.2 } },
 ];
 
 // ─── Smoky pain cloud (SVG turbulence filter) ────────────────────────────────
@@ -1507,6 +1510,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const sono = prep('sleep', 'quality', 'media');
   const humor = prep('mood', 'score', 'media');
   const exercicio = prep('exercise', 'minutes', 'soma');
+  const peso = prep('weight', 'weight', 'media');
 
   const umDia = inicioDiaUTC(range.ini) === inicioDiaUTC(range.fim);
   const rangeLabel = umDia ? fmtData(range.ini, true) : `${fmtData(range.ini)} – ${fmtData(range.fim)}`;
@@ -1611,6 +1615,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
             <MetricCard titulo="Qualidade do sono" color={ENTRY_TYPES.sleep.color} serie={sono} unidade="/5" casas={1} hover={hover} onHover={setHover} />
             <MetricCard titulo="Humor" color={ENTRY_TYPES.mood.color} serie={humor} unidade="/5" casas={1} hover={hover} onHover={setHover} />
             <MetricCard titulo="Exercício" color={ENTRY_TYPES.exercise.color} serie={exercicio} unidade=" min/dia" casas={0} hover={hover} onHover={setHover} />
+            <MetricCard titulo="Peso" color={ENTRY_TYPES.weight.color} serie={peso} unidade=" kg" casas={1} hover={hover} onHover={setHover} />
           </div>
 
           <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Onde dói</p>
@@ -2130,6 +2135,40 @@ function MoodForm({ onSave }) {
   );
 }
 
+// ─── Form: Peso (registro de peso corporal) ─────────────────────────────────
+function WeightForm({ onSave }) {
+  const [weight, setWeight] = useState(70.0);
+  const color = ENTRY_TYPES.weight.color;
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-[#7D766A]">Registre seu peso corporal atual</p>
+      <div className="text-center">
+        <p className="text-5xl font-serif text-[#2B2A28]">{weight.toFixed(1).replace('.', ',')}</p>
+        <p className="text-xs text-[#B6AE9F] mt-1">kg</p>
+      </div>
+      <div className="px-2">
+        <input
+          type="range"
+          min={30}
+          max={200}
+          step={0.1}
+          value={weight}
+          onChange={(e) => setWeight(parseFloat(e.target.value))}
+          className="w-full bristol-color-slider"
+          style={{ background: `linear-gradient(to right, ${color} 0%, ${color} ${((weight - 30) / 170) * 100}%, #EDE7DD ${((weight - 30) / 170) * 100}%, #EDE7DD 100%)` }}
+          aria-label="Peso em quilogramas"
+        />
+        <div className="flex justify-between text-[10px] text-[#B6AE9F] mt-1 px-0.5">
+          <span>30 kg</span>
+          <span>200 kg</span>
+        </div>
+      </div>
+      <SaveButton color={color}
+        onClick={() => onSave({ title: 'Peso', description: `${weight.toFixed(1).replace('.', ',')} kg`, meta: { weight: weight } })} />
+    </div>
+  );
+}
+
 // ─── Form: Evacuação (RF 3) ───────────────────────────────────────────────────
 function EvacuationForm({ onSave }) {
   const [bristol, setBristol] = useState(null);  // 1–7 ou null (RF 3.3 / 3.11)
@@ -2251,6 +2290,71 @@ function EvacuationForm({ onSave }) {
 
       <SaveButton color={color}
         onClick={() => onSave(buildEvacuationEntry({ bristol, cor, odor, esforco, tempo, conforto }))} />
+    </div>
+  );
+}
+
+// ─── Etapa "Isso aconteceu agora?" (F2) ─────────────────────────────────────
+// Pergunta se o registro foi agora, hoje mais cedo ou ontem, antes de
+// prosseguir para a observação por voz.
+function TimestampStep({ onTimestamp }) {
+  const [escolha, setEscolha] = useState(null); // 'agora' | 'hoje' | 'ontem'
+  const [hora, setHora] = useState(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
+
+  function confirmar() {
+    if (escolha === 'agora') onTimestamp(null);
+    else if (escolha === 'hoje') onTimestamp({ day: 'hoje', time: hora });
+    else if (escolha === 'ontem') onTimestamp({ day: 'ontem', time: hora });
+  }
+
+  const podeConfirmar = escolha !== null;
+  const precisaHora = escolha === 'hoje' || escolha === 'ontem';
+
+  const opcoes = [
+    { key: 'agora', label: 'Agora', sub: 'Usar horário atual' },
+    { key: 'hoje', label: 'Hoje, mais cedo', sub: 'Escolher horário' },
+    { key: 'ontem', label: 'Ontem', sub: 'Escolher horário' },
+  ];
+
+  return (
+    <div className="flex flex-col gap-5">
+      <p className="text-sm text-[#7D766A]">Isso aconteceu agora?</p>
+      <div className="flex flex-col gap-2">
+        {opcoes.map(({ key, label, sub }) => (
+          <button key={key} type="button" onClick={() => setEscolha(key)}
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left transition-all
+              ${escolha === key ? 'ring-2' : 'border border-[#EDE7DD]'}
+            `}
+            style={{
+              background: escolha === key ? '#F5F0E8' : '#FFFBF6',
+              ringColor: escolha === key ? 'var(--brand)' : 'transparent',
+            }}>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0
+              ${escolha === key ? 'border-[var(--brand)]' : 'border-[#D4CBB8]'}`}>
+              {escolha === key && <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--brand)' }} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-[#2B2A28]">{label}</p>
+              <p className="text-xs text-[#B6AE9F]">{sub}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+      {precisaHora && (
+        <div className="flex items-center justify-center gap-2">
+          <Clock size={18} className="text-[#B6AE9F]" />
+          <input type="time" value={hora} onChange={(e) => setHora(e.target.value)}
+            className="text-lg font-semibold text-[#2B2A28] bg-transparent border-b border-[#EDE7DD] outline-none px-2 py-1" />
+        </div>
+      )}
+      <button type="button" onClick={confirmar} disabled={!podeConfirmar}
+        className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+        style={{ background: 'var(--brand)' }}>
+        Confirmar
+      </button>
     </div>
   );
 }
@@ -2907,6 +3011,7 @@ export default function App() {
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
   const [cicloAtivo, setCicloAtivo] = useState(false);                                  // acompanhamento de ciclo opt-in (RF 16.1)
   const [colapsado,  setColapsado]  = useState(false);                                  // hero recolhido ao rolar a timeline
+  const [postponeBubbleUntil, setPostponeBubbleUntil] = useState(0);                  // postpone do mascote lembrete
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
   const [aulaSelecionada, setAulaSelecionada] = useState(null);                          // detalhe da aula (elevado de AulasScreen)
   const [calAberto,  setCalAberto]  = useState(false);                                   // calendário dos Insights (elevado de InsightsScreen)
@@ -3068,11 +3173,12 @@ export default function App() {
     grouped[d] = entries.filter((e) => e.day === d).sort((a, b) => a.time.localeCompare(b.time));
   });
 
-  function persistEntry(type, data) {
+  function persistEntry(type, data, ts = null) {
     const now  = new Date();
-    const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const timeExpr = ts && ts.time ? ts.time : `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const dayExpr  = ts && ts.day  ? ts.day  : 'hoje';
     idRef.current += 1;
-    setEntries((prev) => [...prev, { id: idRef.current, day: 'hoje', time, type, ...data }]);
+    setEntries((prev) => [...prev, { id: idRef.current, day: dayExpr, time: timeExpr, type, ...data }]);
   }
 
   // Passo 1: ao salvar, abre a etapa de observação (empurrão suave) em vez de
@@ -3081,15 +3187,19 @@ export default function App() {
     setPending({ type, data });
   }
 
+  function setPendingTimestamp(ts) {
+    setPending((p) => (p ? { ...p, timestamp: ts } : p));
+  }
+
   // Passo 2: confirma com (ou sem) observação e persiste o registro.
   function commitSave(note) {
     if (!pending) return;
-    const { type, data } = pending;
+    const { type, data, timestamp } = pending;
     const meta = { ...(data.meta || {}) };
     if (note) meta.note = note;
     const finalData = { ...data };
     if (Object.keys(meta).length) finalData.meta = meta;
-    persistEntry(type, finalData);
+    persistEntry(type, finalData, timestamp);
     setPending(null);
     setActiveForm(null);
   }
@@ -3112,6 +3222,29 @@ export default function App() {
     localStorage.setItem('tlgut_onboarded', '1');
     setOnboarded(true);
     setEditandoProfile(false);
+  }
+
+  const [showBubble, setShowBubble] = useState(false);
+
+  useEffect(() => {
+    if (entries.length === 0) return;
+    const LIMITE_MS = 6 * 3600000;
+    const INTERVALO_MS = 5 * 60000;
+    const timer = setInterval(() => {
+      if (sheetOpen || activeForm || editing || onboarded === false) return;
+      if (Date.now() < postponeBubbleUntil) { setShowBubble(false); return; }
+      const lastTs = entries
+        .map(e => e.ts || e.timestamp || 0)
+        .filter(Boolean)
+        .reduce((max, ts) => Math.max(max, ts), 0);
+      if (lastTs && Date.now() - lastTs > LIMITE_MS) setShowBubble(true);
+    }, INTERVALO_MS);
+    return () => clearInterval(timer);
+  }, [entries, sheetOpen, activeForm, editing, onboarded, postponeBubbleUntil]);
+
+  function dismissBubble(postpone) {
+    setShowBubble(false);
+    if (postpone) setPostponeBubbleUntil(Date.now() + 2 * 3600000);
   }
 
   function handleSaveEdit({ time, day, title, description, note }) {
@@ -3199,6 +3332,37 @@ export default function App() {
         {/* Menu de Navegação Inferior (RF 3) */}
         <BottomNav abaAtiva={abaAtiva} onChangeAba={mudarAba} onAdd={() => setSheetOpen(true)} />
 
+        {/* Mascote lembrete — balão flutuante quando inatividade > 6h */}
+        {showBubble && (
+          <div className="fixed bottom-24 right-4 z-30 max-w-[260px] animate-in"
+            style={{ animation: 'tgAbaFade 0.25s ease-out' }}>
+            <div className="rounded-2xl p-3 shadow-[0_8px_24px_-6px_rgba(0,0,0,0.25)]"
+              style={{ background: '#FFFBF6', border: '1px solid #EDE7DD' }}>
+              <div className="flex items-start gap-2.5">
+                <img src={mascoteImage} alt="Mascote" className="w-9 h-9 shrink-0 animate-mascote-pulse" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-[#2B2A28] font-medium leading-snug">Esqueceu de registrar algo?</p>
+                  <div className="flex gap-2 mt-2">
+                    <button type="button" onClick={() => { dismissBubble(false); setSheetOpen(true); }}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold text-white"
+                      style={{ background: 'var(--brand)' }}>
+                      Registrar agora
+                    </button>
+                    <button type="button" onClick={() => dismissBubble(true)}
+                      className="py-1.5 px-2 rounded-lg text-[10px] text-[#7D766A]"
+                      style={{ border: '1px solid #EDE7DD' }}>
+                      Depois
+                    </button>
+                  </div>
+                </div>
+                <button type="button" onClick={() => dismissBubble(true)} className="shrink-0 text-[#B6AE9F]">
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Ferramenta temporária de calibração de pontos (dev) */}
         {calibrando && <CalibrationOverlay onClose={() => setCalibrando(false)} />}
 
@@ -3263,7 +3427,11 @@ export default function App() {
             </div>
             <div className="px-5 py-4 overflow-y-auto flex-1">
               {pending ? (
-                <ObservationStep onConfirm={commitSave} />
+                'timestamp' in pending ? (
+                  <ObservationStep onConfirm={commitSave} />
+                ) : (
+                  <TimestampStep onTimestamp={setPendingTimestamp} />
+                )
               ) : (
                 <>
                   {activeForm === 'meal'     && <MealForm     onSave={(d) => requestSave('meal', d)} customFoods={customFoods} onAddCustom={(t) => setCustomFoods((c) => [...c, t])} />}
@@ -3276,6 +3444,7 @@ export default function App() {
                   {activeForm === 'gas' && <GasForm onSave={(d) => requestSave('gas', d)} />}
                   {activeForm === 'medication' && <MedicationForm onSave={(d) => requestSave('medication', d)} customMeds={customMeds} onAddCustom={(t) => setCustomMeds((c) => [...c, t])} />}
                   {activeForm === 'cycle' && <CycleForm onSave={(d) => requestSave('cycle', d)} />}
+                  {activeForm === 'weight' && <WeightForm onSave={(d) => requestSave('weight', d)} />}
                 </>
               )}
             </div>
