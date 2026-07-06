@@ -88,6 +88,9 @@ Retorne APENAS um objeto JSON válido com esta estrutura exata:
   ],
   "perguntas_medico": [
     { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "motivo": "O 'argumento' de apoio do paciente. DEVE citar evidências dos registros para justificar a pergunta de forma natural (ex: 'Notei episódios frequentes de diarreia após ingerir frituras na última semana...'). Este texto servirá de base de segurança para o usuário." }
+  ],
+  "consultas": [
+    { "profissional": "Especialidade do profissional consultado", "orientacao": "Principais pontos, orientações, diagnóstico e condutas da consulta" }
   ]
 }
 
@@ -109,6 +112,7 @@ Regras rigorosas que você DEVE seguir:
 14. EVOLUÇÃO TEMPORAL: ${periodoDias >= 30 ? `Como o período analisado é de ${periodoDias} dias (≥ 30), o campo 'resumo_executivo' DEVE incluir ao menos uma frase comparando o início e o fim do período (melhora, piora ou estabilidade), e o campo 'evolucao' é OBRIGATÓRIO e não pode ser vazio.` : 'Como o período analisado é curto (< 30 dias), OMITA o campo evolucao e não-force comparações temporais longas.'}
 15. SINAIS DE ALERTA (RED FLAGS): Identifique nos registros: (a) sinais da lista padrão — sangue nas fezes, perda de peso, febre, dor noturna severa, anemia ou sintomas associados; (b) sintomas extremos — intensidade 9 ou 10 em 10, palavras como "sangue", "inchado", "vômito", "febre", "emagrecimento". Quando detectar, preencha 'sinais_alerta' com {titulo, descricao, data}. Se não houver nenhum sinal, OMITA o campo 'sinais_alerta' inteiramente (não envie array vazio).
 16. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e sintomas físicos (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como conexão bidirecional: o desconforto físico pode afetar o humor E vice-versa. Formule 'pergunta' e 'motivo' como dúvida aberta (ex: "Será que meu humor afeta meu intestino, ou é o contrário?"), deixando o médico interpretar a direção.
+17. RESUMO DE CONSULTAS: Analise os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: síntese objetiva dos principais pontos, diagnósticos e condutas}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o paciente a levar um histórico conciso para a próxima consulta.
 
 Registros para análise:
 ${registrosTexto}`;
@@ -301,6 +305,7 @@ function formatMeta(e) {
   if (typeof m.fluxo === 'string') partes.push(`fluxo: ${m.fluxo}`);
   if (m.colica != null) partes.push(`cólica: ${m.colica}/5`);
   if (m.weight != null) partes.push(`peso: ${m.weight} kg`);
+  if (m.especialidade) partes.push(`consulta: ${m.especialidade}`);
   if (typeof m.note === 'string' && m.note.trim()) partes.push(`observação: ${m.note.trim()}`);
 
   return partes.length > 0 ? ` (${partes.join(' · ')})` : '';

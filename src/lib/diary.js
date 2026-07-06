@@ -214,6 +214,19 @@ export function gerarDadosRelatorioMock() {
     entries.push({ id: id++, type: 'weight', day, time: '07:30', ts: diaTs + 7 * 3600000 + 30 * 60000, title: 'Peso', description: `${o.kg.toFixed(1).replace('.', ',')} kg`, meta: { weight: o.kg } });
   });
 
+  // B.1c — Consultas fictícias para a IA resumir no bloco "Resumo das últimas
+  // consultas". Distribuídas em 2 momentos distintos.
+  const consultas = [
+    { dAtras: 7,  esp: 'Gastroenterologista', note: 'Recomendou retirar lactose por 2 semanas, receitou probiótico, marcou retorno em 30 dias com novos exames.' },
+    { dAtras: 30, esp: 'Nutricionista',        note: 'Plano alimentar com fibras solúveis, aumentar ingestão de água para 2 litros/dia, checar deficiência de ferro no próximo exame.' },
+  ];
+  consultas.forEach(o => {
+    const diaTs = agora - o.dAtras * DIA;
+    const d = new Date(diaTs);
+    const day = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    entries.push({ id: id++, type: 'medicalvisit', day, time: '10:00', ts: diaTs + 10 * 3600000, title: o.esp, description: `Consulta com ${o.esp}`, meta: { especialidade: o.esp, note: o.note } });
+  });
+
   // B.2 — Sinais de alerta (red flags) injetados apenas quando o toggle
   // localStorage 'tlgut_redflag_test' === '1'. Permite validar visualmente a
   // regra 15 (Sinais de Alerta) sem poluir o mock padrão usado em produção.

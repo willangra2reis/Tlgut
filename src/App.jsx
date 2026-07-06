@@ -8,7 +8,7 @@ import {
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
-  Scale,
+  Scale, Stethoscope,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
@@ -48,7 +48,8 @@ const ENTRY_TYPES = {
   gas:        { label: 'Gases',      icon: Wind,     color: '#7C8CA6', soft: '#E6EAF1' },
   medication: { label: 'Medicamento', icon: Pill,    color: '#3F7E6E', soft: '#DDEBE5' },
   cycle:      { label: 'Ciclo',       icon: Droplets, color: '#B5557A', soft: '#F6E1EC' },
-  weight:     { label: 'Peso',        icon: Scale,   color: '#7C6F5A', soft: '#EFE9DE' },
+  weight:     { label: 'Peso',        icon: Scale,     color: '#7C6F5A', soft: '#EFE9DE' },
+  medicalvisit: { label: 'Consulta',  icon: Stethoscope, color: '#5B8C91', soft: '#E0EFF0' },
 };
 
 // Rótulos amigáveis exibidos nos Chips_de_Resumo_do_Dia (RF 2.3).
@@ -58,6 +59,7 @@ const CHIP_LABELS = {
   medication: 'Medicamento',
   cycle: 'Ciclo',
   weight: 'Peso',
+  medicalvisit: 'Consultas',
 };
 
 // Abas do Menu_Inferior (RF 3.1). "Aulas" substitui a antiga aba "Hábitos".
@@ -89,6 +91,12 @@ const FOOD_TAGS = [
 const MED_TAGS = [
   'Antibiótico', 'Laxante', 'Probiótico', 'Antidepressivo', 'Anti-inflamatório',
   'Analgésico', 'Antiácido', 'Suplemento', 'Vitamina',
+];
+
+const SPECIALTY_TAGS = [
+  'Médico geral', 'Gastroenterologista', 'Nutricionista',
+  'Proctologista', 'Endocrinologista', 'Cirurgião geral',
+  'Psicólogo', 'Psiquiatra',
 ];
 
 // ─── Aulas (vídeo-aulas) — FASE 1: dados mockados ────────────────────────────
@@ -277,6 +285,7 @@ const INITIAL_ENTRIES = [
   { id: 6, day: 'ontem', time: '18:30', type: 'exercise', title: 'Exercício',      description: 'Caminhada · 30 min · Intensidade leve' },
   { id: 7, day: 'ontem', time: '23:10', type: 'sleep',    title: 'Sono',           description: 'Levantou 2x à noite · Acordou com desconforto abdominal', meta: { quality: 3 } },
   { id: 8, day: 'ontem', time: '07:30', type: 'weight',   title: 'Peso',           description: '76,2 kg',                                     meta: { weight: 76.2 } },
+  { id: 9, day: 'ontem', time: '14:00', type: 'medicalvisit', title: 'Gastroenterologista', description: 'Consulta com Gastroenterologista', meta: { especialidade: 'Gastroenterologista', note: 'Retirar lactose por 2 semanas, retorno em 30 dias' } },
 ];
 
 // ─── Smoky pain cloud (SVG turbulence filter) ────────────────────────────────
@@ -1923,6 +1932,61 @@ function MedicationForm({ onSave, customMeds, onAddCustom }) {
   );
 }
 
+// ─── Registro de Consulta (F2) ───────────────────────────────────────────────
+// Seleção de especialidade (chips) + texto livre/ditado sobre a consulta.
+// A observação por voz (ObservationStep) complementa o texto digitado.
+function MedicalVisitForm({ onSave, customSpecialties, onAddCustom }) {
+  const [especialidade, setEspecialidade] = useState('');
+  const [relato, setRelato] = useState('');
+  const [novo, setNovo] = useState('');
+  const color = ENTRY_TYPES.medicalvisit.color;
+  const todasTags = [...SPECIALTY_TAGS, ...customSpecialties];
+
+  const addCustom = () => {
+    const t = novo.trim();
+    if (!t) return;
+    if (!SPECIALTY_TAGS.includes(t) && !customSpecialties.includes(t)) onAddCustom(t);
+    setEspecialidade(t);
+    setNovo('');
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Especialidade do profissional</p>
+        <div className="flex flex-wrap gap-2">
+          {todasTags.map((t) => <Chip key={t} active={especialidade === t} color={color} onClick={() => setEspecialidade(t)}>{t}</Chip>)}
+        </div>
+        <div className="flex gap-2 mt-2">
+          <input value={novo} onChange={(e) => setNovo(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
+            placeholder="Adicionar especialidade…"
+            className="flex-1 rounded-xl border border-[#EDE7DD] p-2 text-sm focus:outline-none" />
+          <button type="button" onClick={addCustom}
+            className="w-10 rounded-xl text-white flex items-center justify-center" style={{ background: color }}>
+            <Plus size={18} />
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Relato da consulta</p>
+        <p className="text-sm text-[#7D766A] mb-2">Faça um breve relato sobre os principais pontos de sua conversa com o profissional.</p>
+        <textarea value={relato} onChange={(e) => setRelato(e.target.value)}
+          placeholder="Diagnóstico, orientações, prescrições, retorno…"
+          className="w-full rounded-xl border border-[#EDE7DD] p-3 text-sm text-[#2B2A28] focus:outline-none resize-none min-h-[100px]" />
+      </div>
+
+      <SaveButton color={color} onClick={() => {
+        const nome = especialidade || 'Consulta';
+        const meta = { especialidade };
+        if (relato.trim()) meta.note = relato.trim();
+        onSave({ title: nome, description: `Consulta com ${nome}`, meta });
+      }} />
+    </div>
+  );
+}
+
 // Registro de Ciclo (RF 16.2/16.4) — fricção mínima: só a data de início é
 // obrigatória (default = hoje). Fluxo, cólica e contraceptivo são opcionais e
 // revelados via "+ detalhes". Texto factual, sem diagnóstico ou recomendação
@@ -3006,6 +3070,7 @@ export default function App() {
   const [pending,    setPending]    = useState(null);                                 // etapa de observação antes de salvar
   const [customFoods, setCustomFoods] = useState([]);                                 // tags de alimentos personalizadas (sessão)
   const [customMeds, setCustomMeds]   = useState([]);                                 // tags de medicamentos personalizadas (sessão)
+  const [customSpecialties, setCustomSpecialties] = useState([]);                     // especialidades customizadas
   const [inkLevel,   setInkLevel]   = useState(55);                                   // intensidade (brilho) da cor do texto
   const [fontScale,  setFontScale]  = useState(100);                                  // tamanho do texto dos registros (%)
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
@@ -3445,6 +3510,11 @@ export default function App() {
                   {activeForm === 'medication' && <MedicationForm onSave={(d) => requestSave('medication', d)} customMeds={customMeds} onAddCustom={(t) => setCustomMeds((c) => [...c, t])} />}
                   {activeForm === 'cycle' && <CycleForm onSave={(d) => requestSave('cycle', d)} />}
                   {activeForm === 'weight' && <WeightForm onSave={(d) => requestSave('weight', d)} />}
+                  {activeForm === 'medicalvisit' && <MedicalVisitForm
+                    onSave={(d) => requestSave('medicalvisit', d)}
+                    customSpecialties={customSpecialties}
+                    onAddCustom={(t) => setCustomSpecialties((c) => [...c, t])}
+                  />}
                 </>
               )}
             </div>

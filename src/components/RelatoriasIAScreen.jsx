@@ -234,7 +234,7 @@ export default function RelatoriasIAScreen({ entries }) {
   }
 
   function renderStructuredContent(report) {
-    const { resumo_executivo, evolucao, sinais_alerta, correlacoes, perguntas_medico } = report;
+    const { resumo_executivo, evolucao, sinais_alerta, correlacoes, perguntas_medico, consultas } = report;
     const perguntasNorm = Array.isArray(perguntas_medico) ? perguntas_medico.map(normalizePergunta) : [];
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const alertas = Array.isArray(sinais_alerta) ? sinais_alerta.filter(a => a && (a.titulo || a.descricao)) : [];
@@ -378,6 +378,26 @@ export default function RelatoriasIAScreen({ entries }) {
             </div>
           );
         })()}
+
+        {Array.isArray(consultas) && consultas.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(91,140,145,0.12)' }}>
+                <Stethoscope size={15} style={{ color: '#5B8C91' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#5B8C91' }}>Resumo das últimas consultas</h4>
+            </div>
+            <div className="space-y-2">
+              {consultas.map((c, idx) => (
+                <div key={idx} className="rounded-xl p-3"
+                  style={{ background: 'rgba(91,140,145,0.06)', border: '1px solid rgba(91,140,145,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">{c.profissional || `Consulta ${idx + 1}`}</p>
+                  {c.orientacao && <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">{c.orientacao}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {perguntasNorm.length > 0 && (
           <div>
@@ -598,6 +618,24 @@ export default function RelatoriasIAScreen({ entries }) {
       doc.setTextColor(125, 118, 106);
       const cavLines = doc.splitTextToSize(caveat, maxW);
       cavLines.forEach(l => { ensureSpace(11); doc.text(l, margin, y); y += 11; });
+      spacer(8);
+    }
+
+    const consultas = Array.isArray(r.consultas) ? r.consultas.filter(c => c && (c.profissional || c.orientacao)) : [];
+    if (consultas.length > 0) {
+      heading('Resumo das últimas consultas', [91, 140, 145]);
+      consultas.forEach((c, i) => {
+        ensureSpace(16);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(43, 42, 40);
+        doc.text(c.profissional || `Consulta ${i + 1}`, margin, y);
+        y += 14;
+        if (c.orientacao) {
+          paragraph(c.orientacao, [100, 100, 95]);
+          spacer(6);
+        }
+      });
       spacer(8);
     }
 
