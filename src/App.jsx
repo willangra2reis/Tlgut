@@ -38,18 +38,18 @@ const BRISTOL_IMGS = { 1: bristol1, 2: bristol2, 3: bristol3, 4: bristol4, 5: br
 import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
 
 const ENTRY_TYPES = {
-  meal:       { label: 'Refeição',   icon: Utensils, color: '#C9763A', soft: '#F6E9DD' },
-  water:      { label: 'Água',       icon: Droplet,  color: '#3E8E96', soft: '#DEEFEF' },
-  sleep:      { label: 'Sono',       icon: Moon,     color: '#5D5FA0', soft: '#E6E5F4' },
-  pain:       { label: 'Dor',        icon: Flame,    color: '#BD5A4A', soft: '#F5E1DD' },
   exercise:   { label: 'Exercício',  icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
   mood:       { label: 'Humor',      icon: Smile,    color: '#9A6FA0', soft: '#EFE3EE' },
-  evacuation: { label: 'Evacuação',  icon: Leaf,     color: '#8A6D3B', soft: '#EFE7D6' },
-  gas:        { label: 'Gases',      icon: Wind,     color: '#7C8CA6', soft: '#E6EAF1' },
+  medicalvisit: { label: 'Consulta', icon: Stethoscope, color: '#5B8C91', soft: '#E0EFF0' },
   medication: { label: 'Medicamento', icon: Pill,    color: '#3F7E6E', soft: '#DDEBE5' },
-  cycle:      { label: 'Ciclo',       icon: Droplets, color: '#B5557A', soft: '#F6E1EC' },
-  weight:     { label: 'Peso',        icon: Scale,     color: '#7C6F5A', soft: '#EFE9DE' },
-  medicalvisit: { label: 'Consulta',  icon: Stethoscope, color: '#5B8C91', soft: '#E0EFF0' },
+  cycle:      { label: 'Ciclo',      icon: Droplets, color: '#B5557A', soft: '#F6E1EC' },
+  weight:     { label: 'Peso',       icon: Scale,    color: '#7C6F5A', soft: '#EFE9DE' },
+  sleep:      { label: 'Sono',       icon: Moon,     color: '#5D5FA0', soft: '#E6E5F4' },
+  gas:        { label: 'Gases',      icon: Wind,     color: '#7C8CA6', soft: '#E6EAF1' },
+  evacuation: { label: 'Evacuação',  icon: Leaf,     color: '#8A6D3B', soft: '#EFE7D6' },
+  pain:       { label: 'Dor',        icon: Flame,    color: '#BD5A4A', soft: '#F5E1DD' },
+  water:      { label: 'Água',       icon: Droplet,  color: '#3E8E96', soft: '#DEEFEF' },
+  meal:       { label: 'Refeição',   icon: Utensils, color: '#C9763A', soft: '#F6E9DD' },
 };
 
 // Rótulos amigáveis exibidos nos Chips_de_Resumo_do_Dia (RF 2.3).
@@ -98,6 +98,57 @@ const SPECIALTY_TAGS = [
   'Proctologista', 'Endocrinologista', 'Cirurgião geral',
   'Psicólogo', 'Psiquiatra',
 ];
+
+const OBSERVATION_PROMPTS = {
+  meal: {
+    titulo: 'Observações sobre a refeição',
+    placeholder: 'Ex: comi mais rápido que o normal, senti estufamento depois… (ou use o microfone)',
+  },
+  water: {
+    titulo: 'Observações sobre a hidratação',
+    placeholder: 'Ex: fiquei com muita sede à tarde, bebi além do registrado… (ou use o microfone)',
+  },
+  sleep: {
+    titulo: 'Observações sobre o sono',
+    placeholder: 'Ex: acordei várias vezes com cólica, difícil pegar no sono… (ou use o microfone)',
+  },
+  pain: {
+    titulo: 'Observações sobre a dor',
+    placeholder: 'Ex: começou ~40 min após o almoço, junto com estufamento… (ou use o microfone)',
+  },
+  exercise: {
+    titulo: 'Observações sobre o exercício',
+    placeholder: 'Ex: senti tontura no meio da caminhada, precisei parar… (ou use o microfone)',
+  },
+  mood: {
+    titulo: 'Observações sobre o humor',
+    placeholder: 'Ex: estresse no trabalho, discuti com alguém… (ou use o microfone)',
+  },
+  evacuation: {
+    titulo: 'Observações sobre a evacuação',
+    placeholder: 'Ex: senti que não esvaziei completamente, ardeu um pouco… (ou use o microfone)',
+  },
+  gas: {
+    titulo: 'Observações sobre os gases',
+    placeholder: 'Ex: depois do café da manhã, muito estufamento… (ou use o microfone)',
+  },
+  medication: {
+    titulo: 'Observações sobre o medicamento',
+    placeholder: 'Ex: depois de tomar, senti enjoo leve por 1h… (ou use o microfone)',
+  },
+  cycle: {
+    titulo: 'Observações sobre o ciclo',
+    placeholder: 'Ex: cólica mais forte que o normal, dor nas costas… (ou use o microfone)',
+  },
+  weight: {
+    titulo: 'Observações sobre o peso',
+    placeholder: 'Ex: comecei dieta nova, sinto mais fome… (ou use o microfone)',
+  },
+  medicalvisit: {
+    titulo: 'Observações sobre a consulta',
+    placeholder: 'Diagnóstico, orientações, prescrições, retorno… (ou use o microfone)',
+  },
+};
 
 // ─── Aulas (vídeo-aulas) — FASE 1: dados mockados ────────────────────────────
 // Estrutura pronta para depois vir do Supabase. Os campos capa/preview/links
@@ -539,22 +590,6 @@ function CursivaToggle({ value, onChange }) {
 
 // Toggle opt-in do acompanhamento de ciclo (RF 16.1). Mesmo padrão visual do
 // CursivaToggle; padrão desativado vive no estado do App.
-function CycleToggle({ value, onChange }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      aria-pressed={value}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors shrink-0"
-      style={value
-        ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
-        : { borderColor: 'rgba(150,140,120,0.5)', color: 'var(--amb-text)', background: 'rgba(255,255,255,0.18)' }}
-    >
-      <Droplets size={14} />
-      {value ? 'Ativado' : 'Desativado'}
-    </button>
-  );
-}
 
 // ─── Cabeçalho Hero (RF 2.1) ──────────────────────────────────────────────────
 // `colapsado` recolhe o hero para uma barra de marca fininha ao rolar a timeline.
@@ -652,26 +687,24 @@ function HeroHeader({ colapsado = false }) {
 // ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
 // `colapsado` recolhe o card para um strip fino (só o cabeçalho), ocultando
 // suavemente os chips e a linha do ciclo. Os dados permanecem montados.
-function DaySummaryCard({ dateLabel, entries, cicloAtivo = false, colapsado = false, onExpand }) {
+function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
   const contagens = contarPorTipo(entries, 'hoje');
   const itens = Object.keys(ENTRY_TYPES).filter((k) => contagens[k] > 0);
 
   // "Agora" estável durante a vida do componente (evita chamada impura no render).
   const [agora] = useState(() => Date.now());
 
-  // Fase_do_Ciclo (RF 16.3/16.5): só quando o acompanhamento está ativo e há ao
-  // menos um registro de ciclo com data de início. Usa o início mais recente.
-  // Texto factual, sem juízo de normalidade ou recomendação (RF 6/16.6).
+  // Fase_do_Ciclo (RF 16.3/16.5): quando há ao menos um registro de ciclo com
+  // data de início. Usa o início mais recente. Texto factual, sem juízo de
+  // normalidade ou recomendação (RF 6/16.6).
   let ciclo = null;
-  if (cicloAtivo) {
-    const inicios = entries
-      .filter((e) => e.type === 'cycle' && Number.isFinite(e.meta?.inicioTs))
-      .map((e) => e.meta.inicioTs);
-    if (inicios.length) {
-      const ultimoInicio = Math.max(...inicios);
-      const f = faseDoCiclo(ultimoInicio, agora);
-      if (f.fase !== 'desconhecida') ciclo = f;
-    }
+  const inicios = entries
+    .filter((e) => e.type === 'cycle' && Number.isFinite(e.meta?.inicioTs))
+    .map((e) => e.meta.inicioTs);
+  if (inicios.length) {
+    const ultimoInicio = Math.max(...inicios);
+    const f = faseDoCiclo(ultimoInicio, agora);
+    if (f.fase !== 'desconhecida') ciclo = f;
   }
 
   return (
@@ -1076,7 +1109,7 @@ function AulasScreen({ selecionado, onSelecionado }) {
 }
 
 // ─── Tela de Perfil (configurações — hospeda a Fonte Cursiva, RF 4) ───────────
-function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, cicloAtivo, onCiclo, profile, onEditarProfile }) {
+function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile }) {
   const condLabels = (profile?.condicoes || []).map(id => CONDICOES_LABELS[id] || id).join(', ');
   const biometria = [
     profile?.idade ? `${profile.idade} anos` : null,
@@ -1119,18 +1152,6 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
           <input type="range" min={100} max={140} step={5} value={fontScale}
             onChange={(e) => onFont(Number(e.target.value))}
             className="w-full" style={{ accentColor: 'var(--brand)' }} />
-        </div>
-      </div>
-
-      {/* Ciclo menstrual — acompanhamento opt-in (RF 16.1/16.5) */}
-      <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-3">Ciclo</p>
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="entry-text text-sm font-medium text-[#2B2A28]">Acompanhar ciclo menstrual</p>
-            <p className="text-xs text-[#7D766A] mt-0.5">Marque o início da menstruação para ver a fase estimada do ciclo.</p>
-          </div>
-          <CycleToggle value={cicloAtivo} onChange={onCiclo} />
         </div>
       </div>
 
@@ -1937,7 +1958,6 @@ function MedicationForm({ onSave, customMeds, onAddCustom }) {
 // A observação por voz (ObservationStep) complementa o texto digitado.
 function MedicalVisitForm({ onSave, customSpecialties, onAddCustom }) {
   const [especialidade, setEspecialidade] = useState('');
-  const [relato, setRelato] = useState('');
   const [novo, setNovo] = useState('');
   const color = ENTRY_TYPES.medicalvisit.color;
   const todasTags = [...SPECIALTY_TAGS, ...customSpecialties];
@@ -1969,19 +1989,9 @@ function MedicalVisitForm({ onSave, customSpecialties, onAddCustom }) {
         </div>
       </div>
 
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Relato da consulta</p>
-        <p className="text-sm text-[#7D766A] mb-2">Faça um breve relato sobre os principais pontos de sua conversa com o profissional.</p>
-        <textarea value={relato} onChange={(e) => setRelato(e.target.value)}
-          placeholder="Diagnóstico, orientações, prescrições, retorno…"
-          className="w-full rounded-xl border border-[#EDE7DD] p-3 text-sm text-[#2B2A28] focus:outline-none resize-none min-h-[100px]" />
-      </div>
-
       <SaveButton color={color} onClick={() => {
         const nome = especialidade || 'Consulta';
-        const meta = { especialidade };
-        if (relato.trim()) meta.note = relato.trim();
-        onSave({ title: nome, description: `Consulta com ${nome}`, meta });
+        onSave({ title: nome, description: `Consulta com ${nome}`, meta: { especialidade } });
       }} />
     </div>
   );
@@ -2429,7 +2439,7 @@ function TimestampStep({ onTimestamp }) {
 // não estiver disponível (ex.: desenvolvimento local sem wrangler).
 // Funciona no estilo push-to-talk (estilo WhatsApp): pressiona e segura o
 // microfone para gravar; solta para enviar ao Whisper e transcrever.
-function ObservationStep({ onConfirm }) {
+function ObservationStep({ onConfirm, prompt }) {
   const [note, setNote] = useState('');
 
   // Estados da gravação
@@ -2611,7 +2621,7 @@ function ObservationStep({ onConfirm }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="titulo-cursivo font-serif text-xl text-[#2B2A28]">Quer anotar uma observação?</p>
+        <p className="titulo-cursivo font-serif text-xl text-[#2B2A28]">{prompt?.titulo || 'Quer anotar uma observação?'}</p>
         <p className="text-sm text-[#7D766A] mt-1">Uma nota rápida enriquece seu histórico — algo que vai além dos números.</p>
       </div>
 
@@ -2683,7 +2693,7 @@ function ObservationStep({ onConfirm }) {
           rows={4}
           autoFocus
           disabled={recState === 'transcribing' || recState === 'recording'}
-          placeholder="Ex: começou ~40 min após o almoço, junto com estufamento… (ou use o microfone)"
+          placeholder={prompt?.placeholder || "Ex: começou ~40 min após o almoço, junto com estufamento… (ou use o microfone)"}
           className="w-full rounded-xl border border-[#EDE7DD] p-3 pr-12 text-sm resize-none focus:outline-none disabled:opacity-60"
         />
         {hasMicApi ? (
@@ -3074,7 +3084,6 @@ export default function App() {
   const [inkLevel,   setInkLevel]   = useState(55);                                   // intensidade (brilho) da cor do texto
   const [fontScale,  setFontScale]  = useState(100);                                  // tamanho do texto dos registros (%)
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
-  const [cicloAtivo, setCicloAtivo] = useState(false);                                  // acompanhamento de ciclo opt-in (RF 16.1)
   const [colapsado,  setColapsado]  = useState(false);                                  // hero recolhido ao rolar a timeline
   const [postponeBubbleUntil, setPostponeBubbleUntil] = useState(0);                  // postpone do mascote lembrete
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
@@ -3348,7 +3357,7 @@ export default function App() {
         {abaAtiva === 'diario' ? (
           <>
             {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
-            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} cicloAtivo={cicloAtivo} colapsado={heroColapsado} onExpand={expandirResumo} />
+            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} colapsado={heroColapsado} onExpand={expandirResumo} />
 
             {/* Timeline conectada (RF 2.4–2.8) */}
             <main ref={timelineRef} className="relative z-10 flex-1 overflow-y-auto px-5 pb-28"
@@ -3388,7 +3397,7 @@ export default function App() {
         ) : abaAtiva === 'insights' ? (
           <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} cicloAtivo={cicloAtivo} onCiclo={setCicloAtivo} profile={profile} onEditarProfile={() => setEditandoProfile(true)} />
+          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} />
         ) : (
           <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}
@@ -3458,7 +3467,7 @@ export default function App() {
             <div className="w-10 h-1.5 bg-[#EDE7DD] rounded-full mx-auto mb-4" />
             <p className="titulo-cursivo text-center font-serif text-lg text-[#2B2A28] mb-4">O que você quer registrar?</p>
             <div className="grid grid-cols-3 gap-3">
-              {Object.entries(ENTRY_TYPES).filter(([key]) => key !== 'cycle' || cicloAtivo).map(([key, meta]) => {
+              {Object.entries(ENTRY_TYPES).map(([key, meta]) => {
                 const Icon = meta.icon;
                 return (
                   <button key={key}
@@ -3493,7 +3502,8 @@ export default function App() {
             <div className="px-5 py-4 overflow-y-auto flex-1">
               {pending ? (
                 'timestamp' in pending ? (
-                  <ObservationStep onConfirm={commitSave} />
+                  <ObservationStep onConfirm={commitSave}
+                    prompt={OBSERVATION_PROMPTS[pending.type]} />
                 ) : (
                   <TimestampStep onTimestamp={setPendingTimestamp} />
                 )
