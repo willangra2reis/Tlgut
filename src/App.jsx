@@ -23,6 +23,7 @@ import {
   DIA,
 } from './lib/insights.js';
 import RelatoriasIAScreen from './components/RelatoriasIAScreen';
+import RelatorioExpressScreen from './components/RelatorioExpressScreen';
 import PainHeatmap from './components/PainHeatmap';
 import BristolImage from './components/BristolImage';
 import { CORES_TINT, BRISTOL_CURTOS, COR_PADRAO_TINT } from './lib/bristol-tints.js';
@@ -36,6 +37,7 @@ import bristol7 from './assets/bristol/bristol-7.png';
 
 const BRISTOL_IMGS = { 1: bristol1, 2: bristol2, 3: bristol3, 4: bristol4, 5: bristol5, 6: bristol6, 7: bristol7 };
 import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
+import { proximaConsulta, addConsulta, removeConsulta } from './lib/consulta.js';
 
 const ENTRY_TYPES = {
   exercise:   { label: 'Exercício',  icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
@@ -339,104 +341,9 @@ const INITIAL_ENTRIES = [
   { id: 9, day: 'ontem', time: '14:00', type: 'medicalvisit', title: 'Gastroenterologista', description: 'Consulta com Gastroenterologista', meta: { especialidade: 'Gastroenterologista', note: 'Retirar lactose por 2 semanas, retorno em 30 dias' } },
 ];
 
-// ─── Smoky pain cloud (SVG turbulence filter) ────────────────────────────────
-function PainCloud({ x, y, intensity, id }) {
-  const alpha = 0.25 + (intensity / 10) * 0.45;
-  // Tamanho da marca (em % da imagem). Reduzido para permitir marcações mais
-  // detalhadas e próximas, já que agora há muito mais pontos de referência.
-  const r     = 2.2 + (intensity / 10) * 1.6;
-  const filterId = `smoke-${id}`;
-  return (
-    <g className="pain-cloud-group">
-      <defs>
-        <filter id={filterId} x="-60%" y="-60%" width="220%" height="220%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.04 0.04" numOctaves="4" seed={id * 13} result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="18" xChannelSelector="R" yChannelSelector="G" result="displaced" />
-          <feGaussianBlur in="displaced" stdDeviation="3.5" result="blurred" />
-          <feComposite in="blurred" in2="SourceGraphic" operator="atop" />
-        </filter>
-      </defs>
-      {/* Outer halo */}
-      <ellipse
-        cx={`${x}%`} cy={`${y}%`}
-        rx={`${r * 1.5}%`} ry={`${r * 1.1}%`}
-        fill={`rgba(189,50,40,${alpha * 0.35})`}
-        filter={`url(#${filterId})`}
-      />
-      {/* Core cloud */}
-      <ellipse
-        cx={`${x}%`} cy={`${y}%`}
-        rx={`${r}%`} ry={`${r * 0.75}%`}
-        fill={`rgba(210,40,30,${alpha})`}
-        filter={`url(#${filterId})`}
-      />
-    </g>
-  );
-}
-
-// ─── Interactive silhouette ───────────────────────────────────────────────────
-function Silhouette({ clouds, intensity, onTap, compact, showOrgans = true }) {
-  const imgRef = useRef(null);
-  const currentImage = showOrgans ? DIGESTIVE_IMAGE : digestiveClosedImage;
-
-  const handleClick = useCallback((e) => {
-    if (!onTap) return;
-    const rect = imgRef.current.getBoundingClientRect();
-    const px = ((e.clientX - rect.left) / rect.width)  * 100;
-    const py = ((e.clientY - rect.top)  / rect.height) * 100;
-    const organ = nearestOrgan(px, py);
-    onTap({ x: px, y: py, organ });
-  }, [onTap]);
-
-  return (
-    <div
-      className={compact ? 'relative w-14 shrink-0' : 'relative w-full max-w-[220px] mx-auto'}
-      style={{ aspectRatio: '374/740' }}
-    >
-      <img
-        ref={imgRef}
-        src={currentImage}
-        alt="Sistema digestivo"
-        className="absolute inset-0 w-full h-full object-contain select-none"
-        style={{ pointerEvents: onTap ? 'none' : 'none' }}
-        draggable={false}
-      />
-
-      {/* SVG overlay for clouds */}
-      <svg
-        className="absolute inset-0 w-full h-full"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        onClick={handleClick}
-        style={{ cursor: onTap ? 'crosshair' : 'default' }}
-      >
-        <style>{`
-          @keyframes pulseCloud {
-            0%, 100% { transform: scale(0.93); opacity: 0.85; }
-            50% { transform: scale(1.07); opacity: 1; }
-          }
-          .pain-cloud-group {
-            transform-box: fill-box;
-            transform-origin: center;
-            animation: pulseCloud 2.5s ease-in-out infinite;
-          }
-        `}</style>
-        {clouds.map((c, i) => (
-          <PainCloud key={i} id={i + 1} x={c.x} y={c.y} intensity={intensity} />
-        ))}
-      </svg>
-
-      {/* Subtle tap hint when interactive and empty */}
-      {onTap && clouds.length === 0 && (
-        <div className="absolute inset-0 flex items-end justify-center pb-3 pointer-events-none">
-          <span className="text-[10px] text-[#BD5A4A]/70 bg-white/80 px-2 py-0.5 rounded-full">
-            Toque para marcar a dor
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
+// Silhouette + PainCloud extraídos para src/components/Silhouette.jsx (reusados
+// no PainForm, SilhouetteZoom e no novo Relatório Express). Comportamento idêntico.
+import Silhouette from './components/Silhouette';
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 function SaveButton({ color, onClick, label = 'Próximo' }) {
@@ -596,6 +503,87 @@ function CursivaToggle({ value, onChange }) {
 // Os dois estados compartilham a mesma árvore (sem remontar) e animam via CSS.
 const CURSIVE_STACK = '"Caveat", "Segoe Print", "Bradley Hand", cursive';
 
+function HeroHeader({ colapsado = false }) {
+  return (
+    <header
+      className="relative z-10 shrink-0 px-5 overflow-hidden"
+      style={{
+        background:
+          'radial-gradient(120% 90% at 88% 4%, rgba(120,196,140,0.22) 0%, rgba(120,196,140,0) 55%), linear-gradient(165deg, var(--brand) 0%, var(--brand-deep) 62%)',
+        paddingTop: colapsado ? '0.75rem' : '1.5rem',
+        paddingBottom: colapsado ? '0.5rem' : '2.25rem',
+        borderBottomLeftRadius: colapsado ? 16 : 28,
+        borderBottomRightRadius: colapsado ? 16 : 28,
+        transition: 'padding 500ms ease, border-radius 500ms ease',
+        willChange: 'padding, border-radius',
+      }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div
+            className="overflow-hidden pr-3"
+            style={{
+              maxHeight: colapsado ? 0 : '7rem',
+              opacity: colapsado ? 0 : 1,
+              transition: 'max-height 500ms ease, opacity 500ms ease',
+              willChange: 'max-height, opacity',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+              contain: 'layout paint',
+            }}
+          >
+            <p className="text-2xl leading-[1.25]" style={{ fontFamily: CURSIVE_STACK, color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
+            <p className="text-5xl leading-[1.25] -mt-1" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+              Intestinal
+            </p>
+          </div>
+          <div
+            className="overflow-hidden pr-3"
+            style={{
+              maxHeight: colapsado ? '3.25rem' : 0,
+              opacity: colapsado ? 1 : 0,
+              transition: 'max-height 500ms ease, opacity 500ms ease',
+              willChange: 'max-height, opacity',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+              contain: 'layout paint',
+            }}
+          >
+            <p className="text-2xl leading-[1.3] whitespace-nowrap" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+              Meu diário intestinal
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button type="button" aria-label="Menu"
+            className="rounded-full flex items-center justify-center text-white"
+            style={{
+              background: 'rgba(255,255,255,0.14)',
+              width: colapsado ? 32 : 36,
+              height: colapsado ? 32 : 36,
+              transition: 'width 500ms ease, height 500ms ease',
+            }}>
+            <EllipsisVertical size={colapsado ? 16 : 18} />
+          </button>
+        </div>
+      </div>
+
+      <img
+        src={mascoteImage}
+        alt="Mascote do Diário Intestinal"
+        className="absolute right-3 top-2 w-24 h-24 object-contain select-none pointer-events-none drop-shadow-lg"
+        style={{
+          transformOrigin: 'top right',
+          transform: colapsado ? 'translate(-40px, -2px) scale(0.33)' : 'translateZ(0)',
+          transition: 'transform 500ms ease, opacity 500ms ease',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+        }}
+        draggable={false}
+      />
+    </header>
+  );
+}
 
 // ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
 // `colapsado` recolhe o card para um strip fino (só o cabeçalho), ocultando
@@ -1435,6 +1423,131 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
 
 
 
+// ─── ConsultaCard: próxima consulta + countdown no topo de Insights ──────────
+// Conceito único de "próxima consulta" compartilhado entre Relatórios IA e
+// Relatório Express. Modelo array-based em lib/consulta.js (Supabase-ready).
+function ConsultaCard() {
+  const [proxima, setProxima] = useState(() => proximaConsulta());
+  const [editando, setEditando] = useState(false);
+
+  const refresh = useCallback(() => setProxima(proximaConsulta()), []);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const diasFaltam = useMemo(() => {
+    if (!proxima || !proxima.data) return null;
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const alvo = new Date(proxima.data + 'T00:00:00');
+    return Math.round((alvo - hoje) / 86400000);
+  }, [proxima]);
+
+  const handleSave = (value) => {
+    const prev = proximaConsulta();
+    if (prev) removeConsulta(prev.id);
+    if (value && value.trim()) addConsulta({ data: value.trim() });
+    setProxima(proximaConsulta());
+    setEditando(false);
+  };
+
+  const handleRemove = () => {
+    if (proxima) removeConsulta(proxima.id);
+    setProxima(null);
+    setEditando(false);
+  };
+
+  const fmtDataLonga = (iso) => {
+    try {
+      const d = new Date(iso + 'T00:00:00');
+      return d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    } catch { return iso; }
+  };
+
+  if (!proxima && !editando) {
+    return (
+      <div className="rounded-2xl bg-white border border-[#EDE7DD] p-3 mb-3 shadow-[0_6px_18px_-12px_rgba(31,42,40,0.35)] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Calendar size={16} style={{ color: '#7D766A' }} />
+          <p className="text-xs text-[#7D766A]">Nenhuma consulta agendada.</p>
+        </div>
+        <button type="button" onClick={() => setEditando(true)}
+          className="shrink-0 px-3 py-1 rounded-full text-xs font-medium text-white"
+          style={{ background: 'var(--brand)' }}>
+          Adicionar
+        </button>
+      </div>
+    );
+  }
+
+  if (editando || !proxima) {
+    return (
+      <div className="rounded-2xl bg-white border border-[#EDE7DD] p-3 mb-3 shadow-[0_6px_18px_-12px_rgba(31,42,40,0.35)]">
+        <div className="flex items-center gap-2">
+          <Calendar size={16} style={{ color: '#7D766A' }} />
+          <p className="text-xs font-medium text-[#2B2A28]">Data da próxima consulta</p>
+        </div>
+        <div className="flex gap-2 mt-2">
+          <input type="date" value={proxima?.data || ''}
+            onChange={() => {}}
+            autoFocus
+            className="flex-1 px-3 py-2 rounded-xl text-sm border"
+            style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28' }}
+            id="consulta-date-input" />
+          <button type="button" onClick={() => {
+            const el = document.getElementById('consulta-date-input');
+            if (el && el.value) handleSave(el.value);
+          }}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ background: 'var(--brand)' }}>
+            Salvar
+          </button>
+          {proxima && (
+            <button type="button" onClick={handleRemove}
+              className="px-3 py-2 rounded-xl text-sm text-[#BD5A4A] border"
+              style={{ borderColor: 'rgba(189,90,74,0.3)' }}>
+              Remover
+            </button>
+          )}
+          <button type="button" onClick={() => setEditando(false)}
+            className="px-3 py-2 rounded-xl text-sm text-[#7D766A]">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const diasTexto = diasFaltam === 0 ? 'é hoje' : diasFaltam === 1 ? 'é amanhã' : `faltam ${diasFaltam} dias`;
+  const urgente = diasFaltam != null && diasFaltam <= 4;
+
+  return (
+    <button type="button" onClick={() => setEditando(true)}
+      className="w-full text-left rounded-2xl border p-3 mb-3 shadow-[0_6px_18px_-12px_rgba(31,42,40,0.35)] transition-colors"
+      style={{
+        background: urgente ? 'linear-gradient(135deg, #FFF8F0 0%, #FFF2E6 100%)' : '#FFFFFF',
+        borderColor: urgente ? 'rgba(201,118,58,0.4)' : '#EDE7DD',
+      }}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Calendar size={16} style={{ color: urgente ? '#C9763A' : '#7D766A' }} />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: urgente ? '#C9763A' : '#B6AE9F' }}>
+              Próxima consulta
+            </p>
+            <p className="text-sm font-medium text-[#2B2A28] capitalize">{fmtDataLonga(proxima.data)}</p>
+          </div>
+        </div>
+        <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold"
+          style={{
+            background: urgente ? 'rgba(201,118,58,0.15)' : 'rgba(74,138,92,0.1)',
+            color: urgente ? '#C9763A' : 'var(--brand)',
+          }}>
+          {diasTexto}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const history = useMemo(() => gerarHistoricoMock(), []);
   const bounds = useMemo(() => {
@@ -1491,11 +1604,15 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
       <div className="sticky top-0 z-20 -mx-5 px-5 pt-3 pb-2"
         style={{ background: 'var(--amb-bg-1)', boxShadow: '0 6px 12px -10px rgba(0,0,0,0.5)' }}>
 
+        {/* ConsultaCard: próxima consulta + countdown (compartilhado IA/Express) */}
+        <ConsultaCard />
+
         {/* Tabs em cursiva substituem o título */}
         <div className="flex items-center gap-5">
           {[
             { key: 'insights',   label: 'Insights',      ariaLabel: 'Aba interna Insights' },
             { key: 'relatorios', label: 'Relatórios IA', ariaLabel: 'Aba interna Relatórios IA' },
+            { key: 'express',    label: 'Express',       ariaLabel: 'Aba interna Relatório Express' },
           ].map(({ key, label, ariaLabel }) => (
             <button key={key} type="button" onClick={() => setAba(key)}
               aria-label={ariaLabel}
@@ -1584,9 +1701,13 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
             Use os botões 7/30/60/90 ou o calendário (dia ou intervalo) — todas as seções seguem o mesmo período. Observações dos seus próprios registros; não substituem avaliação profissional.
           </p>
         </>
-      ) : (
+      ) : aba === 'relatorios' ? (
         <div className="mt-3">
           <RelatoriasIAScreen entries={entries} />
+        </div>
+      ) : (
+        <div className="mt-3">
+          <RelatorioExpressScreen />
         </div>
       )}
     </main>
@@ -3279,6 +3400,7 @@ export default function App() {
         <div key={abaAtiva} className="tg-aba-anim relative z-10 flex-1 flex flex-col min-h-0">
         {abaAtiva === 'diario' ? (
           <>
+            <HeroHeader colapsado={heroColapsado} />
             {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
             <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} colapsado={heroColapsado} onExpand={expandirResumo} />
 

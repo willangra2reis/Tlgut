@@ -8,46 +8,13 @@ import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
 import { dorPorRegiao } from '../lib/insights.js';
 import { ORGAN_CENTROIDES, ORGAN_LABELS } from '../lib/organs.js';
+import { extractReportFromRaw, normalizePergunta, LOADING_FRASES } from '../lib/ai-report.js';
+import { proximaConsulta, addConsulta, removeConsulta } from '../lib/consulta.js';
 import PainHeatmap from './PainHeatmap.jsx';
 import digestiveImage from '../assets/sisdiges.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
 if (digestiveImgEl) digestiveImgEl.src = digestiveImage;
 import mascoteImage from '../assets/mascote.png';
-
-function extractReportFromRaw(rawText) {
-  if (!rawText) return null;
-  const i = rawText.indexOf('{');
-  if (i === -1) return null;
-  let depth = 0, inString = false, escape = false;
-  for (let j = i; j < rawText.length; j++) {
-    const ch = rawText[j];
-    if (escape) { escape = false; continue; }
-    if (ch === '\\') { escape = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '{') depth++;
-    else if (ch === '}') {
-      depth--;
-      if (depth === 0) {
-        try {
-          const obj = JSON.parse(rawText.slice(i, j + 1));
-          if (obj && typeof obj.resumo_executivo === 'string' && obj.resumo_executivo.length > 0
-              && Array.isArray(obj.correlacoes)) {
-            return obj;
-          }
-        } catch {}
-        return null;
-      }
-    }
-  }
-  return null;
-}
-
-function normalizePergunta(item) {
-  if (typeof item === 'string') return { pergunta: item, motivo: '' };
-  if (item && typeof item === 'object') return { pergunta: item.pergunta || '', motivo: item.motivo || '' };
-  return { pergunta: '', motivo: '' };
-}
 
 const MODELOS = [
   { id: '@google/gemini-2.5-flash',            label: 'Gemini 2.5 Flash',  descricao: 'Google, 1500 req/dia grátis, alta qualidade', recommended: true },
@@ -59,30 +26,6 @@ const MODELOS = [
 ];
 
 const MODELO_PADRAO = '@google/gemini-2.5-flash';
-
-const LOADING_FRASES = [
-  'Lendo todo o seu histórico...',
-  'Analisando com profundidade...',
-  'Fazendo correlações entre sintomas...',
-  'Observando o consumo de água...',
-  'Verificando padrões de sono...',
-  'Conectando humor e sintomas...',
-  'Localizando pontos de dor...',
-  'Analisando tempo de evacuação...',
-  'Cruzando alimentação e sintomas...',
-  'Identificando gatilhos alimentares...',
-  'Examinando seus marcadores de saúde...',
-  'Comparando dias bons e ruins...',
-  'Analisando a qualidade do sono...',
-  'Mapeando sua hidratação semanal...',
-  'Detectando padrões de estresse...',
-  'Verificando frequência das refeições...',
-  'Relacionando medicamentos e sintomas...',
-  'Observando sua evolução no período...',
-  'Analisando variações de humor...',
-  'Avaliando consistência dos registros...',
-  'Preparando perguntas para o médico...',
-];
 
 const PERIODOS = [
   { dias: 7, label: '7 dias' },
@@ -119,10 +62,18 @@ export default function RelatoriasIAScreen({ entries }) {
     catch { return []; }
   });
   const [consultaAberta, setConsultaAberta] = useState(false);
-  const [consultaDate, setConsultaDate] = useState(() => {
-    try { return localStorage.getItem('tlgut_consulta_date') || ''; }
-    catch { return ''; }
+  // Estado local espelha a próxima consulta do lib/consulta.js (model array-based).
+  // Atualizações aqui propagam para o array (remove + add) via handlers abaixo.
+  const [consultaDate, setConsultaDateState] = useState(() => {
+    const c = proximaConsulta();
+    return c ? c.data : '';
   });
+  const setConsultaDate = useCallback((value) => {
+    const prev = proximaConsulta();
+    if (prev) removeConsulta(prev.id);
+    if (value && value.trim()) addConsulta({ data: value.trim() });
+    setConsultaDateState(value || '');
+  }, []);
   const [votes, setVotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tlgut_model_votes') || '{}'); }
     catch { return {}; }
@@ -940,7 +891,6 @@ export default function RelatoriasIAScreen({ entries }) {
           <input type="date" value={consultaDate}
             onChange={e => {
               setConsultaDate(e.target.value);
-              localStorage.setItem('tlgut_consulta_date', e.target.value);
             }}
             className="mt-1 w-full px-3 py-2 rounded-xl text-sm border"
             style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28' }} />
