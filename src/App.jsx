@@ -6,7 +6,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
-  BookOpen, Lightbulb, GraduationCap, User, ChevronRight, Calendar, Wind, Pill, Droplets,
+  BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
   Scale, Stethoscope,
 } from 'lucide-react';
@@ -596,93 +596,6 @@ function CursivaToggle({ value, onChange }) {
 // Os dois estados compartilham a mesma árvore (sem remontar) e animam via CSS.
 const CURSIVE_STACK = '"Caveat", "Segoe Print", "Bradley Hand", cursive';
 
-function HeroHeader({ colapsado = false }) {
-  return (
-    <header
-      className="relative z-10 shrink-0 px-5 overflow-hidden"
-      style={{
-        // Gradiente sutil + leve brilho radial no canto superior direito (atrás do
-        // mascote) para dar profundidade sem comprometer o contraste do texto branco.
-        background:
-          'radial-gradient(120% 90% at 88% 4%, rgba(120,196,140,0.22) 0%, rgba(120,196,140,0) 55%), linear-gradient(165deg, var(--brand) 0%, var(--brand-deep) 62%)',
-        paddingTop: colapsado ? '0.75rem' : '1.5rem',
-        paddingBottom: colapsado ? '0.5rem' : '2.25rem',
-        borderBottomLeftRadius: colapsado ? 16 : 28,
-        borderBottomRightRadius: colapsado ? 16 : 28,
-        transition: 'padding 500ms ease, border-radius 500ms ease',
-        willChange: 'padding, border-radius',
-      }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          {/* Título EXPANDIDO: "Meu diário" cursivo menor + "Intestinal" grande cursivo */}
-          <div
-            className="overflow-hidden pr-3"
-            style={{
-              maxHeight: colapsado ? 0 : '7rem',
-              opacity: colapsado ? 0 : 1,
-              transition: 'max-height 500ms ease, opacity 500ms ease',
-              willChange: 'max-height, opacity',
-              transform: 'translateZ(0)',
-              backfaceVisibility: 'hidden',
-              contain: 'layout paint',
-            }}
-          >
-            <p className="text-2xl leading-[1.25]" style={{ fontFamily: CURSIVE_STACK, color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
-            <p className="text-5xl leading-[1.25] -mt-1" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
-              Intestinal
-            </p>
-          </div>
-          {/* Título COLAPSADO: "Meu diário intestinal" em cursiva, compacto */}
-          <div
-            className="overflow-hidden pr-3"
-            style={{
-              maxHeight: colapsado ? '3.25rem' : 0,
-              opacity: colapsado ? 1 : 0,
-              transition: 'max-height 500ms ease, opacity 500ms ease',
-              willChange: 'max-height, opacity',
-              transform: 'translateZ(0)',
-              backfaceVisibility: 'hidden',
-              contain: 'layout paint',
-            }}
-          >
-            <p className="text-2xl leading-[1.3] whitespace-nowrap" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
-              Meu diário intestinal
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button type="button" aria-label="Menu"
-            className="rounded-full flex items-center justify-center text-white"
-            style={{
-              background: 'rgba(255,255,255,0.14)',
-              width: colapsado ? 32 : 36,
-              height: colapsado ? 32 : 36,
-              transition: 'width 500ms ease, height 500ms ease',
-            }}>
-            <EllipsisVertical size={colapsado ? 16 : 18} />
-          </button>
-        </div>
-      </div>
-
-      {/* Mascote — anima via transform (scale/translate, compositado por GPU) para
-          encolher e subir suavemente até a barra fina ao colapsar. */}
-      <img
-        src={mascoteImage}
-        alt="Mascote do Diário Intestinal"
-        className="absolute right-3 top-2 w-24 h-24 object-contain select-none pointer-events-none drop-shadow-lg"
-        style={{
-          transformOrigin: 'top right',
-          transform: colapsado ? 'translate(-40px, -2px) scale(0.33)' : 'translateZ(0)',
-          transition: 'transform 500ms ease, opacity 500ms ease',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
-        }}
-        draggable={false}
-      />
-    </header>
-  );
-}
 
 // ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
 // `colapsado` recolhe o card para um strip fino (só o cabeçalho), ocultando
@@ -1116,47 +1029,13 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
     profile?.peso ? `${profile.peso} kg` : null,
     profile?.altura ? `${profile.altura} cm` : null,
   ].filter(Boolean).join(' - ');
+  const [showAparencia, setShowAparencia] = useState(false);
   return (
     <main className="relative z-10 flex-1 overflow-y-auto px-5 pt-3 pb-28">
       <p className="titulo-cursivo text-2xl font-serif mb-4" style={{ color: 'var(--amb-text)' }}>Perfil</p>
+
+      {/* Meus dados de saúde */}
       <div className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-3">Aparência</p>
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="entry-text text-sm font-medium text-[#2B2A28]">Fonte cursiva</p>
-            <p className="text-xs text-[#7D766A] mt-0.5">Letra manuscrita nos títulos e nos registros</p>
-          </div>
-          <CursivaToggle value={cursiva} onChange={onCursiva} />
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-[#F1ECE3]">
-          <div className="flex items-center justify-between gap-3">
-            <p className="entry-text text-sm font-medium text-[#2B2A28]">Intensidade do texto</p>
-            <span className="text-xs text-[#7D766A] tabular-nums">{inkLevel}%</span>
-          </div>
-          <p className="text-xs text-[#7D766A] mt-0.5 mb-2">Deixa as letras dos registros mais fortes ou mais suaves</p>
-          <input type="range" min={0} max={100} value={inkLevel}
-            onChange={(e) => onInk(Number(e.target.value))}
-            className="w-full" style={{ accentColor: 'var(--brand)' }} />
-          <p className="entry-text text-sm mt-2 leading-snug" style={{ color: 'var(--ink, #4A443F)' }}>
-            Exemplo de texto do registro neste nível de intensidade.
-          </p>
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-[#F1ECE3]">
-          <div className="flex items-center justify-between gap-3">
-            <p className="entry-text text-sm font-medium text-[#2B2A28]">Tamanho do texto</p>
-            <span className="text-xs text-[#7D766A] tabular-nums">{fontScale}%</span>
-          </div>
-          <p className="text-xs text-[#7D766A] mt-0.5 mb-2">Aumenta a letra dos registros para facilitar a leitura</p>
-          <input type="range" min={100} max={140} step={5} value={fontScale}
-            onChange={(e) => onFont(Number(e.target.value))}
-            className="w-full" style={{ accentColor: 'var(--brand)' }} />
-        </div>
-      </div>
-
-            {/* Meus dados de saúde */}
-      <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Heart size={16} style={{ color: '#BD5A4A' }} />
@@ -1186,11 +1065,57 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
           )}
         </div>
         <p className="text-[11px] text-[#9A938A] mt-2 leading-snug">
-          Estes dados enriquecem o Relatério de IA com contexto clínico personalizado.
+          Estes dados enriquecem o Relatório de IA com contexto clínico personalizado.
         </p>
       </div>
 
-<p className="text-xs mt-4" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>Mais opções de perfil em breve.</p>
+      {/* Aparência (retrátil) */}
+      <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+        <button type="button" onClick={() => setShowAparencia(!showAparencia)}
+          className="w-full flex items-center justify-between gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Aparência</p>
+          <ChevronDown size={16} className={`transition-transform duration-200 ${showAparencia ? 'rotate-180' : ''}`}
+            style={{ color: '#B6AE9F' }} />
+        </button>
+        {showAparencia && (
+          <div className="mt-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="entry-text text-sm font-medium text-[#2B2A28]">Fonte cursiva</p>
+                <p className="text-xs text-[#7D766A] mt-0.5">Letra manuscrita nos títulos e nos registros</p>
+              </div>
+              <CursivaToggle value={cursiva} onChange={onCursiva} />
+            </div>
+
+            <div className="pt-4 border-t border-[#F1ECE3]">
+              <div className="flex items-center justify-between gap-3">
+                <p className="entry-text text-sm font-medium text-[#2B2A28]">Intensidade do texto</p>
+                <span className="text-xs text-[#7D766A] tabular-nums">{inkLevel}%</span>
+              </div>
+              <p className="text-xs text-[#7D766A] mt-0.5 mb-2">Deixa as letras dos registros mais fortes ou mais suaves</p>
+              <input type="range" min={0} max={100} value={inkLevel}
+                onChange={(e) => onInk(Number(e.target.value))}
+                className="w-full" style={{ accentColor: 'var(--brand)' }} />
+              <p className="entry-text text-sm mt-2 leading-snug" style={{ color: 'var(--ink, #4A443F)' }}>
+                Exemplo de texto do registro neste nível de intensidade.
+              </p>
+            </div>
+
+            <div className="pt-4 border-t border-[#F1ECE3]">
+              <div className="flex items-center justify-between gap-3">
+                <p className="entry-text text-sm font-medium text-[#2B2A28]">Tamanho do texto</p>
+                <span className="text-xs text-[#7D766A] tabular-nums">{fontScale}%</span>
+              </div>
+              <p className="text-xs text-[#7D766A] mt-0.5 mb-2">Aumenta a letra dos registros para facilitar a leitura</p>
+              <input type="range" min={100} max={140} step={5} value={fontScale}
+                onChange={(e) => onFont(Number(e.target.value))}
+                className="w-full" style={{ accentColor: 'var(--brand)' }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs mt-4" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>Mais opções de perfil em breve.</p>
     </main>
   );
 }
@@ -3349,8 +3274,6 @@ export default function App() {
       >
         {/* Ambiência decorativa de fundo (atrás de todo o conteúdo) */}
         <AmbianceLayer theme={tema} />
-
-        {abaAtiva !== 'insights' && abaAtiva !== 'aulas' && <HeroHeader colapsado={heroColapsado} />}
 
         {/* Conteúdo da aba ativa — wrapper com key para transição suave ao trocar de aba */}
         <div key={abaAtiva} className="tg-aba-anim relative z-10 flex-1 flex flex-col min-h-0">
