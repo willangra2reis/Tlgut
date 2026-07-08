@@ -28,9 +28,13 @@ export function extractReportFromRaw(rawText) {
 }
 
 export function normalizePergunta(item) {
-  if (typeof item === 'string') return { pergunta: item, motivo: '' };
-  if (item && typeof item === 'object') return { pergunta: item.pergunta || '', motivo: item.motivo || '' };
-  return { pergunta: '', motivo: '' };
+  if (typeof item === 'string') return { pergunta: item, motivo: '', mecanismo_fisiologico: '' };
+  if (item && typeof item === 'object') return {
+    pergunta: item.pergunta || '',
+    motivo: item.motivo || '',
+    mecanismo_fisiologico: typeof item.mecanismo_fisiologico === 'string' ? item.mecanismo_fisiologico : '',
+  };
+  return { pergunta: '', motivo: '', mecanismo_fisiologico: '' };
 }
 
 export const LOADING_FRASES = [

@@ -215,7 +215,7 @@ Retorne APENAS um objeto JSON válido com esta estrutura exata:
     { "titulo": "Título curto da correlação (Ex: Sono e Cólicas)", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, ajudando o paciente a ver a ligação. Use linguagem acessível e evite listar datas excessivas." }
   ],
   "perguntas_medico": [
-    { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "motivo": "O 'argumento' de apoio do paciente. DEVE citar evidências dos registros para justificar a pergunta de forma natural (ex: 'Notei episódios frequentes de diarreia após ingerir frituras na última semana...'). Este texto servirá de base de segurança para o usuário." }
+    { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "motivo": "O 'argumento' de apoio do paciente. DEVE citar evidências dos registros para justificar a pergunta de forma natural (ex: 'Notei episódios frequentes de diarreia após ingerir frituras na última semana...'). Este texto servirá de base de segurança para o usuário.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
   ],
   "consultas": [
     { "profissional": "Especialidade do profissional consultado", "orientacao": "Principais pontos, orientações, diagnóstico e condutas da consulta" }
@@ -235,6 +235,7 @@ Regras rigorosas que você DEVE seguir:
 9. PERSPECTIVA: As perguntas ('pergunta') são SEMRE formuladas na primeira pessoa (o paciente perguntando ao médico).
 10. ESTATÍSTICA: Não use a palavra "padrão" para sequências com menos de 3 ocorrências documentadas. Use "sinal", "indício" ou "tendência inicial". Para padrões reais, indique a frequência (ex: "em 4 dos últimos 10 dias"). Contar ocorrências é obrigatório antes de afirmar periodicidade.
 11. NEUTRALIDADE MÉDICA: NÃO atribua sintomas gastrointestinais a efeitos diretos e imediatos de condições crônicas. Diabetes NÃO causa diarreia imediata após ingestão de açúcar. Hipertensão NÃO causa sintomas GI diretos. Tireoide afeta metabolismo e trânsito com ATRASO de dias ou semanas. Use sempre "pode estar relacionado" e deixe o médico interpretar a causalidade clínica.
+18. MECANISMO FISIOLÓGICO (CAMPO NOVO): Em cada item de 'perguntas_medico', preencha o campo 'mecanismo_fisiologico' com 1-3 frases explicando o mecanismo fisiológico pelo qual o gatilho do paciente se conecta ao sintoma (ex: como a gordura afeta a motilidade, como a microbiota se relaciona com gases, como o efeito osmótico influencia a consistência). Use ESTRITAMENTE mecanismos bem estabelecidos na literatura gastroenterológica clássica (motilidade, absorção, secreção biliar, microbiota, eixo intestino-cérebro, osmoticidade). NÃO use hipóteses recentes, controversas ou de consenso limitado. NÃO cite artigos específicos, PMIDs, autores ou anos de publicação — referencie genericamente "a literatura gastroenterológica". NÃO dê nomes de doenças (Crohn, SIJ, candidíase, disbiose, SIBO, etc.). Sempre apresente como "linha de investigação que a literatura associa a esses gatilhos" e deixe a causalidade clínica para o médico.
 12. QUEBRA DE TAGS: Substitua tags internas por descrições naturais no texto. "Açúcar/Doce" → "alimentos açucarados"; "Pão/Trigo" → "pães e produtos com trigo"; "Refrigerante" → "refrigerantes"; "Frituras" → "frituras"; "Picante" → "temperos picantes"; "Feijão" → "feijão e leguminosas"; "Legumes" → "legumes e verduras". NUNCA mantenha aspas simples, barras ou nomes literais de tags no texto visto pelo paciente.
 13. VOCABULÁRIO HÍDRICO: Use copos de água (250 ml cada) como unidade primária, sempre com ml equivalente entre parênteses: "3 copos de água (~750 ml)". Para quantidades acima de 10 copos, prefira litros: "15 copos de água (~3,7 litros)". A meta diária deve sempre mostrar ambas as unidades: "meta de 14 copos (~3430 ml)". Quando comparar com a meta, expresse a diferença em copos: "faltam 6 copos (~1500 ml)". NUNCA exiba a fórmula "35ml/kg" no texto ao paciente.
 14. EVOLUÇÃO TEMPORAL: ${periodoDias >= 30 ? `Como o período analisado é de ${periodoDias} dias (≥ 30), o campo 'resumo_executivo' DEVE incluir ao menos uma frase comparando o início e o fim do período (melhora, piora ou estabilidade), e o campo 'evolucao' é OBRIGATÓRIO e não pode ser vazio.` : 'Como o período analisado é curto (< 30 dias), OMITA o campo evolucao e não-force comparações temporais longas.'}
@@ -281,7 +282,7 @@ Retorne APENAS um objeto JSON válido com esta estrutura exata:
     { "titulo": "Título curto (Ex: Alimentação e sintomas)", "descricao": "Conexão observada PELO PACIENTE no que ele relatou. Use 'o paciente notou', 'segundo seu relato'. Não afirme causalidade, só associação percebida." }
   ],
   "perguntas_medico": [
-    { "pergunta": "Pergunta específica e direta que o PACIENTE perguntará ao MÉDICO.", "motivo": "Argumento de apoio baseado no relato do paciente, citando trechos quando relevante." }
+    { "pergunta": "Pergunta específica e direta que o PACIENTE perguntará ao MÉDICO.", "motivo": "Argumento de apoio baseado no relato do paciente, citando trechos quando relevante.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
   ]
 }
 
@@ -290,7 +291,7 @@ Regras rigorosas que você DEVE seguir:
 1. QUANTIDADE: Gere no mínimo 3 e no máximo 5 correlações e perguntas.
 2. PARÁGRAFOS: 'resumo_executivo' DEVE usar \\n\\n entre parágrafos.
 3. PERSPECTIVA: Toda afirmação sobre o quadro clínico DEVE ser atribuída ao paciente: 'o paciente relata', 'segundo seu relato', 'ele notou'. NUNCA use linguagem de fato médico que confirme causalidade.
-4. SEM PSEUDO-DIAGNÓSTICO: NUNCA sugere diagnóstico nomes de doenças. NUNCA interpretar sintomas como evidência de condição específica. Sua função é organizar o relato, não diagnosticar. Use sempre 'mereceo atenção do médico', 'vale conversar com seu médico', 'o médico poderá avaliar'.
+4. SEM PSEUDO-DIAGNÓSTICO, MAS COM PROFUNDIDADE FISIOLÓGICA: NUNCA sugira nomes de doenças (Crohn, SIJ, candidíase, disbiose, SIBO, etc.) — sua função é organizar o relato, NÃO diagnosticar. No entanto, em cada item de 'perguntas_medico', preencha 'mecanismo_fisiologico' (1-3 frases) explicando o mecanismo bem estabelecido na literatura gastroenterológica que conecta o gatilho ao sintoma (ex: motilidade intestinal, absorção lipídica, secreção biliar, efeito osmótico, microbiota, eixo intestino-cérebro). NÃO use hipóteses recentes ou controversas. NÃO cite artigos, PMIDs, autores ou anos — referencie genericamente 'a literatura gastroenterológica'. Apresente como 'linha de investigação que a literatura associa a esses gatilhos' e deixe a causalidade clínica para o médico. Use sempre 'merece atenção do médico', 'vale conversar com seu médico', 'o médico poderá avaliar'.
 5. SINAIS DE ALERTA: Identifique no texto do paciente palavras/sinais que merecem atenção médica imediata: sangue nas fezes, perda de peso, febre, dor severa noturna, vômito, etc. Preencha 'sinais_alerta'. Se não houver, OMITA o campo.
 6. APENAS O RELATADO: Use ESTRITAMENTE o texto do paciente. NUNCA invente sintomas, datas, medicamentos ouências não mencionais no relato. Se o paciente não tocou no tema, não presuma.
 7. NÃO ENCHER: Se faltam informações para correlações (o paciente não deu detalhes), reduza o número de correlações ao invés de inventar. Qualidade > quantidade.
@@ -380,9 +381,13 @@ function valido(obj) {
 function normalizePerguntas(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.map(item => {
-    if (typeof item === 'string') return { pergunta: item, motivo: '' };
-    if (item && typeof item === 'object') return { pergunta: item.pergunta || '', motivo: item.motivo || '' };
-    return { pergunta: '', motivo: '' };
+    if (typeof item === 'string') return { pergunta: item, motivo: '', mecanismo_fisiologico: '' };
+    if (item && typeof item === 'object') return {
+      pergunta: item.pergunta || '',
+      motivo: item.motivo || '',
+      mecanismo_fisiologico: typeof item.mecanismo_fisiologico === 'string' ? item.mecanismo_fisiologico : '',
+    };
+    return { pergunta: '', motivo: '', mecanismo_fisiologico: '' };
   });
 }
 

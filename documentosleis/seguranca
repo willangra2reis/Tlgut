@@ -1,0 +1,58 @@
+Concordo plenamente com a abordagem que a outra IA sugeriu — e vou explicar por que, com meus poréns.
+
+Minha opinião sincera sobre a ideia
+A ideia central é excelente e equilibra três coisas difíceis:
+
+Profundidade real: em vez de "copia e cola" do relato, o relatório entrega um fio condutor científico que o médico pode seguir.
+Segurança regulatória: não dá nome de doença (Crohn, SIJ, candidíase) — isso evita pânico, automedicação, ranço do médico e problemas com a Anvisa.
+Utilidade clínica: o médico recebe "linhas de investigação" jáarticuladas com a fisiopatologia, não uma lista de possíveis diagnósticos de internet.
+O campo mecanismo_fisiologico dentro de cada pergunta é a jogada certa. Em vez de "você pode ter X", vira "na literatura gastroenterológica, gorduras não digeridas no cólon aceleram o trânsito por efeito osmótico —vale investigar a eficiência biliar". Isso é fisiologia, não diagnóstico. Seguro.
+
+Poréns que eu levanto
+1. Risco de alucinação de mecanismos. LLMs inventam fisiopatologia plausível-sounding mas falsa com facilidade. Precisamos restringir o prompt a mecanismos bem estabelecidos (motilidade, absorção lipídica, microbioma, osmoticidade, prebióticos) e evitar termos polêmicos ou recentes demais.
+
+2. Citar artigos específicos / PubMed IDs — a outra IA perguntou se você quer isso. Recomendo NÃO. LLMs alucinam citações com frequência alta (cerca de 30-80% das referências inventadas em testes). Citar "literatura gastroenterológica" genericamente é seguro; citar "Smith et al. 2023, PMID 12345" é pedir para o usuário descobrir que o estudo não existe — o que destrói a confiança no app inteiro.
+
+3. Sugerir exames ("s!ugestão de exames: colonoscopia, coprocultura") — a outra IA perguntou sobre isso. Recomendo NÃO para este ciclo. Sugerir exames é uma forma velada de prescrição. O médico deve decidir o arsenal diagnóstico baseado no exame físico, não no relato. O mecanismo já dá a ele o terreno para escolher.
+
+4. Aplicar só ao Express ou também ao Relatórios IA (standard)? Acho que deveria ir nos dois. O ganho é o mesmo; seria estranho o Express ter profundidade científica e o Relatórios IA (com mais dados) ficar mais raso. Mas pode ser feito em duas fases: Express primeiro, standard depois.
+
+
+
+Essa análise que você trouxe é cirúrgica e o profissional (ou a IA) que levantou esses pontos tem uma visão de produto e de desenvolvimento extremamente madura. Tiro o chapéu.
+
+Os quatro "poréns" levantados são riscos reais que poderiam quebrar a confiança no seu aplicativo se não fossem tratados. Vamos passar por cada um deles e ver como a gente blinda o prompt para que a IA entregue a profundidade que você quer, mas sem escorregar nessas cascas de banana.
+
+🛡️ Resolvendo os 4 "Poréns" com Engenharia de Prompt
+1. Risco de alucinação de mecanismos (Fisiologia Inventada)
+O problema: As IAs adoram inventar termos que parecem científicos, mas não fazem sentido na vida real.
+A solução: Vamos fechar o cerco no prompt. Em vez de deixar a IA livre para falar sobre qualquer coisa, nós vamos listar explicitamente quais territórios científicos ela tem permissão para navegar.
+
+2. Citar artigos específicos e PubMed (Veto Absoluto)
+O problema: Como a análise apontou, a IA vai inventar links, autores e PMIDs que não existem. O usuário ou o médico vão pesquisar, ver que é falso e achar que o app é uma fraude.
+A solução: Proibir terminantemente menções a nomes de cientistas, anos de publicação, links ou códigos PMID. O correto é usar termos institucionais e genéricos: "A literatura gastroenterológica aponta..." ou "Estudos clínicos de saúde digestiva associam...".
+
+3. Sugerir exames (Veto Absoluto)
+O problema: "Peça uma colonoscopia ao seu médico". Se o app diz isso, o médico já entra na defensiva. O diagnóstico e a conduta (pedir exames) pertencem 100% ao carimbo do médico.
+A solução: Proibir a IA de sugerir qualquer exame pelo nome. O foco deve ser o mecanismo do corpo, deixando que o médico decida se vai investigar isso por exame de sangue, imagem ou apenas toque.
+
+4. Express vs. Relatório Standard (Unificação)
+O veredito: Concordo 100% com a análise. Separar os dois deixaria o produto premium (standard) parecendo mais "burro" que o de entrada (express). A regra deve valer para ambos, mas faz todo sentido do ponto de vista de desenvolvimento rodar o piloto no Express primeiro para validar o comportamento da IA.
+
+🛠️ O Ajuste Final no seu Prompt (Blindado contra Riscos)
+Para aplicar todas essas proteções e garantir a profundidade que você deseja, a regra do mecanismo_fisiologico dentro do seu prompt deve ser escrita exatamente assim:
+
+4. EMBASAMENTO FISIOLÓGICO SEGURO (SEM DIAGNÓSTICOS, EXAMES OU CITAÇÕES): No campo 'mecanismo_fisiologico', você deve enriquecer o relatório trazendo a ciência por trás dos sintomas, agindo como uma linha de investigação para o médico.
+
+Vocabulário Permitido: Limite-se estritamente a mecanismos bem estabelecidos: motilidade intestinal, absorção lipídica/de nutrientes, osmolaridade, fermentação bacteriana, gases por engolimento de ar (aerofagia), sensibilidade visceral e o impacto de prebióticos (como farinha de banana verde) ou especiarias (como a canela).
+
+Proibição de Diagnósticos: NUNCA cite nomes de doenças ou síndromes (ex: Crohn, SII, disbiose fungica). Fale do funcionamento do corpo, não da patologia.
+
+Proibição de Exames: NUNCA sugira ou cite nomes de exames laboratoriais ou de imagem (ex: proibido falar colonoscopia, coprocultura, exames de sangue).
+
+Proibição de Fontes Fictícias: NUNCA invente ou cite nomes de autores, anos de estudos, links ou códigos PMID (PubMed). Use apenas termos gerais como "A literatura gastroenterológica associa..." ou "Estudos clínicos apontam...".
+
+🚀 O Relatório Perfeito
+Com esse ajuste, o seu JSON vai entregar exatamente o que você sonhou: um relatório profundo, que parece ter sido revisado por um cientista, mas que não invade o espaço do médico e nem corre o risco de passar vergonha inventando dados na internet.
+
+Para dar o próximo passo na construção desse prompt, você prefere ajustar primeiro o esqueleto do JSON no código para receber esse novo campo ou quer que eu monte um exemplo completo de resposta simulando como o relato do Will ficaria com essa nova regra ativada?

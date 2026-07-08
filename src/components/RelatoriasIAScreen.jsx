@@ -373,6 +373,11 @@ export default function RelatoriasIAScreen({ entries }) {
                       {item.motivo && (
                         <p className="text-[11px] text-[#7D766A] mt-1 leading-relaxed italic">{item.motivo}</p>
                       )}
+                      {item.mecanismo_fisiologico && (
+                        <p className="text-[11px] text-[#5D5FA0] mt-1 leading-relaxed italic">
+                          <span className="font-semibold not-italic">Mecanismo:</span> {item.mecanismo_fisiologico}
+                        </p>
+                      )}
                     </div>
                   </label>
                 );
@@ -606,6 +611,26 @@ export default function RelatoriasIAScreen({ entries }) {
           doc.setTextColor(125, 118, 106);
           const mLines = doc.splitTextToSize(item.motivo, maxW - 12);
           mLines.forEach(l => { ensureSpace(12); doc.text(l, margin + 12, y); y += 12; });
+        }
+        if (item.mecanismo_fisiologico) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(9);
+          doc.setTextColor(93, 95, 160);
+          const mekLines = doc.splitTextToSize('Mecanismo: ' + item.mecanismo_fisiologico, maxW - 12);
+          mekLines.forEach((ln, idx) => {
+            ensureSpace(12);
+            if (idx === 0) {
+              doc.setFont('helvetica', 'bolditalic');
+              doc.text('Mecanismo: ', margin + 12, y);
+              const labelW = doc.getTextWidth('Mecanismo: ');
+              doc.setFont('helvetica', 'italic');
+              doc.text(ln.slice('Mecanismo: '.length), margin + 12 + labelW, y);
+            } else {
+              doc.setFont('helvetica', 'italic');
+              doc.text(ln, margin + 12, y);
+            }
+            y += 12;
+          });
         }
         spacer(10);
       });

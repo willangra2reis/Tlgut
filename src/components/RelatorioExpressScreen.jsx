@@ -600,6 +600,11 @@ function ExpressReportView({ report }) {
                   <div>
                     <p className="leading-snug" style={{ color: 'var(--ink, #4A443F)' }}>{p.pergunta}</p>
                     {p.motivo && <p className="text-xs mt-0.5 leading-snug" style={{ color: '#9A938A' }}>{p.motivo}</p>}
+                    {p.mecanismo_fisiologico && (
+                      <p className="text-xs mt-1 leading-snug italic" style={{ color: '#5D5FA0' }}>
+                        <span className="font-semibold not-italic">Mecanismo:</span> {p.mecanismo_fisiologico}
+                      </p>
+                    )}
                   </div>
                 </div>
               </li>
@@ -743,6 +748,29 @@ function gerarPDFExpress(report) {
         mLines.forEach((ln) => {
           ensureSpace(14);
           doc.text(ln, margin + 16, y + 11);
+          y += 14;
+        });
+      }
+      if (p.mecanismo_fisiologico) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(10);
+        doc.setTextColor('#5D5FA0');
+        const mekLabel = 'Mecanismo: ';
+        const mekText = p.mecanismo_fisiologico;
+        const mekLines = doc.splitTextToSize(mekLabel + mekText, maxW - 16);
+        mekLines.forEach((ln, idx) => {
+          ensureSpace(14);
+          if (idx === 0) {
+            doc.setFont('helvetica', 'bolditalic');
+            doc.text('Mecanismo: ', margin + 16, y + 11);
+            const labelW = doc.getTextWidth('Mecanismo: ');
+            doc.setFont('helvetica', 'italic');
+            const rest = ln.slice('Mecanismo: '.length);
+            doc.text(rest, margin + 16 + labelW, y + 11);
+          } else {
+            doc.setFont('helvetica', 'italic');
+            doc.text(ln, margin + 16, y + 11);
+          }
           y += 14;
         });
       }
