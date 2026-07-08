@@ -1429,6 +1429,7 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
 function ConsultaCard() {
   const [proxima, setProxima] = useState(() => proximaConsulta());
   const [editando, setEditando] = useState(false);
+  const [draft, setDraft] = useState('');
 
   const refresh = useCallback(() => setProxima(proximaConsulta()), []);
   useEffect(() => { refresh(); }, [refresh]);
@@ -1441,10 +1442,16 @@ function ConsultaCard() {
     return Math.round((alvo - hoje) / 86400000);
   }, [proxima]);
 
-  const handleSave = (value) => {
+  const abrirEdicao = () => {
+    setDraft(proxima?.data || '');
+    setEditando(true);
+  };
+
+  const handleSave = () => {
+    const v = (draft || '').trim();
     const prev = proximaConsulta();
     if (prev) removeConsulta(prev.id);
-    if (value && value.trim()) addConsulta({ data: value.trim() });
+    if (v) addConsulta({ data: v });
     setProxima(proximaConsulta());
     setEditando(false);
   };
@@ -1469,7 +1476,7 @@ function ConsultaCard() {
           <Calendar size={16} style={{ color: '#7D766A' }} />
           <p className="text-xs text-[#7D766A]">Nenhuma consulta agendada.</p>
         </div>
-        <button type="button" onClick={() => setEditando(true)}
+        <button type="button" onClick={abrirEdicao}
           className="shrink-0 px-3 py-1 rounded-full text-xs font-medium text-white"
           style={{ background: 'var(--brand)' }}>
           Adicionar
@@ -1486,29 +1493,25 @@ function ConsultaCard() {
           <p className="text-xs font-medium text-[#2B2A28]">Data da próxima consulta</p>
         </div>
         <div className="flex gap-2 mt-2">
-          <input type="date" value={proxima?.data || ''}
-            onChange={() => {}}
+          <input type="date" value={draft}
+            onChange={(e) => setDraft(e.target.value)}
             autoFocus
-            className="flex-1 px-3 py-2 rounded-xl text-sm border"
-            style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28' }}
-            id="consulta-date-input" />
-          <button type="button" onClick={() => {
-            const el = document.getElementById('consulta-date-input');
-            if (el && el.value) handleSave(el.value);
-          }}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm border"
+            style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28' }} />
+          <button type="button" onClick={handleSave}
+            className="shrink-0 px-4 py-2 rounded-xl text-sm font-semibold text-white"
             style={{ background: 'var(--brand)' }}>
             Salvar
           </button>
           {proxima && (
-            <button type="button" onClick={handleRemove}
-              className="px-3 py-2 rounded-xl text-sm text-[#BD5A4A] border"
+            <button type="button" onClick={handleRemove} aria-label="Remover consulta"
+              className="shrink-0 w-9 flex items-center justify-center rounded-xl text-[#BD5A4A] border"
               style={{ borderColor: 'rgba(189,90,74,0.3)' }}>
-              Remover
+              <Trash2 size={14} />
             </button>
           )}
           <button type="button" onClick={() => setEditando(false)}
-            className="px-3 py-2 rounded-xl text-sm text-[#7D766A]">
+            className="shrink-0 px-3 py-2 rounded-xl text-sm text-[#7D766A]">
             Cancelar
           </button>
         </div>
@@ -1520,7 +1523,7 @@ function ConsultaCard() {
   const urgente = diasFaltam != null && diasFaltam <= 4;
 
   return (
-    <button type="button" onClick={() => setEditando(true)}
+    <button type="button" onClick={abrirEdicao}
       className="w-full text-left rounded-2xl border p-3 mb-3 shadow-[0_6px_18px_-12px_rgba(31,42,40,0.35)] transition-colors"
       style={{
         background: urgente ? 'linear-gradient(135deg, #FFF8F0 0%, #FFF2E6 100%)' : '#FFFFFF',
@@ -1604,9 +1607,6 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
       <div className="sticky top-0 z-20 -mx-5 px-5 pt-3 pb-2"
         style={{ background: 'var(--amb-bg-1)', boxShadow: '0 6px 12px -10px rgba(0,0,0,0.5)' }}>
 
-        {/* ConsultaCard: próxima consulta + countdown (compartilhado IA/Express) */}
-        <ConsultaCard />
-
         {/* Tabs em cursiva substituem o título */}
         <div className="flex items-center gap-5">
           {[
@@ -1628,6 +1628,9 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
             </button>
           ))}
         </div>
+
+        {/* ConsultaCard: próxima consulta + countdown (compartilhado IA/Express) */}
+        <ConsultaCard />
 
         {/* Seletores de período (só na aba Insights) */}
         {aba === 'insights' && (

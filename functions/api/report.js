@@ -251,9 +251,15 @@ ${registrosTexto}`;
 // livre o que sente; pode marcar dores na silhueta. IA organiza a memória dispersa
 // em um relatório conciso, SEM pseudo-diagnóstico, marcando info como "relatada".
 function buildExpressPrompt({ narrative, pain_map, consultaFrase, dataConsultaStr, profileBlock }) {
-  const painText = (pain_map && Array.isArray(pain_map.clouds) && pain_map.clouds.length > 0)
-    ? `\nMapa de dores marcado pelo paciente (intensidade ${pain_map.intensity || 5}/10):\n${
-        pain_map.clouds.map((c, i) => `  ${i + 1}. região: ${c.organLabel || c.organ || 'desconhecida'} (coordenadas ${c.x.toFixed(1)}%, ${c.y.toFixed(1)}%)`).join('\n')
+  const hasClouds = pain_map && Array.isArray(pain_map.clouds) && pain_map.clouds.length > 0;
+  const hasKinds = pain_map && Array.isArray(pain_map.kinds) && pain_map.kinds.length > 0;
+  const painText = (hasClouds || hasKinds)
+    ? `\nMapa de dores marcado pelo paciente${
+        hasClouds ? ` (intensidade ${pain_map.intensity || 5}/10):\n${
+          pain_map.clouds.map((c, i) => `  ${i + 1}. regiao: ${c.organLabel || c.organ || 'desconhecida'} (coordenadas ${c.x.toFixed(1)}%, ${c.y.toFixed(1)}%)`).join('\n')
+        }` : ':'
+      }${
+        hasKinds ? `\nTipos de dor marcados: ${pain_map.kinds.join(', ')}` : ''
       }\n`
     : '';
 
