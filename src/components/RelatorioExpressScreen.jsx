@@ -1,14 +1,15 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
-  AlertTriangle, Sparkles, Stethoscope, ChevronDown, RotateCcw, Mic, Download, Share2, X,
+  AlertTriangle, Sparkles, Stethoscope, ChevronDown, RotateCcw, Mic, Download, Share2, X, Map, FileText,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import Silhouette from './Silhouette.jsx';
 import { extractReportFromRaw, normalizePergunta, LOADING_FRASES } from '../lib/ai-report.js';
 import { loadExpressDraft, saveExpressDraft, clearExpressDraft, saveExpressReport } from '../lib/express.js';
 import { proximaConsulta } from '../lib/consulta.js';
-import { loadProfile } from '../lib/profile.js';
+import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import mascoteImage from '../assets/mascote.png';
+import digestiveImage from '../assets/sisdiges.jpg';
 
 // Chips guiados: inserem fragmentos no textarea no cursor, para ajudar quem
 // não sabe por onde começar a relatar.
@@ -338,7 +339,7 @@ export default function RelatorioExpressScreen() {
       {/* Textarea grande + microfone */}
       <div className="rounded-2xl bg-white border shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)] p-4"
         style={{ borderColor: SOFT_BORDER }}>
-        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">O que você está sentindo</p>
+        <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#2B2A28' }}>O que você está sentindo</p>
 
         {/* Overlays de gravação/transcrição/erro */}
         {recState === 'recording' && (
@@ -439,7 +440,7 @@ export default function RelatorioExpressScreen() {
           className="w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Sparkles size={16} style={{ color: PAIN_COLOR }} />
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Marcar onde dói (opcional)</p>
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#2B2A28' }}>Marcar onde dói (opcional)</p>
             {clouds.length > 0 && (
               <span className="text-[11px] px-2 py-0.5 rounded-full"
                 style={{ background: 'rgba(189,90,74,0.1)', color: PAIN_COLOR }}>
@@ -459,13 +460,13 @@ export default function RelatorioExpressScreen() {
             <button type="button" onClick={() => setShowOrgans(!showOrgans)}
               className="w-full py-2 px-4 rounded-xl border text-xs font-semibold bg-white active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm"
               style={{ color: showOrgans ? PAIN_COLOR : 'var(--brand)', borderColor: showOrgans ? '#F5E1DD' : '#EDE7DD' }}>
-              {showOrgans ? 'Ocultar órgãos (ver corpo)' : 'Revelar órgãos afetados'}
+              {showOrgans ? 'Ocultar possíveis órgãos' : 'Possíveis órgãos afetados'}
             </button>
 
             {/* Intensidade (abaixo da silhueta, como no PainForm) */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Intensidade</p>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#2B2A28' }}>Intensidade</p>
                 <span className="text-sm font-semibold" style={{ color: PAIN_COLOR }}>{intensity}/10</span>
               </div>
               <input type="range" min={1} max={10} value={intensity}
@@ -475,7 +476,7 @@ export default function RelatorioExpressScreen() {
 
             {/* Como é a dor? */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Como é a dor?</p>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#2B2A28' }}>Como é a dor?</p>
               <div className="flex flex-wrap gap-2">
                 {KIND_OPTIONS.map((k) => (
                   <button key={k} type="button" onClick={() => toggleKind(k)}
@@ -529,13 +530,13 @@ export default function RelatorioExpressScreen() {
       )}
 
       {/* Relatório gerado */}
-      {!loading && report && <ExpressReportView report={report} />}
+      {!loading && report && <ExpressReportView report={report} clouds={clouds} intensity={intensity} kinds={kinds} />}
     </div>
   );
 }
 
 // ── Render do relatório Express ────────────────────────────────────────────
-function ExpressReportView({ report }) {
+function ExpressReportView({ report, clouds = [], intensity, kinds }) {
   if (!report) return null;
   const isRaw = report.isRaw === true;
   const isTruncated = report.truncated === true;
@@ -576,11 +577,57 @@ function ExpressReportView({ report }) {
           style={{ borderColor: SOFT_BORDER }}>
           <div className="flex items-center gap-2 mb-2">
             <Stethoscope size={16} style={{ color: 'var(--brand)' }} />
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#B6AE9F]">Resumo Executivo</p>
+            <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#5D5FA0' }}>Resumo Executivo</p>
           </div>
           <div className="text-sm leading-snug space-y-2" style={{ color: 'var(--ink, #4A443F)' }}>
             {resumo.split(/\n\n+/).map((p, i) => <p key={i}>{p}</p>)}
           </div>
+        </div>
+      )}
+
+      {/* Onde a dor aparece */}
+      {clouds && clouds.length > 0 && (
+        <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
+          style={{ borderColor: SOFT_BORDER }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(189,90,74,0.12)' }}>
+              <Map size={15} style={{ color: '#BD5A4A' }} />
+            </span>
+            <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#BD5A4A' }}>Onde a dor aparece</h4>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            <div className="relative mx-auto shrink-0" style={{ width: 160, aspectRatio: '374/740' }}>
+              <img src={digestiveImage} alt="Mapa de dor no corpo"
+                className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
+              {clouds.map((c, i) => (
+                <span key={i} aria-label={c.organLabel || 'Dor'}
+                  className="absolute rounded-full"
+                  style={{
+                    left: `${c.x}%`, top: `${c.y}%`, width: 14, height: 14, transform: 'translate(-50%,-50%)',
+                    background: 'rgba(189,90,74,0.5)',
+                    border: '2px solid rgba(255,255,255,0.7)',
+                    pointerEvents: 'none',
+                  }} />
+              ))}
+            </div>
+            <div className="flex-1 min-w-0 space-y-1.5">
+              {clouds.map((c, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs text-[#4A443F]">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'rgba(189,90,74,0.5)' }} />
+                  <span className="font-medium text-[#2B2A28] shrink-0">{c.organLabel || c.organ || 'Região marcada'}</span>
+                </div>
+              ))}
+              {intensity != null && (
+                <p className="text-xs text-[#7D766A] mt-1">Intensidade relatada: {intensity}/10</p>
+              )}
+              {kinds && kinds.size > 0 && (
+                <p className="text-xs text-[#7D766A]">Tipo de dor: {Array.from(kinds).join(', ')}</p>
+              )}
+            </div>
+          </div>
+          <p className="text-[11px] text-[#9A938A] mt-3 leading-relaxed italic">
+            <strong>Atenção:</strong> Os pontos na silhueta indicam a região onde você relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.
+          </p>
         </div>
       )}
 
@@ -590,7 +637,7 @@ function ExpressReportView({ report }) {
           style={{ borderColor: SOFT_BORDER }}>
           <div className="flex items-center gap-2 mb-2">
             <RotateCcw size={16} style={{ color: 'var(--brand)' }} />
-            <p className="text-sm font-semibold uppercase tracking-wide text-[#B6AE9F]">Perguntas para o Médico</p>
+            <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#4A8A5C' }}>Perguntas para o Médico</p>
           </div>
           <ol className="space-y-2">
             {perguntas.map((p, i) => (
@@ -615,19 +662,22 @@ function ExpressReportView({ report }) {
 
       {/* Botões PDF */}
       {canPDF && (
-        <div className="flex gap-2.5 pt-2">
-          <button type="button" onClick={() => baixarPDFExpress(report)}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-            style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
-            <Download size={16} />
-            Baixar PDF
-          </button>
-          <button type="button" onClick={() => compartilharPDFExpress(report)}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-            style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
-            <Share2 size={16} />
-            Compartilhar
-          </button>
+        <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
+          style={{ borderColor: SOFT_BORDER }}>
+          <div className="flex gap-2.5">
+            <button type="button" onClick={() => baixarPDFExpress(report)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+              style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
+              <Download size={16} />
+              Baixar PDF
+            </button>
+            <button type="button" onClick={() => compartilharPDFExpress(report)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+              style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
+              <Share2 size={16} />
+              Compartilhar
+            </button>
+          </div>
         </div>
       )}
 
@@ -688,14 +738,30 @@ function gerarPDFExpress(report) {
   };
   const spacer = (h = 12) => { y += h; };
 
-  // Cabeçalho
+  // Cabeçalho enriquecido
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.setTextColor('#5E8A4E');
+  doc.setTextColor('#2B2A28');
   doc.text('Smart Gut · Relatório Express', margin, y + 18);
-  y += 30;
+  y += 24;
+
+  const pr = (typeof loadProfile === 'function') ? loadProfile() : {};
+  const nomeProf = pr && pr.nome ? String(pr.nome).trim() : '';
+  const bio = [];
+  if (pr && pr.idade) bio.push(`${pr.idade} anos`);
+  if (pr && pr.peso)  bio.push(`${pr.peso} kg`);
+  if (pr && pr.altura) bio.push(`${pr.altura} cm`);
+  const condArr = Array.isArray(pr && pr.condicoes) ? pr.condicoes.map(c => CONDICOES_LABELS[c] || c).filter(Boolean) : [];
+  if (pr && pr.outros) condArr.push(pr.outros);
+
+  microLine(`Paciente: ${nomeProf || '—'}${bio.length ? '  ·  ' + bio.join(' · ') : ''}${condArr.length ? '  ·  Condições: ' + condArr.join(', ') : ''}`);
   microLine(`Gerado em ${new Date().toLocaleString('pt-BR')}`);
-  spacer(8);
+
+  spacer(4);
+  doc.setDrawColor(200, 195, 185);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageW - margin, y);
+  y += 16;
 
   // Sinais de Alerta
   const alertas = Array.isArray(report.sinais_alerta) ? report.sinais_alerta : [];

@@ -215,7 +215,7 @@ Retorne APENAS um objeto JSON válido com esta estrutura exata:
     { "titulo": "Título curto da correlação (Ex: Sono e Cólicas)", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, ajudando o paciente a ver a ligação. Use linguagem acessível e evite listar datas excessivas." }
   ],
   "perguntas_medico": [
-    { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "motivo": "O 'argumento' de apoio do paciente. DEVE citar evidências dos registros para justificar a pergunta de forma natural (ex: 'Notei episódios frequentes de diarreia após ingerir frituras na última semana...'). Este texto servirá de base de segurança para o usuário.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
+    { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "motivo": "Argumento de apoio escrito em SEGUNDA PESSOA, dirigido diretamente ao paciente que lerá este texto. Use 'você' e o nome do paciente (ex: 'Você deveria fazer essa pergunta porque você notou episódios frequentes de diarreia após ingerir frituras na última semana...'). O paciente lerá este texto em voz alta ou como apoio — não o médico. DEVE citar evidências dos registros.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
   ],
   "consultas": [
     { "profissional": "Especialidade do profissional consultado", "orientacao": "Principais pontos, orientações, diagnóstico e condutas da consulta" }
@@ -242,6 +242,7 @@ Regras rigorosas que você DEVE seguir:
 15. SINAIS DE ALERTA (RED FLAGS): Identifique nos registros: (a) sinais da lista padrão — sangue nas fezes, perda de peso, febre, dor noturna severa, anemia ou sintomas associados; (b) sintomas extremos — intensidade 9 ou 10 em 10, palavras como "sangue", "inchado", "vômito", "febre", "emagrecimento". Quando detectar, preencha 'sinais_alerta' com {titulo, descricao, data}. Se não houver nenhum sinal, OMITA o campo 'sinais_alerta' inteiramente (não envie array vazio).
 16. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e sintomas físicos (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como conexão bidirecional: o desconforto físico pode afetar o humor E vice-versa. Formule 'pergunta' e 'motivo' como dúvida aberta (ex: "Será que meu humor afeta meu intestino, ou é o contrário?"), deixando o médico interpretar a direção.
 17. RESUMO DE CONSULTAS: Analise os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: síntese objetiva dos principais pontos, diagnósticos e condutas}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o paciente a levar um histórico conciso para a próxima consulta.
+19. MOTIVO EM SEGUNDA PESSOA: O campo 'motivo' de cada item em 'perguntas_medico' deve ser escrito em SEGUNDA PESSOA, como se o paciente estivesse lendo seu próprio argumento de apoio em voz alta (ex: 'Você notou que...', 'você percebeu que...'). NUNCA escreva em terceira pessoa ('o paciente', 'ele/ela'). O 'motivo' é lido pelo paciente, não pelo médico.
 
 Registros para análise:
 ${registrosTexto}`;
@@ -282,7 +283,7 @@ Retorne APENAS um objeto JSON válido com esta estrutura exata:
     { "titulo": "Título curto (Ex: Alimentação e sintomas)", "descricao": "Conexão observada PELO PACIENTE no que ele relatou. Use 'o paciente notou', 'segundo seu relato'. Não afirme causalidade, só associação percebida." }
   ],
   "perguntas_medico": [
-    { "pergunta": "Pergunta específica e direta que o PACIENTE perguntará ao MÉDICO.", "motivo": "Argumento de apoio baseado no relato do paciente, citando trechos quando relevante.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
+    { "pergunta": "Pergunta específica e direta que o PACIENTE perguntará ao MÉDICO.", "motivo": "Argumento de apoio escrito em SEGUNDA PESSOA, dirigido diretamente ao paciente. Use 'você' e o nome do paciente (ex: 'Você deveria fazer essa pergunta porque você relatou que...'). O paciente lerá este texto em voz alta ou como apoio — não o médico. DEVE citar trechos do relato do paciente.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
   ]
 }
 
@@ -298,6 +299,7 @@ Regras rigorosas que você DEVE seguir:
 8. MAPA DE DORES (se fornecido): As coordenadas de dores devem enriquecer 'resumo_executivo' e 'correlacoes' como contexto anatômico adicional: 'a dor foi marcada na região do ${pain_map?.clouds?.[0]?.organLabel || 'cólon'}'. Nunca afirme que a localização confirma diagnóstico.
 9. INFERÊNCIAS SOBRE TEMPO: Se o paciente usa expressões ambíguas ('há um tempo', 'ultimamente'), preserve essa ambiguidade no relatório. NUNCA converta em datas precisas inventadas.
 10. CONSULTAS: OMITA o campo 'consultas' inteiramente nesta modalidade.
+11. MOTIVO EM SEGUNDA PESSOA: O campo 'motivo' de cada item em 'perguntas_medico' deve ser escrito em SEGUNDA PESSOA, como se o paciente estivesse lendo seu próprio argumento de apoio em voz alta (ex: 'Você notou que...', 'você relatou que...'). NUNCA escreva em terceira pessoa ('o paciente', 'ele/ela'). O 'motivo' é lido pelo paciente, não pelo médico.
 
 Relato do paciente:
 """
