@@ -1442,6 +1442,11 @@ function ConsultaCard() {
     return Math.round((alvo - hoje) / 86400000);
   }, [proxima]);
 
+  const minTs = useMemo(() => inicioDiaUTC(Date.now()), []);
+  const maxTs = useMemo(() => Date.UTC(new Date().getFullYear() + 2, 11, 31), []);
+  const draftTs = useMemo(() => draft ? Date.parse(draft + 'T00:00:00') : Date.now(), [draft]);
+  const onPickDate = useCallback((r) => setDraft(new Date(r.ini).toISOString().slice(0, 10)), []);
+
   const abrirEdicao = () => {
     setDraft(proxima?.data || '');
     setEditando(true);
@@ -1487,22 +1492,23 @@ function ConsultaCard() {
 
   if (editando || !proxima) {
     return (
-      <div className="rounded-2xl bg-white border border-[#EDE7DD] p-3 mb-3 shadow-[0_6px_18px_-12px_rgba(31,42,40,0.35)]">
-        <div className="flex items-center gap-2">
+      <div className="mb-3">
+        <div className="flex items-center gap-2 mb-1">
           <Calendar size={16} style={{ color: '#7D766A' }} />
           <p className="text-xs font-medium text-[#2B2A28]">Data da próxima consulta</p>
         </div>
+        <CalendarPicker single
+          minTs={minTs} maxTs={maxTs}
+          range={{ ini: draftTs, fim: draftTs }}
+          onRange={onPickDate} />
         <div className="flex gap-2 mt-2">
-          <input type="date" value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            autoFocus
-            className="flex-1 min-w-0 px-3 py-2 rounded-xl text-sm border"
-            style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28' }} />
-          <button type="button" onClick={handleSave}
-            className="shrink-0 px-4 py-2 rounded-xl text-sm font-semibold text-white"
-            style={{ background: 'var(--brand)' }}>
-            Salvar
-          </button>
+          {draft && (
+            <button type="button" onClick={handleSave}
+              className="shrink-0 px-4 py-2 rounded-xl text-sm font-semibold text-white"
+              style={{ background: 'var(--brand)' }}>
+              Salvar
+            </button>
+          )}
           {proxima && (
             <button type="button" onClick={handleRemove} aria-label="Remover consulta"
               className="shrink-0 w-9 flex items-center justify-center rounded-xl text-[#BD5A4A] border"

@@ -9,7 +9,7 @@ import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
 import { dorPorRegiao } from '../lib/insights.js';
 import { ORGAN_CENTROIDES, ORGAN_LABELS } from '../lib/organs.js';
 import { extractReportFromRaw, normalizePergunta, LOADING_FRASES } from '../lib/ai-report.js';
-import { proximaConsulta, addConsulta, removeConsulta } from '../lib/consulta.js';
+import { proximaConsulta } from '../lib/consulta.js';
 import PainHeatmap from './PainHeatmap.jsx';
 import digestiveImage from '../assets/sisdiges.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
@@ -62,18 +62,6 @@ export default function RelatoriasIAScreen({ entries }) {
     catch { return []; }
   });
   const [consultaAberta, setConsultaAberta] = useState(false);
-  // Estado local espelha a próxima consulta do lib/consulta.js (model array-based).
-  // Atualizações aqui propagam para o array (remove + add) via handlers abaixo.
-  const [consultaDate, setConsultaDateState] = useState(() => {
-    const c = proximaConsulta();
-    return c ? c.data : '';
-  });
-  const setConsultaDate = useCallback((value) => {
-    const prev = proximaConsulta();
-    if (prev) removeConsulta(prev.id);
-    if (value && value.trim()) addConsulta({ data: value.trim() });
-    setConsultaDateState(value || '');
-  }, []);
   const [votes, setVotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tlgut_model_votes') || '{}'); }
     catch { return {}; }
@@ -110,7 +98,8 @@ export default function RelatoriasIAScreen({ entries }) {
 
   const gerarRelatorio = useCallback(async (entriesFor, model) => {
     const body = { entries: entriesFor, model, periodo };
-    const cd = consultaDate && consultaDate.trim() ? consultaDate.trim() : null;
+    const c = proximaConsulta();
+    const cd = c && c.data ? c.data.trim() : null;
     if (cd) body.consulta_date = cd;
     try {
       const pr = loadProfile();
@@ -126,7 +115,7 @@ export default function RelatoriasIAScreen({ entries }) {
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return await res.json();
-  }, [consultaDate, periodo]);
+  }, [periodo]);
 
   async function handleGerar() {
     setSelectedQuestions([]);
@@ -908,18 +897,6 @@ export default function RelatoriasIAScreen({ entries }) {
         <p className="text-[11px] text-[#7D766A] mt-1.5">
           {filteredEntries.length} registro{filteredEntries.length !== 1 ? 's' : ''} no período
         </p>
-        <div className="mt-2 pt-2 border-t" style={{ borderColor: 'rgba(150,140,120,0.2)' }}>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Calendar size={14} style={{ color: '#7D766A' }} />
-            <span className="text-xs text-[#7D766A]">Data da consulta (opcional):</span>
-          </label>
-          <input type="date" value={consultaDate}
-            onChange={e => {
-              setConsultaDate(e.target.value);
-            }}
-            className="mt-1 w-full px-3 py-2 rounded-xl text-sm border"
-            style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28' }} />
-        </div>
       </div>
 
       <div className={CARDS_CLASS} style={{ background: CARDS_BG, borderColor: CARDS_BORDER }}>
