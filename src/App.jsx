@@ -1421,69 +1421,6 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
   );
 }
 
-// ─── TimePicker: roleta de seleção de horário (scroll-snap wheel) ────────────
-// Substitui <input type="time"> nativo nos contextos TimestampStep e
-// EditEntryForm. Mesma assinatura ({ value, onChange }) — callers não mudam.
-// Duas colunas que rolam (hora 0-23, minuto 0-59); o item central é o valor.
-function TimePicker({ value, onChange }) {
-  const ITEM_H = 40;
-  const parse = (v) => {
-    const [h, m] = (v || '00:00').split(':').map(Number);
-    return { h: Math.max(0, Math.min(23, isNaN(h) ? 0 : h)),
-             m: Math.max(0, Math.min(59, isNaN(m) ? 0 : m)) };
-  };
-  const initial = parse(value);
-  const hourRef = useRef(null);
-  const minRef = useRef(null);
-  const hSync = useRef(initial.h);
-  const mSync = useRef(initial.m);
-
-  // Posiciona o scroll na posição inicial sem animação (mount only).
-  useEffect(() => {
-    if (hourRef.current) hourRef.current.scrollTop = initial.h * ITEM_H;
-    if (minRef.current) minRef.current.scrollTop = initial.m * ITEM_H;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const emit = (h, m) => {
-    hSync.current = h; mSync.current = m;
-    onChange(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-  };
-
-  const handleHourScroll = (e) => {
-    const idx = Math.max(0, Math.min(23, Math.round(e.target.scrollTop / ITEM_H)));
-    if (idx !== hSync.current) emit(idx, mSync.current);
-  };
-  const handleMinScroll = (e) => {
-    const idx = Math.max(0, Math.min(59, Math.round(e.target.scrollTop / ITEM_H)));
-    if (idx !== mSync.current) emit(hSync.current, idx);
-  };
-
-  const renderCol = (count, ref, onScroll) => (
-    <div className="relative w-16">
-      <div className="tg-wheel-col" ref={ref} onScroll={onScroll}>
-        {/* Spacer de 2 itens no topo e no fim para alinhar o item central */}
-        <div style={{ height: 80 }} />
-        {Array.from({ length: count }, (_, i) => (
-          <div key={i} className="tg-wheel-item">
-            {String(i).padStart(2, '0')}
-          </div>
-        ))}
-        <div style={{ height: 80 }} />
-      </div>
-      <div className="tg-wheel-mask" />
-      <div className="tg-wheel-frame" />
-    </div>
-  );
-
-  return (
-    <div className="flex items-stretch justify-center gap-2 select-none">
-      {renderCol(24, hourRef, handleHourScroll)}
-      <span className="self-center text-2xl font-bold text-[#2B2A28] z-10">:</span>
-      {renderCol(60, minRef, handleMinScroll)}
-    </div>
-  );
-}
 
 
 // ─── ConsultaCard: próxima consulta + countdown no topo de Insights ──────────
@@ -2536,14 +2473,10 @@ function TimestampStep({ onTimestamp }) {
         ))}
       </div>
       {precisaHora && (
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex items-center gap-2 text-xs text-[#7D766A]">
-            <Clock size={16} />
-            <span>Que horas?</span>
-          </div>
-          <div className="bg-[#FAF7F2] rounded-2xl border border-[#EDE7DD] p-4 w-full max-w-[220px]">
-            <TimePicker value={hora} onChange={setHora} />
-          </div>
+        <div className="flex items-center justify-center gap-2">
+          <Clock size={18} className="text-[#B6AE9F]" />
+          <input type="time" value={hora} onChange={(e) => setHora(e.target.value)}
+            className="text-lg font-semibold text-[#2B2A28] bg-transparent border-b border-[#EDE7DD] outline-none px-2 py-1" />
         </div>
       )}
       <button type="button" onClick={confirmar} disabled={!podeConfirmar}
@@ -3137,10 +3070,9 @@ function EditEntryForm({ entry, onSave, onCancel }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-[#7D766A] mb-2">Horário</label>
-          <div className="bg-[#FAF7F2] rounded-2xl border border-[#EDE7DD] p-3">
-            <TimePicker value={time} onChange={setTime} />
-          </div>
+          <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Horário</label>
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
+            className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white tabular-nums" />
         </div>
         <div>
           <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Dia</label>
