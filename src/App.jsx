@@ -6,7 +6,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
-  BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, ChevronUp, Calendar, Wind, Pill, Droplets,
+  BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
   Scale, Stethoscope,
 } from 'lucide-react';
@@ -1421,52 +1421,66 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
   );
 }
 
-// ─── TimePicker: seletor de horário visual (stepper) ─────────────────────────
+// ─── TimePicker: roleta de seleção de horário (scroll-snap wheel) ────────────
 // Substitui <input type="time"> nativo nos contextos TimestampStep e
-// EditEntryForm. Funciona identicamente em iOS/Android/Desktop.
+// EditEntryForm. Mesma assinatura ({ value, onChange }) — callers não mudam.
+// Duas colunas que rolam (hora 0-23, minuto 0-59); o item central é o valor.
 function TimePicker({ value, onChange }) {
+  const ITEM_H = 40;
   const parse = (v) => {
     const [h, m] = (v || '00:00').split(':').map(Number);
     return { h: Math.max(0, Math.min(23, isNaN(h) ? 0 : h)),
              m: Math.max(0, Math.min(59, isNaN(m) ? 0 : m)) };
   };
-  const { h, m } = parse(value);
-  const set = (hh, mm) => onChange(
-    `${String(Math.max(0, Math.min(23, hh))).padStart(2, '0')}:${String(Math.max(0, Math.min(59, mm))).padStart(2, '0')}`
+  const initial = parse(value);
+  const hourRef = useRef(null);
+  const minRef = useRef(null);
+  const hSync = useRef(initial.h);
+  const mSync = useRef(initial.m);
+
+  // Posiciona o scroll na posição inicial sem animação (mount only).
+  useEffect(() => {
+    if (hourRef.current) hourRef.current.scrollTop = initial.h * ITEM_H;
+    if (minRef.current) minRef.current.scrollTop = initial.m * ITEM_H;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const emit = (h, m) => {
+    hSync.current = h; mSync.current = m;
+    onChange(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  };
+
+  const handleHourScroll = (e) => {
+    const idx = Math.max(0, Math.min(23, Math.round(e.target.scrollTop / ITEM_H)));
+    if (idx !== hSync.current) emit(idx, mSync.current);
+  };
+  const handleMinScroll = (e) => {
+    const idx = Math.max(0, Math.min(59, Math.round(e.target.scrollTop / ITEM_H)));
+    if (idx !== mSync.current) emit(hSync.current, idx);
+  };
+
+  const renderCol = (count, ref, onScroll) => (
+    <div className="relative w-16">
+      <div className="tg-wheel-col" ref={ref} onScroll={onScroll}>
+        {/* Spacer de 2 itens no topo e no fim para alinhar o item central */}
+        <div style={{ height: 80 }} />
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className="tg-wheel-item">
+            {String(i).padStart(2, '0')}
+          </div>
+        ))}
+        <div style={{ height: 80 }} />
+      </div>
+      <div className="tg-wheel-mask" />
+      <div className="tg-wheel-frame" />
+    </div>
   );
+
   return (
-    <div className="flex items-center justify-center gap-3 select-none">
-      <div className="flex flex-col items-center gap-1">
-        <button type="button" aria-label="Aumentar hora"
-          onClick={() => set(h + 1, m)}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
-          <ChevronUp size={20} />
-        </button>
-        <span className="text-2xl font-bold tabular-nums text-[#2B2A28] w-12 text-center leading-none">
-          {String(h).padStart(2, '0')}
-        </span>
-        <button type="button" aria-label="Diminuir hora"
-          onClick={() => set(h - 1, m)}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
-          <ChevronDown size={20} />
-        </button>
-      </div>
-      <span className="text-2xl font-bold text-[#B6AE9F] self-center mt-[-1.25rem]">:</span>
-      <div className="flex flex-col items-center gap-1">
-        <button type="button" aria-label="Aumentar minuto"
-          onClick={() => set(h, m + 1)}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
-          <ChevronUp size={20} />
-        </button>
-        <span className="text-2xl font-bold tabular-nums text-[#2B2A28] w-12 text-center leading-none">
-          {String(m).padStart(2, '0')}
-        </span>
-        <button type="button" aria-label="Diminuir minuto"
-          onClick={() => set(h, m - 1)}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
-          <ChevronDown size={20} />
-        </button>
-      </div>
+    <div className="flex items-stretch justify-center gap-2 select-none">
+      {renderCol(24, hourRef, handleHourScroll)}
+      <span className="self-center text-2xl font-bold text-[#2B2A28] z-10">:</span>
+      {renderCol(60, minRef, handleMinScroll)}
     </div>
   );
 }
