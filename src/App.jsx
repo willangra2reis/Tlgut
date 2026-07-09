@@ -6,7 +6,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
-  BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets,
+  BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, ChevronUp, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
   Scale, Stethoscope,
 } from 'lucide-react';
@@ -1421,6 +1421,55 @@ function CalendarPicker({ minTs, maxTs, range, onRange, single = false }) {
   );
 }
 
+// ─── TimePicker: seletor de horário visual (stepper) ─────────────────────────
+// Substitui <input type="time"> nativo nos contextos TimestampStep e
+// EditEntryForm. Funciona identicamente em iOS/Android/Desktop.
+function TimePicker({ value, onChange }) {
+  const parse = (v) => {
+    const [h, m] = (v || '00:00').split(':').map(Number);
+    return { h: Math.max(0, Math.min(23, isNaN(h) ? 0 : h)),
+             m: Math.max(0, Math.min(59, isNaN(m) ? 0 : m)) };
+  };
+  const { h, m } = parse(value);
+  const set = (hh, mm) => onChange(
+    `${String(Math.max(0, Math.min(23, hh))).padStart(2, '0')}:${String(Math.max(0, Math.min(59, mm))).padStart(2, '0')}`
+  );
+  return (
+    <div className="flex items-center justify-center gap-3 select-none">
+      <div className="flex flex-col items-center gap-1">
+        <button type="button" aria-label="Aumentar hora"
+          onClick={() => set(h + 1, m)}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
+          <ChevronUp size={20} />
+        </button>
+        <span className="text-2xl font-bold tabular-nums text-[#2B2A28] w-12 text-center leading-none">
+          {String(h).padStart(2, '0')}
+        </span>
+        <button type="button" aria-label="Diminuir hora"
+          onClick={() => set(h - 1, m)}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
+          <ChevronDown size={20} />
+        </button>
+      </div>
+      <span className="text-2xl font-bold text-[#B6AE9F] self-center mt-[-1.25rem]">:</span>
+      <div className="flex flex-col items-center gap-1">
+        <button type="button" aria-label="Aumentar minuto"
+          onClick={() => set(h, m + 1)}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
+          <ChevronUp size={20} />
+        </button>
+        <span className="text-2xl font-bold tabular-nums text-[#2B2A28] w-12 text-center leading-none">
+          {String(m).padStart(2, '0')}
+        </span>
+        <button type="button" aria-label="Diminuir minuto"
+          onClick={() => set(h, m - 1)}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-[#7D766A] hover:bg-[#F1ECE3] transition-colors active:scale-90">
+          <ChevronDown size={20} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 
 // ─── ConsultaCard: próxima consulta + countdown no topo de Insights ──────────
@@ -2473,10 +2522,14 @@ function TimestampStep({ onTimestamp }) {
         ))}
       </div>
       {precisaHora && (
-        <div className="flex items-center justify-center gap-2">
-          <Clock size={18} className="text-[#B6AE9F]" />
-          <input type="time" value={hora} onChange={(e) => setHora(e.target.value)}
-            className="text-lg font-semibold text-[#2B2A28] bg-transparent border-b border-[#EDE7DD] outline-none px-2 py-1" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-[#7D766A]">
+            <Clock size={16} />
+            <span>Que horas?</span>
+          </div>
+          <div className="bg-[#FAF7F2] rounded-2xl border border-[#EDE7DD] p-4 w-full max-w-[220px]">
+            <TimePicker value={hora} onChange={setHora} />
+          </div>
         </div>
       )}
       <button type="button" onClick={confirmar} disabled={!podeConfirmar}
@@ -3070,9 +3123,10 @@ function EditEntryForm({ entry, onSave, onCancel }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Horário</label>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white tabular-nums" />
+          <label className="block text-xs font-medium text-[#7D766A] mb-2">Horário</label>
+          <div className="bg-[#FAF7F2] rounded-2xl border border-[#EDE7DD] p-3">
+            <TimePicker value={time} onChange={setTime} />
+          </div>
         </div>
         <div>
           <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Dia</label>
