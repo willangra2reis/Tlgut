@@ -4,12 +4,23 @@ import {
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import Silhouette from './Silhouette.jsx';
-import { extractReportFromRaw, normalizePergunta, LOADING_FRASES } from '../lib/ai-report.js';
+import { extractReportFromRaw, normalizePergunta } from '../lib/ai-report.js';
 import { loadExpressDraft, saveExpressDraft, clearExpressDraft, saveExpressReport } from '../lib/express.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import mascoteImage from '../assets/mascote.png';
 import digestiveImage from '../assets/sisdiges.jpg';
+const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
+if (digestiveImgEl) digestiveImgEl.src = digestiveImage;
+
+const EXPRESS_LOADING_FRASES = [
+  'Analisando quando começou...',
+  'Analisando frequência...',
+  'Analisando com que piora...',
+  'Verificando sintomas associados...',
+  'Verificando medicamentos atuais...',
+  'Analisando com que alivia...',
+];
 
 // Chips guiados: inserem fragmentos no textarea no cursor, para ajudar quem
 // não sabe por onde começar a relatar.
@@ -84,7 +95,7 @@ export default function RelatorioExpressScreen() {
     if (!loading) return;
     setActivePhraseIndex(0);
     const interval = setInterval(() => {
-      setActivePhraseIndex(prev => (prev + 1) % LOADING_FRASES.length);
+      setActivePhraseIndex(prev => (prev + 1) % EXPRESS_LOADING_FRASES.length);
     }, 3800);
     return () => clearInterval(interval);
   }, [loading]);
@@ -520,11 +531,14 @@ export default function RelatorioExpressScreen() {
 
       {/* Loading */}
       {loading && (
-        <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
-          style={{ borderColor: SOFT_BORDER }}>
-          <div className="flex items-center gap-3">
-            <img src={mascoteImage} alt="Mascote" className="w-10 h-10 animate-mascote-pulse" />
-            <p className="text-sm" style={{ color: 'var(--amb-text)' }}>{LOADING_FRASES[activePhraseIndex]}</p>
+        <div className="day-summary-mesh relative z-10 rounded-2xl border border-[#EDE7DD] p-6 overflow-hidden shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+          <div className="relative z-10 flex flex-col items-center justify-center py-2 gap-3">
+            <img src={mascoteImage} alt="Mascote" className="w-16 h-16 animate-mascote-pulse" />
+            <div className="relative h-8 w-full flex items-center justify-center overflow-hidden">
+              <div key={activePhraseIndex} className="text-[15px] font-semibold text-[#4A8A5C] tg-phrase-cycle">
+                {EXPRESS_LOADING_FRASES[activePhraseIndex]}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -665,13 +679,13 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
           style={{ borderColor: SOFT_BORDER }}>
           <div className="flex gap-2.5">
-            <button type="button" onClick={() => baixarPDFExpress(report)}
+            <button type="button" onClick={() => baixarPDFExpress(report, clouds, intensity, kinds)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Download size={16} />
               Baixar PDF
             </button>
-            <button type="button" onClick={() => compartilharPDFExpress(report)}
+            <button type="button" onClick={() => compartilharPDFExpress(report, clouds, intensity, kinds)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Share2 size={16} />
@@ -690,7 +704,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
 }
 
 // ── PDF Express (próprio, simplificado, sem silhouette) ─────────────────────
-function gerarPDFExpress(report) {
+function gerarPDFExpress(report, clouds = [], intensity, kinds) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -786,6 +800,56 @@ function gerarPDFExpress(report) {
     spacer(8);
   }
 
+  // Onde a dor aparece (silhueta + pontos marcados)
+  if (Array.isArray(clouds) && clouds.length > 0) {
+    const imgW = 140;
+    const imgH = imgW * 740 / 374;
+    ensureSpace(imgH + 90);
+    heading('Onde a dor aparece', '#BD5A4A');
+    const imgX = margin + (maxW - imgW) / 2;
+    const imgY = y;
+    if (digestiveImgEl && digestiveImgEl.complete && digestiveImgEl.naturalWidth > 0) {
+      try { doc.addImage(digestiveImgEl, 'JPEG', imgX, imgY, imgW, imgH); } catch (e) {}
+    }
+    clouds.forEach((c) => {
+      const cx = imgX + (c.x / 100) * imgW;
+      const cy = imgY + (c.y / 100) * imgH;
+      const rr = 4;
+      doc.setFillColor(189, 90, 74);
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.5);
+      doc.circle(cx, cy, rr, 'FD');
+    });
+    y = imgY + imgH + 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 95);
+    clouds.forEach((c) => {
+      const txt = c.organLabel || c.organ || 'Região marcada';
+      const lines = doc.splitTextToSize(txt, maxW);
+      lines.forEach(l => { ensureSpace(12); doc.text(l, margin, y); y += 12; });
+    });
+    if (intensity != null) {
+      const txt = `Intensidade relatada: ${intensity}/10`;
+      const lines = doc.splitTextToSize(txt, maxW);
+      lines.forEach(l => { ensureSpace(12); doc.text(l, margin, y); y += 12; });
+    }
+    if (kinds && kinds.size > 0) {
+      const txt = `Tipo de dor: ${Array.from(kinds).join(', ')}`;
+      const lines = doc.splitTextToSize(txt, maxW);
+      lines.forEach(l => { ensureSpace(12); doc.text(l, margin, y); y += 12; });
+    }
+    spacer(6);
+    const caveat = 'Atenção: os pontos na silhueta indicam a região onde você relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.';
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(125, 118, 106);
+    const cavLines = doc.splitTextToSize(caveat, maxW);
+    cavLines.forEach(l => { ensureSpace(11); doc.text(l, margin, y); y += 11; });
+    spacer(8);
+  }
+
   // Perguntas para o Médico
   const perguntas = Array.isArray(report.perguntas_medico)
     ? report.perguntas_medico.map(normalizePergunta)
@@ -864,8 +928,8 @@ function montarNomeArquivoPDFExpress() {
   return `SmartGut_RelatorioExpress_${stamp}.pdf`;
 }
 
-function baixarPDFExpress(report) {
-  const doc = gerarPDFExpress(report);
+function baixarPDFExpress(report, clouds, intensity, kinds) {
+  const doc = gerarPDFExpress(report, clouds, intensity, kinds);
   const nome = montarNomeArquivoPDFExpress();
   try { doc.save(nome); }
   catch { // Firefox fallback
@@ -885,19 +949,19 @@ function isShareSupported() {
   return true;
 }
 
-async function compartilharPDFExpress(report) {
-  if (!isShareSupported()) { baixarPDFExpress(report); return; }
+async function compartilharPDFExpress(report, clouds, intensity, kinds) {
+  if (!isShareSupported()) { baixarPDFExpress(report, clouds, intensity, kinds); return; }
   try {
-    const doc = gerarPDFExpress(report);
+    const doc = gerarPDFExpress(report, clouds, intensity, kinds);
     const blob = doc.output('blob');
     const file = new File([blob], montarNomeArquivoPDFExpress(), { type: 'application/pdf' });
-    if (!navigator.canShare({ files: [file] })) { baixarPDFExpress(report); return; }
+    if (!navigator.canShare({ files: [file] })) { baixarPDFExpress(report, clouds, intensity, kinds); return; }
     await navigator.share({
       files: [file],
       title: 'Relatório Express — Smart Gut',
       text: 'Meu relatório de preparação para consulta.',
     });
   } catch (err) {
-    if (err && err.name !== 'AbortError') baixarPDFExpress(report);
+    if (err && err.name !== 'AbortError') baixarPDFExpress(report, clouds, intensity, kinds);
   }
 }
