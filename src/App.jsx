@@ -2432,6 +2432,23 @@ function TimestampStep({ onTimestamp }) {
     const d = new Date();
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   });
+  const timeInputRef = useRef(null);
+  const precisaHora = escolha === 'hoje' || escolha === 'ontem';
+
+  useEffect(() => {
+    if (precisaHora && timeInputRef.current) {
+      timeInputRef.current.focus();
+    }
+  }, [precisaHora]);
+
+  const [hStr, mStr] = hora.split(':');
+  const hNum = parseInt(hStr, 10);
+  const mNum = parseInt(mStr, 10);
+  const horaValida = !isNaN(hNum) && !isNaN(mNum) && hNum >= 0 && hNum <= 23 && mNum >= 0 && mNum <= 59 && hStr?.length === 2 && mStr?.length === 2;
+
+  const agoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const entradaMin = hNum * 60 + mNum;
+  const horaFutura = escolha === 'hoje' && horaValida && entradaMin > agoraMin;
 
   function confirmar() {
     if (escolha === 'agora') onTimestamp(null);
@@ -2439,8 +2456,7 @@ function TimestampStep({ onTimestamp }) {
     else if (escolha === 'ontem') onTimestamp({ day: 'ontem', time: hora });
   }
 
-  const podeConfirmar = escolha !== null;
-  const precisaHora = escolha === 'hoje' || escolha === 'ontem';
+  const podeConfirmar = escolha !== null && (!precisaHora || (horaValida && !horaFutura));
 
   const opcoes = [
     { key: 'agora', label: 'Agora', sub: 'Usar horário atual' },
@@ -2475,8 +2491,35 @@ function TimestampStep({ onTimestamp }) {
       {precisaHora && (
         <div className="flex items-center justify-center gap-2">
           <Clock size={18} className="text-[#B6AE9F]" />
-          <input type="time" value={hora} onChange={(e) => setHora(e.target.value)}
-            className="text-lg font-semibold text-[#2B2A28] bg-transparent border-b border-[#EDE7DD] outline-none px-2 py-1" />
+          <input type="text" inputMode="numeric" placeholder="HH:MM" maxLength={5}
+            ref={timeInputRef}
+            value={hora}
+            onChange={(e) => {
+              const input = e.target;
+              const cursor = input.selectionStart;
+              const val = input.value;
+              const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
+              const digits = val.replace(/\D/g, '').slice(0, 4);
+              const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
+              setHora(formatted);
+              requestAnimationFrame(() => {
+                try {
+                  let pos = 0, count = 0;
+                  while (pos < formatted.length && count < beforeDigits) {
+                    if (formatted[pos] !== ':') count++;
+                    pos++;
+                  }
+                  input.setSelectionRange(pos, pos);
+                } catch {}
+              });
+            }}
+            className="text-xl font-semibold text-[#2B2A28] bg-transparent border-b-2 border-[#EDE7DD] outline-none px-3 py-2 w-24 text-center tabular-nums" />
+          {precisaHora && horaValida && horaFutura && (
+            <p className="text-xs text-red-500 ml-1">Horário não pode ser no futuro</p>
+          )}
+          {precisaHora && !horaValida && hora.length === 5 && (
+            <p className="text-xs text-red-500 ml-1">Horário inválido</p>
+          )}
         </div>
       )}
       <button type="button" onClick={confirmar} disabled={!podeConfirmar}
@@ -3062,6 +3105,11 @@ function EditEntryForm({ entry, onSave, onCancel }) {
   const [description, setDescription] = useState(entry.description || '');
   const [note, setNote] = useState(entry.meta?.note || '');
 
+  const [tH, tM] = time.split(':');
+  const tHn = parseInt(tH, 10);
+  const tMn = parseInt(tM, 10);
+  const timeIsValid = !isNaN(tHn) && !isNaN(tMn) && tHn >= 0 && tHn <= 23 && tMn >= 0 && tMn <= 59 && tH?.length === 2 && tM?.length === 2;
+
   const handleSave = () => {
     onSave({ time, day, title, description, note });
   };
@@ -3071,8 +3119,31 @@ function EditEntryForm({ entry, onSave, onCancel }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Horário</label>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
+          <input type="text" inputMode="numeric" placeholder="HH:MM" maxLength={5}
+            value={time}
+            onChange={(e) => {
+              const input = e.target;
+              const cursor = input.selectionStart;
+              const val = input.value;
+              const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
+              const digits = val.replace(/\D/g, '').slice(0, 4);
+              const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
+              setTime(formatted);
+              requestAnimationFrame(() => {
+                try {
+                  let pos = 0, count = 0;
+                  while (pos < formatted.length && count < beforeDigits) {
+                    if (formatted[pos] !== ':') count++;
+                    pos++;
+                  }
+                  input.setSelectionRange(pos, pos);
+                } catch {}
+              });
+            }}
             className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white tabular-nums" />
+          {!timeIsValid && time.length === 5 && (
+            <p className="text-xs text-red-500 mt-1">Formato inválido (use HH:MM)</p>
+          )}
         </div>
         <div>
           <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Dia</label>
@@ -3114,8 +3185,8 @@ function EditEntryForm({ entry, onSave, onCancel }) {
           className="flex-1 py-3 rounded-2xl border border-[#EDE7DD] text-[#7D766A] font-medium text-sm">
           Cancelar
         </button>
-        <button type="button" onClick={handleSave}
-          className="flex-1 py-3 rounded-2xl text-white font-medium text-sm" style={{ background: 'var(--brand)' }}>
+        <button type="button" onClick={handleSave} disabled={!timeIsValid}
+          className="flex-1 py-3 rounded-2xl text-white font-medium text-sm disabled:opacity-40" style={{ background: 'var(--brand)' }}>
           Salvar
         </button>
       </div>
