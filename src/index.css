@@ -262,3 +262,8 @@
 .bristol-color-slider:focus-visible::-moz-range-thumb {
   box-shadow: 0 0 0 3px rgba(47,107,67,0.3);
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

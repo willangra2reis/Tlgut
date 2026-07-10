@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
   Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle, Map,
@@ -10,6 +10,7 @@ import { dorPorRegiao } from '../lib/insights.js';
 import { ORGAN_CENTROIDES, ORGAN_LABELS } from '../lib/organs.js';
 import { extractReportFromRaw, normalizePergunta, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
+import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import PainHeatmap from './PainHeatmap.jsx';
 import digestiveImage from '../assets/sisdiges.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
@@ -69,6 +70,38 @@ export default function RelatoriasIAScreen({ entries }) {
 
   const [activePhraseIndex, setActivePhraseIndex] = useState(0);
   const isLoading = Object.values(reports).some(r => r?.loading);
+
+  // ── Saved reports ──────────────────────────────────────────────────────────
+  const [savedReports, setSavedReports] = useState([]);
+  const [showSavedReports, setShowSavedReports] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, [toast]);
+
+  useEffect(() => {
+    migrarExpressLegado();
+    setSavedReports(loadReports('ia'));
+  }, []);
+
+  function loadSavedReport(r) {
+    if (!r.report) return;
+    setReports({
+      [r.modelo || '@google/gemini-2.5-flash']: { loading: false, report: r.report, error: null }
+    });
+    setShowSavedReports(false);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+
+  function handleRemoveReport(id) {
+    removeReport(id);
+    setSavedReports(prev => prev.filter(r => r.id !== id));
+  }
 
   useEffect(() => {
     if (!isLoading) return;
@@ -149,6 +182,16 @@ export default function RelatoriasIAScreen({ entries }) {
       try {
         const r = await gerarRelatorio(filteredEntries, selectedModel);
         setReports({ [selectedModel]: { loading: false, report: r.report, error: null } });
+        const periodStart = new Date(Date.now() - periodo * 86400000).toISOString().slice(0, 10);
+        const periodEnd = new Date().toISOString().slice(0, 10);
+        const { saved } = saveReport({ type: 'ia', report: r.report, modelo: selectedModel, period_start: periodStart, period_end: periodEnd });
+        if (saved) {
+          setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
+          const allReports = loadReports('ia');
+          if (allReports.length >= MAX_REPORTS && allReports[allReports.length - 1]?.id === saved.id) {
+            setToast('Relatório mais antigo substituído (limite de 10)');
+          }
+        }
       } catch (err) {
         setReports({ [selectedModel]: { loading: false, report: null, error: err.message } });
       }
@@ -959,6 +1002,57 @@ export default function RelatoriasIAScreen({ entries }) {
         </button>
       </div>
 
+      {/* Saved reports */}
+      {savedReports.length > 0 && (
+        <div className={CARDS_CLASS} style={{ background: CARDS_BG, borderColor: CARDS_BORDER }}>
+          <button type="button" onClick={() => setShowSavedReports(!showSavedReports)}
+            className="w-full flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FileText size={16} style={{ color: 'var(--brand)' }} />
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#2B2A28' }}>
+                Relatórios salvos ({savedReports.length}/{MAX_REPORTS})
+              </p>
+            </div>
+            <ChevronDown size={16} className={`transition-transform duration-200 ${showSavedReports ? 'rotate-180' : ''}`}
+              style={{ color: '#B6AE9F' }} />
+          </button>
+          {showSavedReports && (
+            <div className="mt-3 space-y-2">
+              {savedReports.map(r => (
+                <div key={r.id}
+                  className="flex items-start gap-2 p-3 rounded-xl border border-[#EDE7DD] bg-[#FBF9F4]">
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => loadSavedReport(r)}>
+                    <p className="text-[11px] font-medium" style={{ color: '#B6AE9F' }}>
+                      {new Date(r.created_at).toLocaleDateString('pt-BR', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                      })}
+                    </p>
+                    {r.period_start && r.period_end && (
+                      <p className="text-[10px] mt-0.5 text-[#7D766A]">
+                        Período: {new Date(r.period_start).toLocaleDateString('pt-BR')} — {new Date(r.period_end).toLocaleDateString('pt-BR')}
+                      </p>
+                    )}
+                    {r.modelo && (
+                      <p className="text-[10px] text-[#9A938A] font-mono truncate">
+                        {MODELOS.find(m => m.id === r.modelo)?.label || r.modelo}
+                      </p>
+                    )}
+                    <p className="text-sm text-[#2B2A28] line-clamp-2 mt-0.5">
+                      {r.resumo_preview || 'Relatório IA'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => handleRemoveReport(r.id)}
+                    className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#F1ECE3] text-[#B6AE9F]">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {hasResults && !compareMode && reports[selectedModel] && (
         <div>
           {renderCardStructured(selectedModel, reports[selectedModel], false)}
@@ -1027,6 +1121,14 @@ export default function RelatoriasIAScreen({ entries }) {
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-[#2B2A28] text-white text-xs font-medium shadow-lg"
+          style={{ animation: 'fadeIn 0.3s ease' }}>
+          {toast}
         </div>
       )}
     </div>

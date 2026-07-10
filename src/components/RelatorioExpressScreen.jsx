@@ -5,7 +5,8 @@ import {
 import { jsPDF } from 'jspdf';
 import Silhouette from './Silhouette.jsx';
 import { extractReportFromRaw, normalizePergunta } from '../lib/ai-report.js';
-import { loadExpressDraft, saveExpressDraft, clearExpressDraft, saveExpressReport } from '../lib/express.js';
+import { loadExpressDraft, saveExpressDraft, clearExpressDraft } from '../lib/express.js';
+import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import mascoteImage from '../assets/mascote.png';
@@ -90,6 +91,37 @@ export default function RelatorioExpressScreen() {
   const [activePhraseIndex, setActivePhraseIndex] = useState(0);
   const [regenerations, setRegenerations] = useState(0);
   const MAX_REGEN = 2;
+
+  // ── Saved reports ──────────────────────────────────────────────────────────
+  const [savedReports, setSavedReports] = useState([]);
+  const [showSavedReports, setShowSavedReports] = useState(false);
+  const [toast, setToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, [toast]);
+
+  useEffect(() => {
+    migrarExpressLegado();
+    setSavedReports(loadReports('express'));
+  }, []);
+
+  function loadSavedReport(r) {
+    setReport(r.report);
+    setShowSavedReports(false);
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 100);
+  }
+
+  function handleRemoveReport(id) {
+    removeReport(id);
+    setSavedReports(prev => prev.filter(r => r.id !== id));
+  }
 
   useEffect(() => {
     if (!loading) return;
@@ -293,7 +325,10 @@ export default function RelatorioExpressScreen() {
         rel = parsed;
       }
       setReport(rel);
-      saveExpressReport(rel);
+      const { saved } = saveReport({ type: 'express', report: rel });
+      if (saved) setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
+      const count = loadReports('express').length;
+      if (count >= MAX_REPORTS) setToast('Relatório mais antigo substituído (limite de 10)');
     } catch (err) {
       setError(err.message || 'Falha ao gerar relatório.');
     } finally {
@@ -519,6 +554,48 @@ export default function RelatorioExpressScreen() {
         Limite de {MAX_REGEN} regenerações por sessão. {MAX_REGEN - regenerations} restante(s).
       </p>
 
+      {/* Saved reports */}
+      {savedReports.length > 0 && (
+        <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
+          style={{ borderColor: SOFT_BORDER }}>
+          <button type="button" onClick={() => setShowSavedReports(!showSavedReports)}
+            className="w-full flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FileText size={16} style={{ color: 'var(--brand)' }} />
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: '#2B2A28' }}>
+                Relatórios salvos ({savedReports.length}/{MAX_REPORTS})
+              </p>
+            </div>
+            <ChevronDown size={16} className={`transition-transform duration-200 ${showSavedReports ? 'rotate-180' : ''}`}
+              style={{ color: '#B6AE9F' }} />
+          </button>
+          {showSavedReports && (
+            <div className="mt-3 space-y-2">
+              {savedReports.map(r => (
+                <div key={r.id}
+                  className="flex items-start gap-2 p-3 rounded-xl border border-[#EDE7DD] bg-[#FBF9F4]">
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => loadSavedReport(r)}>
+                    <p className="text-[11px] font-medium" style={{ color: '#B6AE9F' }}>
+                      {new Date(r.created_at).toLocaleDateString('pt-BR', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                      })}
+                    </p>
+                    <p className="text-sm text-[#2B2A28] line-clamp-2 mt-0.5">
+                      {r.resumo_preview || 'Relatório Express'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => handleRemoveReport(r.id)}
+                    className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center hover:bg-[#F1ECE3] text-[#B6AE9F]">
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Erro */}
       {error && (
         <div className="rounded-2xl border p-3" style={{ borderColor: 'rgba(189,90,74,0.4)', background: '#FDF6F4' }}>
@@ -545,6 +622,14 @@ export default function RelatorioExpressScreen() {
 
       {/* Relatório gerado */}
       {!loading && report && <ExpressReportView report={report} clouds={clouds} intensity={intensity} kinds={kinds} />}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-[#2B2A28] text-white text-xs font-medium shadow-lg"
+          style={{ animation: 'fadeIn 0.3s ease' }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
