@@ -28,6 +28,7 @@ export async function onRequestPost({ request, env }) {
     mode = 'standard',
     narrative,
     pain_map,
+    duvidas,
   } = body;
 
   const periodoDias = Number.isFinite(periodo) && periodo > 0 ? periodo : 0;
@@ -101,6 +102,7 @@ export async function onRequestPost({ request, env }) {
       periodoEvolucaoStr,
       profileBlock,
       periodoDias,
+      duvidas,
     });
   }
 
@@ -195,7 +197,16 @@ function buildStandardPrompt({
   periodoEvolucaoStr,
   profileBlock,
   periodoDias,
+  duvidas,
 }) {
+  const duvidasArr = Array.isArray(duvidas) ? duvidas.filter(d => d && String(d).trim()) : [];
+  const temDuvidas = duvidasArr.length > 0;
+  const duvidasText = temDuvidas
+    ? `\n\nDÚVIDAS DO PACIENTE (perguntas que o usuário anotou para levar ao médico):\n${duvidasArr.map((d, i) => `${i + 1}. ${String(d).trim()}`).join('\n')}\n`
+    : '';
+  const duvidasInstrucao = temDuvidas
+    ? `\n20. DÚVIDAS DO PACIENTE: O paciente anotou ${duvidasArr.length} dúvida(s) acima. Analise cada uma no contexto da cronologia de eventos. Para as dúvidas medicamente relevantes, inclua-as em 'perguntas_medico' com o campo extra "pergunta_original" contendo o texto literal da dúvida do paciente. Refine a dúvida em uma pergunta médica clara e específica no campo "pergunta". Priorize dúvidas com evidência na cronologia sobre dúvidas genéricas. Se uma dúvida não for medicamente relevante ou não tiver base nos dados, descarte-a silenciosamente. Você pode incluir até 5 dúvidas refinadas no total de 'perguntas_medico' (junto com as que você gera do zero).`
+    : '';
   return `Você é um assistente de saúde gastrointestinal focado em empoderar e preparar o paciente para sua consulta médica. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro para que o paciente entenda seus próprios padrões de forma clara e simples.
 
 ${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}FORMATO DA RESPOSTA — REGRAS ABSOLUTAS:
@@ -215,7 +226,7 @@ Retorne APENAS um objeto JSON válido com esta estrutura exata:
     { "titulo": "Título curto da correlação (Ex: Sono e Cólicas)", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, ajudando o paciente a ver a ligação. Use linguagem acessível e evite listar datas excessivas." }
   ],
   "perguntas_medico": [
-    { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "motivo": "Argumento de apoio escrito em SEGUNDA PESSOA, dirigido diretamente ao paciente que lerá este texto. Use 'você' e o nome do paciente (ex: 'Você deveria fazer essa pergunta porque você notou episódios frequentes de diarreia após ingerir frituras na última semana...'). O paciente lerá este texto em voz alta ou como apoio — não o médico. DEVE citar evidências dos registros.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
+    { "pergunta": "Pergunta específica, inteligente e direta que o PACIENTE lerá para o MÉDICO.", "pergunta_original": "TEXTO LITERAL da dúvida anotada pelo paciente (INCLUA APENAS se esta pergunta foi refinada de uma dúvida original do paciente; caso contrário, OMITA este campo).", "motivo": "Argumento de apoio escrito em SEGUNDA PESSOA, dirigido diretamente ao paciente que lerá este texto. Use 'você' e o nome do paciente (ex: 'Você deveria fazer essa pergunta porque você notou episódios frequentes de diarreia após ingerir frituras na última semana...'). O paciente lerá este texto em voz alta ou como apoio — não o médico. DEVE citar evidências dos registros.", "mecanismo_fisiologico": "Explicação científica breve (1-3 frases) de como o gatilho se conecta ao sintoma na literatura gastroenterológica estabelecida (ex: motilidade intestinal, absorção lipídica, efeito osmótico, microbiota). Apresente como 'linha de investigação que a literatura associa a esses gatilhos', nunca como diagnóstico. Deixe o médico interpretar a causalidade clínica." }
   ],
   "consultas": [
     { "profissional": "Especialidade do profissional consultado", "orientacao": "Principais pontos, orientações, diagnóstico e condutas da consulta" }
@@ -242,10 +253,10 @@ Regras rigorosas que você DEVE seguir:
 15. SINAIS DE ALERTA (RED FLAGS): Identifique nos registros: (a) sinais da lista padrão — sangue nas fezes, perda de peso, febre, dor noturna severa, anemia ou sintomas associados; (b) sintomas extremos — intensidade 9 ou 10 em 10, palavras como "sangue", "inchado", "vômito", "febre", "emagrecimento". Quando detectar, preencha 'sinais_alerta' com {titulo, descricao, data}. Se não houver nenhum sinal, OMITA o campo 'sinais_alerta' inteiramente (não envie array vazio).
 16. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e sintomas físicos (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como conexão bidirecional: o desconforto físico pode afetar o humor E vice-versa. Formule 'pergunta' e 'motivo' como dúvida aberta (ex: "Será que meu humor afeta meu intestino, ou é o contrário?"), deixando o médico interpretar a direção.
 17. RESUMO DE CONSULTAS: Analise os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: síntese objetiva dos principais pontos, diagnósticos e condutas}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o paciente a levar um histórico conciso para a próxima consulta.
-19. MOTIVO EM SEGUNDA PESSOA: O campo 'motivo' de cada item em 'perguntas_medico' deve ser escrito em SEGUNDA PESSOA, como se o paciente estivesse lendo seu próprio argumento de apoio em voz alta (ex: 'Você notou que...', 'você percebeu que...'). NUNCA escreva em terceira pessoa ('o paciente', 'ele/ela'). O 'motivo' é lido pelo paciente, não pelo médico.
+19. MOTIVO EM SEGUNDA PESSOA: O campo 'motivo' de cada item em 'perguntas_medico' deve ser escrito em SEGUNDA PESSOA, como se o paciente estivesse lendo seu próprio argumento de apoio em voz alta (ex: 'Você notou que...', 'você percebeu que...'). NUNCA escreva em terceira pessoa ('o paciente', 'ele/ela'). O 'motivo' é lido pelo paciente, não pelo médico.${duvidasInstrucao}
 
 Registros para análise:
-${registrosTexto}`;
+${registrosTexto}${duvidasText}`;
 }
 
 // ── Prompt express (Relatório Express — usa narrative livre + pain_map) ─────
@@ -386,6 +397,7 @@ function normalizePerguntas(arr) {
     if (typeof item === 'string') return { pergunta: item, motivo: '', mecanismo_fisiologico: '' };
     if (item && typeof item === 'object') return {
       pergunta: item.pergunta || '',
+      pergunta_original: typeof item.pergunta_original === 'string' ? item.pergunta_original : '',
       motivo: item.motivo || '',
       mecanismo_fisiologico: typeof item.mecanismo_fisiologico === 'string' ? item.mecanismo_fisiologico : '',
     };

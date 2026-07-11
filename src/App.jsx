@@ -8,7 +8,7 @@ import {
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
-  Scale, Stethoscope,
+  Scale, Stethoscope, HelpCircle,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
@@ -52,6 +52,7 @@ const ENTRY_TYPES = {
   pain:       { label: 'Dor',        icon: Flame,    color: '#BD5A4A', soft: '#F5E1DD' },
   water:      { label: 'Água',       icon: Droplet,  color: '#3E8E96', soft: '#DEEFEF' },
   meal:       { label: 'Refeição',   icon: Utensils, color: '#C9763A', soft: '#F6E9DD' },
+  duvida:     { label: 'Dúvida',     icon: HelpCircle, color: '#6B5B95', soft: '#EAE6F2' },
 };
 
 // Rótulos amigáveis exibidos nos Chips_de_Resumo_do_Dia (RF 2.3).
@@ -62,6 +63,7 @@ const CHIP_LABELS = {
   cycle: 'Ciclo',
   weight: 'Peso',
   medicalvisit: 'Consultas',
+  duvida: 'Dúvidas',
 };
 
 // Abas do Menu_Inferior (RF 3.1). "Aulas" substitui a antiga aba "Hábitos".
@@ -2886,6 +2888,226 @@ function GasForm({ onSave }) {
   );
 }
 
+// ─── Form: Dúvida — texto livre + microfone push-to-talk ───────────────────
+// Evento especial: registra perguntas que o usuário quer fazer ao médico.
+// A IA refina essas dúvidas no relatório (pergunta_original → pergunta + motivo + mecanismo).
+// Microfone replica a lógica do ObservationStep (Whisper via /api/transcribe).
+function DuvidaForm({ onSave }) {
+  const [texto, setTexto] = useState('');
+  const [recState, setRecState] = useState('idle');
+  const [recError, setRecError] = useState('');
+  const [timeLeft, setTimeLeft] = useState(30);
+  const MAX_REC_SECONDS = 30;
+  const mediaRecRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
+  const timerRef = useRef(null);
+  const shouldRecordRef = useRef(false);
+  const color = ENTRY_TYPES.duvida.color;
+
+  const WebSpeech = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
+  const hasMicApi = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+  const micSupported = hasMicApi || !!WebSpeech;
+
+  useEffect(() => () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setTimeLeft(MAX_REC_SECONDS);
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+      try { mediaRecRef.current.stop(); } catch {}
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const transcribeBlob = useCallback(async (blob) => {
+    setRecState('transcribing');
+    setRecError('');
+    try {
+      const res = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type || 'audio/webm' },
+        body: blob,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const { text } = await res.json();
+      if (text) setTexto((prev) => (prev ? `${prev} ${text}` : text));
+      setRecState('idle');
+    } catch (err) {
+      console.error('[DuvidaForm] Whisper error:', err);
+      const msg = err.message || '';
+      if (/fetch|NetworkError|Failed to fetch|HTTP 5/.test(msg)) {
+        setRecError('Sem conexão com o servidor. Escreva manualmente por gentileza.');
+      } else {
+        setRecError('Não foi possível transcrever. Tente digitar manualmente.');
+      }
+      setRecState('error');
+    }
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    setRecError('');
+    chunksRef.current = [];
+    setTimeLeft(MAX_REC_SECONDS);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!shouldRecordRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecState('idle');
+        return;
+      }
+      streamRef.current = stream;
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+        .find((m) => MediaRecorder.isTypeSupported(m)) || '';
+      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecRef.current = rec;
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
+        if (blob.size > 0) transcribeBlob(blob);
+        else setRecState('idle');
+      };
+      rec.start();
+      setRecState('recording');
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) { stopRecording(); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error('[DuvidaForm] Microfone negado:', err);
+      setRecError('Permissão de microfone negada. Verifique as configurações do navegador.');
+      setRecState('error');
+    }
+  }, [transcribeBlob, stopRecording]);
+
+  const handleMicDown = useCallback((e) => {
+    if (recState !== 'idle' || !hasMicApi) return;
+    e.preventDefault();
+    shouldRecordRef.current = true;
+    startRecording();
+  }, [recState, hasMicApi, startRecording]);
+
+  const handleMicUp = useCallback((e) => {
+    shouldRecordRef.current = false;
+    if (recState !== 'recording') return;
+    e.preventDefault();
+    stopRecording();
+  }, [recState, stopRecording]);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <HelpCircle size={18} style={{ color }} />
+        <p className="text-sm text-[#7D766A]">
+          Anote qualquer dúvida que quiser levar ao médico. A IA vai refiná-la no relatório com base no seu diário.
+        </p>
+      </div>
+
+      {recState === 'recording' && (
+        <div className="rounded-xl border border-[#D8D1C4] p-5 flex flex-col items-center gap-3"
+          style={{ background: 'rgba(47,107,67,0.04)' }}>
+          <img src={mascoteImage} alt="" className="w-16 h-16 object-contain animate-mascote-pulse" />
+          <p className="text-sm font-medium text-[#2B2A28] animate-breathing">
+            Estou te escutando
+            <span className="dots-anim"><span>.</span><span>.</span><span>.</span></span>
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#E53935] animate-pulse" />
+            <span className="text-xs font-medium text-[#E53935]">{timeLeft}s</span>
+          </div>
+          <div className="flex items-end gap-1 h-8">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="w-1.5 rounded-full animate-wave-bar"
+                style={{ height: `${35 + i * 15}%`, background: 'var(--brand)', animationDelay: `${i * 0.12}s` }} />
+            ))}
+          </div>
+          <p className="text-xs text-[#B6AE9F]">Solte para enviar</p>
+        </div>
+      )}
+
+      {recState === 'transcribing' && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: 'rgba(242,194,0,0.10)', border: '1px solid rgba(242,194,0,0.3)' }}>
+          <div className="w-4 h-4 border-2 border-[#9A7A00] border-t-transparent rounded-full animate-spinner" />
+          <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo com Whisper AI…</span>
+        </div>
+      )}
+
+      {recState === 'error' && recError && (
+        <div className="px-3 py-2 rounded-xl text-xs"
+          style={{ background: 'rgba(189,90,74,0.08)', border: '1px solid rgba(189,90,74,0.25)', color: '#BD5A4A' }}>
+          {recError}
+        </div>
+      )}
+
+      <div className="relative">
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          disabled={recState === 'transcribing' || recState === 'recording'}
+          placeholder="Ex: será que a lactose me faz mal? / Dor depois de comer pão é normal? / Quando devo fazer colonoscopia?"
+          className="w-full min-h-[120px] p-3 pr-12 rounded-xl text-sm border resize-y focus:outline-none disabled:opacity-60"
+          style={{ background: '#FBF9F4', borderColor: 'rgba(150,140,120,0.25)', color: '#2B2A28', lineHeight: 1.5 }}
+        />
+        {hasMicApi ? (
+          <button
+            type="button"
+            onPointerDown={handleMicDown}
+            onPointerUp={handleMicUp}
+            disabled={recState === 'transcribing'}
+            aria-label="Pressione e segure para gravar"
+            title={recState === 'recording' ? 'Solte para enviar' : 'Pressione e segure para gravar'}
+            className={`absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40 active:scale-95 select-none ${recState === 'idle' ? 'animate-mic-pulse' : ''}`}
+            style={
+              recState === 'recording'
+                ? { background: '#E53935', color: '#fff' }
+                : { background: 'var(--brand-soft)', color: 'var(--brand)' }
+            }
+          >
+            <Mic size={18} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={!micSupported || recState === 'transcribing'}
+            aria-label="Ditar por voz"
+            title={micSupported ? 'Ditar por voz' : 'Microfone não disponível neste navegador'}
+            className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40"
+            style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+          >
+            <Mic size={18} />
+          </button>
+        )}
+      </div>
+
+      {micSupported && recState === 'idle' && (
+        <p className="text-[11px] text-[#9A938A] -mt-2">
+          🎙 Pressione e segure o microfone para gravar sua dúvida.
+        </p>
+      )}
+
+      <SaveButton color={color} label="Salvar dúvida"
+        onClick={() => {
+          if (!texto.trim()) return;
+          onSave({ title: 'Dúvida', description: texto.trim(), meta: { status: 'pendente' } });
+        }} />
+    </div>
+  );
+}
+
 // ─── Entry card ───────────────────────────────────────────────────────────────
 // Cor da intensidade de dor: verde (baixa) → vermelho (alta).
 function corIntensidade(v) {
@@ -2953,7 +3175,7 @@ function SilhouetteZoom({ entry, onClose }) {
   );
 }
 
-function EntryCard({ entry, onDelete, onZoom, onEdit }) {
+function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus }) {
   const meta = ENTRY_TYPES[entry.type];
   const Icon = meta.icon;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -3063,6 +3285,23 @@ function EntryCard({ entry, onDelete, onZoom, onEdit }) {
               <ExpandableText text={entry.meta.note} />
             </p>
           </div>
+        )}
+
+        {entry.type === 'duvida' && (
+          <button type="button"
+            onClick={() => onToggleStatus && onToggleStatus(entry)}
+            className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors"
+            style={
+              entry.meta?.status === 'resolvida'
+                ? { background: 'rgba(74,138,92,0.12)', color: '#4A8A5C' }
+                : { background: 'rgba(107,91,149,0.10)', color: '#6B5B95' }
+            }>
+            {entry.meta?.status === 'resolvida' ? (
+              <><CheckCircle2 size={11} /> Resolvida</>
+            ) : (
+              <><HelpCircle size={11} /> Pendente — tocar para resolver</>
+            )}
+          </button>
         )}
       </div>
 
@@ -3408,6 +3647,15 @@ export default function App() {
     setEntries((prev) => removerEntrada(prev, id)); // RF 2.7 (núcleo puro)
   }
 
+  function handleToggleStatus(entry) {
+    setEntries((prev) => prev.map((e) => {
+      if (e.id !== entry.id) return e;
+      const meta = { ...(e.meta || {}) };
+      meta.status = meta.status === 'resolvida' ? 'pendente' : 'resolvida';
+      return { ...e, meta };
+    }));
+  }
+
   // Edição genérica (RF 2.6): atualiza apenas time/day/title/description/meta.note,
   // preservando os demais campos de meta (bristol, intensity, clouds, tags, inicioTs…).
   function concluirOnboarding(p) {
@@ -3508,7 +3756,7 @@ export default function App() {
                                   {entry.time}
                                 </span>
                               </div>
-                              <EntryCard entry={entry} onDelete={handleDelete} onZoom={setZoom} onEdit={setEditing} />
+                              <EntryCard entry={entry} onDelete={handleDelete} onZoom={setZoom} onEdit={setEditing} onToggleStatus={handleToggleStatus} />
                             </div>
                           );
                         })}
@@ -3650,6 +3898,7 @@ export default function App() {
                     customSpecialties={customSpecialties}
                     onAddCustom={(t) => setCustomSpecialties((c) => [...c, t])}
                   />}
+                  {activeForm === 'duvida' && <DuvidaForm onSave={(d) => requestSave('duvida', d)} />}
                 </>
               )}
             </div>

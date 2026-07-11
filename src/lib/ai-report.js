@@ -31,6 +31,7 @@ export function normalizePergunta(item) {
   if (typeof item === 'string') return { pergunta: item, motivo: '', mecanismo_fisiologico: '' };
   if (item && typeof item === 'object') return {
     pergunta: item.pergunta || '',
+    pergunta_original: typeof item.pergunta_original === 'string' ? item.pergunta_original : '',
     motivo: item.motivo || '',
     mecanismo_fisiologico: typeof item.mecanismo_fisiologico === 'string' ? item.mecanismo_fisiologico : '',
   };

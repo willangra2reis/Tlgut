@@ -138,6 +138,10 @@ export default function RelatoriasIAScreen({ entries }) {
       const pr = loadProfile();
       if (pr && Object.keys(pr).length > 0) body.profile = pr;
     } catch {}
+    const duvidasPendentes = (Array.isArray(entries) ? entries : [])
+      .filter(e => e && e.type === 'duvida' && e.description && e.meta?.status !== 'resolvida')
+      .map(e => e.description);
+    if (duvidasPendentes.length > 0) body.duvidas = duvidasPendentes;
     const res = await fetch('/api/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -148,7 +152,7 @@ export default function RelatoriasIAScreen({ entries }) {
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return await res.json();
-  }, [periodo]);
+  }, [periodo, entries]);
 
   async function handleGerar() {
     setSelectedQuestions([]);
@@ -401,6 +405,12 @@ export default function RelatoriasIAScreen({ entries }) {
                       onChange={() => toggleQuestao(item.pergunta)}
                       className="mt-0.5 accent-[#4A8A5C]" />
                     <div className="flex-1 min-w-0">
+                      {item.pergunta_original && (
+                        <div className="mb-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(107,91,149,0.08)' }}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6B5B95' }}>Sua dúvida</p>
+                          <p className="text-[11px] italic" style={{ color: '#7D766A' }}>“{item.pergunta_original}”</p>
+                        </div>
+                      )}
                       <span className="text-sm text-[#2B2A28] block">{item.pergunta}</span>
                       {item.motivo && (
                         <p className="text-[11px] text-[#7D766A] mt-1 leading-relaxed italic">{item.motivo}</p>
@@ -632,6 +642,13 @@ export default function RelatoriasIAScreen({ entries }) {
       heading('Perguntas para o Médico', [74, 138, 92]);
       perguntas.forEach((item, i) => {
         ensureSpace(20);
+        if (item.pergunta_original) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8);
+          doc.setTextColor(107, 91, 149);
+          const poLines = doc.splitTextToSize(`Sua dúvida: "${item.pergunta_original}"`, maxW - 12);
+          poLines.forEach(l => { ensureSpace(11); doc.text(l, margin + 12, y); y += 11; });
+        }
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.setTextColor(43, 42, 40);
@@ -903,9 +920,14 @@ export default function RelatoriasIAScreen({ entries }) {
         {perguntasNorm.length > 0 && (
                   <div>
                     <h5 className="text-[10px] font-semibold uppercase tracking-wider text-[#7D766A] mb-0.5">Perguntas</h5>
-                    <ul className="list-disc list-inside text-xs">
+                    <ul className="list-disc list-inside text-xs space-y-1">
                       {perguntasNorm.map((p, i) => (
-                        <li key={i}>{p.pergunta}</li>
+                        <li key={i}>
+                          {p.pergunta_original && (
+                            <span className="text-[10px] italic text-[#6B5B95] block">(({p.pergunta_original}))</span>
+                          )}
+                          {p.pergunta}
+                        </li>
                       ))}
                     </ul>
                   </div>

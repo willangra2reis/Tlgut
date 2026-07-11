@@ -943,6 +943,13 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds) {
     heading('Perguntas para o Médico');
     perguntas.forEach((p, i) => {
       ensureSpace(28);
+      if (p.pergunta_original) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(9);
+        doc.setTextColor(107, 91, 149);
+        const poLines = doc.splitTextToSize(`Sua dúvida: "${p.pergunta_original}"`, maxW - 16);
+        poLines.forEach(l => { ensureSpace(12); doc.text(l, margin + 16, y + 11); y += 12; });
+      }
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor('#5E8A4E');
