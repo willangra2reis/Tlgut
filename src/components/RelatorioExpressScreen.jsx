@@ -19,20 +19,28 @@ const EXPRESS_LOADING_FRASES = [
   'Analisando frequência...',
   'Analisando com que piora...',
   'Verificando sintomas associados...',
-  'Verificando medicamentos atuais...',
+  'Analisando qualidade das fezes...',
+  'Analisando sono...',
+  'Analisando alimentação...',
+  'Verificando medicamentos...',
   'Analisando com que alivia...',
+  'Organizando dúvidas para o médico...',
 ];
 
 // Chips guiados: inserem fragmentos no textarea no cursor, para ajudar quem
 // não sabe por onde começar a relatar.
 const CHIPS_GUIADOS = [
-  { label: 'Quando começou?', snippet: '\n\nQuando começou: ' },
-  { label: 'Frequência',      snippet: '\n\nFrequência: ' },
-  { label: 'Piora com quê?',  snippet: '\n\nPiora com: ' },
-  { label: 'Alívio com quê?', snippet: '\n\nAlívio com: ' },
-  { label: 'Sintomas associados', snippet: '\n\nSintomas associados: ' },
-  { label: 'Exames anteriores',  snippet: '\n\nExames/anteriores: ' },
-  { label: 'Medicamentos atuais', snippet: '\n\nMedicamentos atuais: ' },
+  { label: 'Quando começou?',     snippet: '\n\nQuando começou: ' },
+  { label: 'Frequência',           snippet: '\n\nFrequência: ' },
+  { label: 'Piora com quê?',       snippet: '\n\nPiora com: ' },
+  { label: 'Alívio com quê?',      snippet: '\n\nAlívio com: ' },
+  { label: 'Sintomas associados',  snippet: '\n\nSintomas associados: ' },
+  { label: 'Qualidade das fezes',  snippet: '\n\nQualidade das fezes: ' },
+  { label: 'Como é seu sono',      snippet: '\n\nComo é seu sono: ' },
+  { label: 'O que costuma comer',  snippet: '\n\nO que costuma comer: ' },
+  { label: 'Usa algum medicamento?', snippet: '\n\nUsa algum medicamento: ' },
+  { label: 'Exames anteriores',    snippet: '\n\nExames/anteriores: ' },
+  { label: 'Dúvidas para o médico', snippet: '\n\nDúvidas para o médico: ' },
 ];
 
 const KIND_OPTIONS = ['Cólica', 'Queimação', 'Pressão', 'Pontada', 'Distensão'];
@@ -473,6 +481,9 @@ export default function RelatorioExpressScreen() {
             </button>
           ))}
         </div>
+        <p className="text-[11px] mt-1.5 leading-snug" style={{ color: '#9A938A' }}>
+          Você pode usar o mesmo rótulo várias vezes para adicionar mais detalhes ao longo do tempo.
+        </p>
         <p className="text-[11px] mt-2 leading-snug" style={{ color: '#9A938A' }}>
           Auto-salvo. Volte quando lembrar de algo novo e complete o texto — você decide.
           {micSupported && recState === 'idle' && ' 🎙 Pressione e segure o microfone para gravar.'}
@@ -639,10 +650,33 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
   if (!report) return null;
   const isRaw = report.isRaw === true;
   const isTruncated = report.truncated === true;
-  const canPDF = !isRaw && !isTruncated && report.resumo_executivo;
-  const alertas = Array.isArray(report.sinais_alerta) ? report.sinais_alerta : [];
-  const perguntas = Array.isArray(report.perguntas_medico) ? report.perguntas_medico.map(normalizePergunta) : [];
-  const resumo = typeof report.resumo_executivo === 'string' ? report.resumo_executivo : '';
+
+  // Tentar recovery via extractReportFromRaw (mesmo padrão da tela IA)
+  const recovered = (isRaw || isTruncated) && report.resumo_executivo
+    ? (extractReportFromRaw(report.resumo_executivo) || report)
+    : report;
+  const stillTruncated = (recovered === report) && !!report?.truncated;
+  const effectiveReport = stillTruncated ? null : recovered;
+
+  const canPDF = !isRaw && !isTruncated && effectiveReport && effectiveReport.resumo_executivo;
+  const alertas = effectiveReport ? (Array.isArray(effectiveReport.sinais_alerta) ? effectiveReport.sinais_alerta : []) : [];
+  const perguntas = effectiveReport ? (Array.isArray(effectiveReport.perguntas_medico) ? effectiveReport.perguntas_medico.map(normalizePergunta) : []) : [];
+  const resumo = effectiveReport && typeof effectiveReport.resumo_executivo === 'string' ? effectiveReport.resumo_executivo : '';
+
+  // Relatório truncado sem recovery → mostrar aviso (como a tela IA)
+  if (stillTruncated) {
+    return (
+      <div className="rounded-2xl border p-6 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)] flex flex-col items-center text-center"
+        style={{ borderColor: SOFT_BORDER, background: '#FDF8F6' }}>
+        <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
+          style={{ background: 'rgba(189,90,74,0.12)' }}>
+          <AlertTriangle size={22} style={{ color: '#BD5A4A' }} />
+        </div>
+        <p className="text-sm text-[#4A443F] font-medium">O relatório ficou incompleto.</p>
+        <p className="text-xs text-[#7D766A] mt-1">Tente regenerar em alguns instantes.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
