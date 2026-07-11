@@ -43,6 +43,21 @@ const CHIPS_GUIADOS = [
   { label: 'Dúvidas para o médico', snippet: '\n\nDúvidas para o médico: ' },
 ];
 
+// Extrai dúvidas do paciente a partir de marcadores no texto livre do Express.
+// Cada ocorrência de "Dúvidas para o médico:" captura o texto até o próximo \n\n
+// ou fim do texto. Os trechos são limpos (trim) e vazios são descartados.
+function extrairDuvidasDoRelato(texto) {
+  if (!texto) return [];
+  const regex = /Dúvidas?\s*(para\s*o?\s*médico)?\s*[:—–-]\s*([\s\S]*?)(?=\n\n\w|$)/gi;
+  const results = [];
+  let match;
+  while ((match = regex.exec(texto)) !== null) {
+    const duvida = match[2].trim();
+    if (duvida && duvida.length > 0) results.push(duvida);
+  }
+  return results;
+}
+
 const KIND_OPTIONS = ['Cólica', 'Queimação', 'Pressão', 'Pontada', 'Distensão'];
 const PAIN_COLOR = '#BD5A4A';
 const SOFT_BORDER = 'rgba(150,140,120,0.25)';
@@ -314,6 +329,8 @@ export default function RelatorioExpressScreen() {
       const pr = loadProfile();
       if (pr && Object.keys(pr).length > 0) body.profile = pr;
     } catch {}
+    const duvidasExtraidas = extrairDuvidasDoRelato(narrative);
+    if (duvidasExtraidas.length > 0) body.duvidas = duvidasExtraidas;
     try {
       const res = await fetch('/api/report', {
         method: 'POST',
