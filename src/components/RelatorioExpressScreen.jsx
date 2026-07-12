@@ -795,6 +795,12 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
                 <div className="flex gap-2">
                   <span className="shrink-0 font-semibold" style={{ color: 'var(--brand)' }}>{i + 1}.</span>
                   <div>
+                    {p.pergunta_original && (
+                      <div className="mb-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(107,91,149,0.08)' }}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6B5B95' }}>Sua dúvida</p>
+                        <p className="text-[11px] italic" style={{ color: '#7D766A' }}>"{p.pergunta_original}"</p>
+                      </div>
+                    )}
                     <p className="leading-snug" style={{ color: 'var(--ink, #4A443F)' }}>{p.pergunta}</p>
                     {p.motivo && <p className="text-xs mt-0.5 leading-snug" style={{ color: '#9A938A' }}>{p.motivo}</p>}
                     {p.mecanismo_fisiologico && (
