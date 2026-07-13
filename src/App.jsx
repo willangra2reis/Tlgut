@@ -501,36 +501,64 @@ function CursivaToggle({ value, onChange }) {
 // CursivaToggle; padrão desativado vive no estado do App.
 
 // ─── Cabeçalho Hero (RF 2.1) ──────────────────────────────────────────────────
-// Fixo, sem recolhimento — acompanha a timeline no scroll nativo.
+// `colapsado` recolhe o hero para uma barra de marca fininha ao rolar a timeline.
+// Os dois estados compartilham a mesma árvore (sem remontar) e animam via CSS.
 const CURSIVE_STACK = '"Caveat", "Segoe Print", "Bradley Hand", cursive';
 
-function HeroHeader() {
+function HeroHeader({ colapsado = false }) {
   return (
     <header
-      className="relative z-10 px-5 overflow-hidden"
+      className="relative z-10 shrink-0 px-5 overflow-hidden"
       style={{
         background:
           'radial-gradient(120% 90% at 88% 4%, rgba(120,196,140,0.22) 0%, rgba(120,196,140,0) 55%), linear-gradient(165deg, var(--brand) 0%, var(--brand-deep) 62%)',
-        paddingTop: '1.5rem',
-        paddingBottom: '2.25rem',
-        borderBottomLeftRadius: 28,
-        borderBottomRightRadius: 28,
+        paddingTop: colapsado ? '0.75rem' : '1.5rem',
+        paddingBottom: colapsado ? '0.5rem' : '2.25rem',
+        borderBottomLeftRadius: colapsado ? 16 : 28,
+        borderBottomRightRadius: colapsado ? 16 : 28,
+        transition: 'padding 400ms ease, border-radius 400ms ease',
       }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="overflow-hidden pr-3">
-            <p className="text-2xl leading-[1.25]" style={{ fontFamily: CURSIVE_STACK, color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
-            <p className="text-5xl leading-[1.25] -mt-1" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
-              Intestinal
-            </p>
+          <div
+            className="overflow-hidden pr-3"
+            style={{
+              maxHeight: colapsado ? 0 : '7rem',
+              transition: 'max-height 400ms ease',
+            }}
+          >
+            <div style={{ opacity: colapsado ? 0 : 1, transition: 'opacity 250ms ease' }}>
+              <p className="text-2xl leading-[1.25]" style={{ fontFamily: CURSIVE_STACK, color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
+              <p className="text-5xl leading-[1.25] -mt-1" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+                Intestinal
+              </p>
+            </div>
+          </div>
+          <div
+            className="overflow-hidden pr-3"
+            style={{
+              maxHeight: colapsado ? '3.25rem' : 0,
+              transition: 'max-height 400ms ease',
+            }}
+          >
+            <div style={{ opacity: colapsado ? 1 : 0, transition: 'opacity 250ms ease' }}>
+              <p className="text-2xl leading-[1.3] whitespace-nowrap" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+                Meu diário intestinal
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button type="button" aria-label="Menu"
             className="rounded-full flex items-center justify-center text-white"
-            style={{ background: 'rgba(255,255,255,0.14)', width: 36, height: 36 }}>
-            <EllipsisVertical size={18} />
+            style={{
+              background: 'rgba(255,255,255,0.14)',
+              width: colapsado ? 32 : 36,
+              height: colapsado ? 32 : 36,
+              transition: 'width 400ms ease, height 400ms ease',
+            }}>
+            <EllipsisVertical size={colapsado ? 16 : 18} />
           </button>
         </div>
       </div>
@@ -539,13 +567,19 @@ function HeroHeader() {
         src={mascoteImage}
         alt="Mascote do Diário Intestinal"
         className="absolute right-3 top-2 w-24 h-24 object-contain select-none pointer-events-none drop-shadow-lg"
+        style={{
+          opacity: colapsado ? 0 : 1,
+          transition: 'opacity 400ms ease',
+        }}
         draggable={false}
       />
     </header>
   );
 }
 
-// ─── Card de Resumo do Dia (RF 2.2, 2.3) — recolhe ao scrollar a timeline ─────
+// ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
+// `colapsado` recolhe o card para um strip fino (só o cabeçalho), ocultando
+// suavemente os chips e a linha do ciclo. Os dados permanecem montados.
 function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
   const contagens = contarPorTipo(entries, 'hoje');
   const itens = Object.keys(ENTRY_TYPES).filter((k) => contagens[k] > 0);
@@ -569,7 +603,7 @@ function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
   return (
     <div
       className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)] cursor-pointer' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
-      style={{ transition: 'padding 500ms ease, margin 500ms ease, box-shadow 500ms ease' }}
+      style={{ transition: 'padding 500ms ease, margin 500ms ease, box-shadow 500ms ease', willChange: 'margin, padding', transform: 'translateZ(0)', backfaceVisibility: 'hidden', contain: 'layout paint' }}
       {...(colapsado ? { onClick: onExpand, role: 'button', 'aria-expanded': false, tabIndex: 0 } : {})}>
       <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
         style={{ transition: 'margin 500ms ease' }}>
@@ -584,7 +618,7 @@ function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
 
       {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
       <div className="relative z-[1] overflow-hidden"
-        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 500ms ease, opacity 500ms ease' }}>
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 500ms ease, opacity 500ms ease', willChange: 'max-height, opacity', contain: 'layout paint' }}>
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
@@ -3405,7 +3439,7 @@ export default function App() {
   const [inkLevel,   setInkLevel]   = useState(55);                                   // intensidade (brilho) da cor do texto
   const [fontScale,  setFontScale]  = useState(100);                                  // tamanho do texto dos registros (%)
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
-  const [colapsado,  setColapsado]  = useState(false);                                  // DaySummaryCard recolhido ao rolar a timeline
+  const [colapsado,  setColapsado]  = useState(false);                                  // hero recolhido ao rolar a timeline
   const [postponeBubbleUntil, setPostponeBubbleUntil] = useState(0);                  // postpone do mascote lembrete
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
   const [aulaSelecionada, setAulaSelecionada] = useState(null);                          // detalhe da aula (elevado de AulasScreen)
@@ -3452,19 +3486,7 @@ export default function App() {
     }
   };
 
-  // Atalho oculto para a ferramenta de calibração de pontos (dev): Ctrl+Shift+K
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.ctrlKey && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
-        e.preventDefault();
-        setCalibrando((c) => !c);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  // DaySummaryCard recolhível: ao rolar a timeline, o card recolhe. Para evitar
+  // Cabeçalho recolhível: ao rolar a timeline, Hero e Resumo encolhem. Para evitar
   // re-render a cada pixel (jank), só atualizamos o booleano ao cruzar o limiar —
   // com histerese (recolhe acima de ~56px, expande abaixo de ~24px) e throttle por rAF.
   const onTimelineScroll = (e) => {
@@ -3483,7 +3505,20 @@ export default function App() {
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
   // O gate por aba garante que Perfil/Aulas nunca exibam o estado recolhido.
+  // Reseta naturalmente ao trocar de aba.
   const heroColapsado = abaAtiva === 'diario' && colapsado;
+
+  // Atalho oculto para a ferramenta de calibração de pontos (dev): Ctrl+Shift+K
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
+        e.preventDefault();
+        setCalibrando((c) => !c);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // ─── Navegação com botão "Voltar" do dispositivo (History API) ──────────────
   // Ao montar, empurramos uma entrada-barreira no histórico. Quando o usuário
@@ -3683,12 +3718,14 @@ export default function App() {
         <div key={abaAtiva} className="tg-aba-anim relative z-10 flex-1 flex flex-col min-h-0">
         {abaAtiva === 'diario' ? (
           <>
+            <HeroHeader colapsado={heroColapsado} />
+            {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
             <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} colapsado={heroColapsado} onExpand={expandirResumo} />
-            <main ref={timelineRef} className="relative z-10 flex-1 overflow-y-auto pb-28"
+
+            {/* Timeline conectada (RF 2.4–2.8) */}
+            <main ref={timelineRef} className="relative z-10 flex-1 overflow-y-auto px-5 pb-28"
               onScroll={onTimelineScroll}
               style={{ fontSize: 'calc(1rem * var(--font-scale, 1))' }}>
-              <HeroHeader />
-              <div className="px-5">
               {dayOrder.map((day) => (
                 grouped[day].length > 0 && (
                   <section key={day} className="mb-6">
@@ -3718,7 +3755,6 @@ export default function App() {
                   </section>
                 )
               ))}
-              </div>
             </main>
           </>
         ) : abaAtiva === 'insights' ? (
