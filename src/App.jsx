@@ -659,8 +659,8 @@ function NavTab({ item, active, onClick }) {
 function BottomNav({ abaAtiva, onChangeAba, onAdd }) {
   const [esq, dir] = [NAV_ITEMS.slice(0, 2), NAV_ITEMS.slice(2)];
   return (
-    <nav className="absolute bottom-0 left-0 right-0 z-20 flex items-end bg-white border-t border-[#EDE7DD] px-2 pt-2 pb-3"
-      style={{ boxShadow: '0 -10px 26px -8px rgba(0,0,0,0.3)' }}>
+    <nav className="absolute bottom-0 left-0 right-0 z-20 flex items-end bg-white border-t border-[#EDE7DD] px-2 pt-2"
+      style={{ boxShadow: '0 -10px 26px -8px rgba(0,0,0,0.3)', paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
       {esq.map((item) => (
         <NavTab key={item.key} item={item} active={abaAtiva === item.key} onClick={() => onChangeAba(item.key)} />
       ))}
@@ -3693,11 +3693,11 @@ export default function App() {
   const inkSoftColor = `hsl(30, 7%, ${inkL + 10}%)`;
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#EDE7DD] sm:p-6 font-sans">
+    <div className="min-h-[100dvh] w-full flex items-center justify-center bg-[#EDE7DD] sm:p-6 font-sans">
       <div
         data-theme={tema}
-        className={`relative w-full max-w-[420px] h-screen sm:h-[844px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col ${cursiva ? 'cursiva' : ''}`}
-        style={{ background: 'linear-gradient(180deg, var(--amb-bg-1) 0%, var(--amb-bg-2) 100%)', '--ink': inkColor, '--ink-soft': inkSoftColor, '--font-scale': fontScale / 100 }}
+        className={`relative w-full max-w-[420px] h-[100dvh] sm:h-[844px] sm:rounded-[2.5rem] sm:shadow-2xl overflow-hidden flex flex-col ${cursiva ? 'cursiva' : ''}`}
+        style={{ background: 'linear-gradient(180deg, var(--amb-bg-1) 0%, var(--amb-bg-2) 100%)', '--ink': inkColor, '--ink-soft': inkSoftColor, '--font-scale': fontScale / 100, paddingTop: 'env(safe-area-inset-top)' }}
         onTouchStart={onFrameTouchStart}
         onTouchEnd={onFrameTouchEnd}
       >
