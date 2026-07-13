@@ -545,8 +545,8 @@ function HeroHeader() {
   );
 }
 
-// ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
-function DaySummaryCard({ dateLabel, entries }) {
+// ─── Card de Resumo do Dia (RF 2.2, 2.3) — recolhe ao scrollar a timeline ─────
+function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
   const contagens = contarPorTipo(entries, 'hoje');
   const itens = Object.keys(ENTRY_TYPES).filter((k) => contagens[k] > 0);
 
@@ -568,8 +568,11 @@ function DaySummaryCard({ dateLabel, entries }) {
 
   return (
     <div
-      className="day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]">
-      <div className="relative z-[1] flex items-center justify-between gap-2 mb-3">
+      className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)] cursor-pointer' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
+      style={{ transition: 'padding 500ms ease, margin 500ms ease, box-shadow 500ms ease' }}
+      {...(colapsado ? { onClick: onExpand, role: 'button', 'aria-expanded': false, tabIndex: 0 } : {})}>
+      <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
+        style={{ transition: 'margin 500ms ease' }}>
         <span className="titulo-cursivo flex items-center gap-1.5 text-sm font-serif" style={{ color: 'var(--brand)' }}>
           <ChartColumn size={15} />
           Resumo do dia
@@ -579,8 +582,9 @@ function DaySummaryCard({ dateLabel, entries }) {
         </span>
       </div>
 
-      {/* Chips por categoria + eventual linha do ciclo */}
-      <div className="relative z-[1]">
+      {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
+      <div className="relative z-[1] overflow-hidden"
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 500ms ease, opacity 500ms ease' }}>
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
@@ -3401,6 +3405,7 @@ export default function App() {
   const [inkLevel,   setInkLevel]   = useState(55);                                   // intensidade (brilho) da cor do texto
   const [fontScale,  setFontScale]  = useState(100);                                  // tamanho do texto dos registros (%)
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
+  const [colapsado,  setColapsado]  = useState(false);                                  // DaySummaryCard recolhido ao rolar a timeline
   const [postponeBubbleUntil, setPostponeBubbleUntil] = useState(0);                  // postpone do mascote lembrete
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
   const [aulaSelecionada, setAulaSelecionada] = useState(null);                          // detalhe da aula (elevado de AulasScreen)
@@ -3409,7 +3414,15 @@ export default function App() {
   const [profile,    setProfile]    = useState(() => loadProfile());
   const [editandoProfile, setEditandoProfile] = useState(false);
   const idRef = useRef(100);
+  const rafRef = useRef(0);
   const timelineRef = useRef(null);
+
+  // Expande o Resumo/Hero recolhido: rola a timeline ao topo (o handler de scroll
+  // expande via histerese quando top < 24). Disparado ao clicar no card recolhido.
+  const expandirResumo = () => {
+    timelineRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    setColapsado(false);
+  };
 
   // Navegação por gestos (swipe horizontal entre abas, estilo Instagram).
   // Guarda o ponto inicial do toque e um flag para ignorar gestos quando há
@@ -3450,6 +3463,27 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // DaySummaryCard recolhível: ao rolar a timeline, o card recolhe. Para evitar
+  // re-render a cada pixel (jank), só atualizamos o booleano ao cruzar o limiar —
+  // com histerese (recolhe acima de ~56px, expande abaixo de ~24px) e throttle por rAF.
+  const onTimelineScroll = (e) => {
+    const top = e.currentTarget.scrollTop;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setColapsado((prev) => {
+        if (!prev && top > 56) return true;
+        if (prev && top < 24) return false;
+        return prev;
+      });
+    });
+  };
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  // O gate por aba garante que Perfil/Aulas nunca exibam o estado recolhido.
+  const heroColapsado = abaAtiva === 'diario' && colapsado;
 
   // ─── Navegação com botão "Voltar" do dispositivo (History API) ──────────────
   // Ao montar, empurramos uma entrada-barreira no histórico. Quando o usuário
@@ -3649,11 +3683,11 @@ export default function App() {
         <div key={abaAtiva} className="tg-aba-anim relative z-10 flex-1 flex flex-col min-h-0">
         {abaAtiva === 'diario' ? (
           <>
-            {/* Timeline (RF 2.4–2.8) — Hero e Resumo do Dia no topo, scroll nativo */}
+            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} colapsado={heroColapsado} onExpand={expandirResumo} />
             <main ref={timelineRef} className="relative z-10 flex-1 overflow-y-auto pb-28"
+              onScroll={onTimelineScroll}
               style={{ fontSize: 'calc(1rem * var(--font-scale, 1))' }}>
               <HeroHeader />
-              <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} />
               <div className="px-5">
               {dayOrder.map((day) => (
                 grouped[day].length > 0 && (
