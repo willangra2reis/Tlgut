@@ -502,7 +502,7 @@ function CursivaToggle({ value, onChange }) {
 
 // ─── Cabeçalho Hero (RF 2.1) ──────────────────────────────────────────────────
 // `colapsado` recolhe o hero para uma barra de marca fininha ao rolar a timeline.
-// Os dois estados compartilham a mesma árvore (sem remontar) e animam via CSS.
+// Sem transição — troca instantânea de estado para evitar travamento.
 const CURSIVE_STACK = '"Caveat", "Segoe Print", "Bradley Hand", cursive';
 
 function HeroHeader({ colapsado = false }) {
@@ -516,7 +516,6 @@ function HeroHeader({ colapsado = false }) {
         paddingBottom: colapsado ? '0.5rem' : '2.25rem',
         borderBottomLeftRadius: colapsado ? 16 : 28,
         borderBottomRightRadius: colapsado ? 16 : 28,
-        transition: 'padding 400ms ease, border-radius 400ms ease',
       }}
     >
       <div className="flex items-start justify-between gap-3">
@@ -525,28 +524,24 @@ function HeroHeader({ colapsado = false }) {
             className="overflow-hidden pr-3"
             style={{
               maxHeight: colapsado ? 0 : '7rem',
-              transition: 'max-height 400ms ease',
+              opacity: colapsado ? 0 : 1,
             }}
           >
-            <div style={{ opacity: colapsado ? 0 : 1, transition: 'opacity 250ms ease' }}>
-              <p className="text-2xl leading-[1.25]" style={{ fontFamily: CURSIVE_STACK, color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
-              <p className="text-5xl leading-[1.25] -mt-1" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
-                Intestinal
-              </p>
-            </div>
+            <p className="text-2xl leading-[1.25]" style={{ fontFamily: CURSIVE_STACK, color: 'rgba(255,255,255,0.95)' }}>Meu diário</p>
+            <p className="text-5xl leading-[1.25] -mt-1" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+              Intestinal
+            </p>
           </div>
           <div
             className="overflow-hidden pr-3"
             style={{
               maxHeight: colapsado ? '3.25rem' : 0,
-              transition: 'max-height 400ms ease',
+              opacity: colapsado ? 1 : 0,
             }}
           >
-            <div style={{ opacity: colapsado ? 1 : 0, transition: 'opacity 250ms ease' }}>
-              <p className="text-2xl leading-[1.3] whitespace-nowrap" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
-                Meu diário intestinal
-              </p>
-            </div>
+            <p className="text-2xl leading-[1.3] whitespace-nowrap" style={{ fontFamily: CURSIVE_STACK, color: '#fff' }}>
+              Meu diário intestinal
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -556,7 +551,6 @@ function HeroHeader({ colapsado = false }) {
               background: 'rgba(255,255,255,0.14)',
               width: colapsado ? 32 : 36,
               height: colapsado ? 32 : 36,
-              transition: 'width 400ms ease, height 400ms ease',
             }}>
             <EllipsisVertical size={colapsado ? 16 : 18} />
           </button>
@@ -568,8 +562,8 @@ function HeroHeader({ colapsado = false }) {
         alt="Mascote do Diário Intestinal"
         className="absolute right-3 top-2 w-24 h-24 object-contain select-none pointer-events-none drop-shadow-lg"
         style={{
-          opacity: colapsado ? 0 : 1,
-          transition: 'opacity 400ms ease',
+          transformOrigin: 'top right',
+          transform: colapsado ? 'translate(-40px, -2px) scale(0.33)' : 'translateZ(0)',
         }}
         draggable={false}
       />
