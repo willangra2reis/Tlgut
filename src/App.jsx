@@ -597,10 +597,8 @@ function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
   return (
     <div
       className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)] cursor-pointer' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
-      style={{ transition: 'padding 500ms ease, margin 500ms ease, box-shadow 500ms ease', willChange: 'margin, padding', transform: 'translateZ(0)', backfaceVisibility: 'hidden', contain: 'layout paint' }}
       {...(colapsado ? { onClick: onExpand, role: 'button', 'aria-expanded': false, tabIndex: 0 } : {})}>
-      <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}
-        style={{ transition: 'margin 500ms ease' }}>
+      <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}>
         <span className="titulo-cursivo flex items-center gap-1.5 text-sm font-serif" style={{ color: 'var(--brand)' }}>
           <ChartColumn size={15} />
           Resumo do dia
@@ -612,7 +610,7 @@ function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
 
       {/* Área recolhível: chips por categoria + eventual linha do ciclo */}
       <div className="relative z-[1] overflow-hidden"
-        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1, transition: 'max-height 500ms ease, opacity 500ms ease', willChange: 'max-height, opacity', contain: 'layout paint' }}>
+        style={{ maxHeight: colapsado ? 0 : '320px', opacity: colapsado ? 0 : 1 }}>
         {itens.length === 0 ? (
           <p className="text-sm text-[#B6AE9F]">Nenhum registro hoje ainda.</p>
         ) : (
