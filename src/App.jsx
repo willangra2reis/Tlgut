@@ -3443,10 +3443,8 @@ export default function App() {
   const rafRef = useRef(0);
   const timelineRef = useRef(null);
 
-  // Expande o Resumo/Hero recolhido: rola a timeline ao topo (o handler de scroll
-  // expande via histerese quando top < 24). Disparado ao clicar no card recolhido.
+  // Expande o Resumo/Hero recolhido sem scroll. Disparado ao clicar no card recolhido.
   const expandirResumo = () => {
-    timelineRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     setColapsado(false);
   };
 
