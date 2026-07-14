@@ -195,6 +195,8 @@ export default function RelatoriasIAScreen({ entries }) {
           if (allReports.length >= MAX_REPORTS && allReports[allReports.length - 1]?.id === saved.id) {
             setToast('Relatório mais antigo substituído (limite de 10)');
           }
+        } else {
+          setToast('Relatório não salvo (conteúdo inválido)');
         }
       } catch (err) {
         setReports({ [selectedModel]: { loading: false, report: null, error: err.message } });

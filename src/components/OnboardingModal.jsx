@@ -24,6 +24,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
   const [idade, setIdade] = useState('');
   const [peso, setPeso] = useState('');
   const [altura, setAltura] = useState('');
+  const [aceitouTermos, setAceitouTermos] = useState(false);
 
   useEffect(() => {
     if (initialProfile) {
@@ -48,6 +49,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
     }
   };
 
+  // TODO Supabase: persistir aceite_lgpd na tabela user_consents (versao, aceito, ts)
   const buildProfile = () => ({
     nome: nome.trim() || '',
     idade: idade ? Number(idade) : null,
@@ -55,6 +57,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
     altura: altura ? Number(altura) : null,
     condicoes: condicoes.includes('nenhuma') ? [] : condicoes,
     outros: outros.trim() || '',
+    aceite_lgpd: { versao: 1, aceito: true, ts: Date.now() },
   });
 
   const concluir = () => {
@@ -66,7 +69,8 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
   };
 
   const podeAvancarStep1 = nome.trim().length > 0;
-  const temCondSelecionada = condicoes.length > 0;
+  const podeAvancarStep0 = aceitouTermos;
+  const temCondSelecionada = condicoes.length > 0 || outros.trim().length > 0;
 
   const alturaValor = altura ? Number(altura) : 160;
   const formatarAltura = (cm) => {
@@ -90,28 +94,40 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
             <div className="flex flex-col items-center pt-2">
               <img src={mascoteImage} alt="" className="w-20 h-20 animate-mascote-pulse" />
               <div className="flex gap-1.5 mt-3">
-                {[0, 1, 2].map((i) => (
+                {[0, 1, 2, 3].map((i) => (
                   <span key={i} className="h-1.5 rounded-full transition-all"
                     style={{ width: i === step ? 24 : 8, background: i <= step ? '#4A8A5C' : 'rgba(150,140,120,0.3)' }} />
                 ))}
               </div>
             </div>
 
-            {/* Tela 0 — Nome */}
+            {/* Tela 0 — Aceite de Termos e LGPD */}
             {step === 0 && (
               <div className="space-y-4">
                 <div className="text-center">
-                  <h2 className="text-xl font-bold text-[#2B2A28]">Olá! 👋</h2>
-                  <p className="text-sm text-[#5C5650] mt-1">Como podemos te chamar?</p>
+                  <h2 className="text-xl font-bold text-[#2B2A28]">Termos de Uso e Privacidade</h2>
                 </div>
-                <input autoFocus type="text" value={nome} placeholder="Seu nome"
-                  onChange={(e) => { setNome(e.target.value); setTentouAvancar(false); }} maxLength={30}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && podeAvancarStep1) { setTentouAvancar(false); setStep(1); } }}
-                  className={INPUT_CLASS} style={INPUT_STYLE} />
-                {tentouAvancar && !podeAvancarStep1 && (
-                  <p className="text-xs text-[#BD5A4A] mt-1">Preencha seu nome para continuar</p>
+                <div className="text-sm text-[#4A443F] space-y-2 leading-relaxed">
+                  <p> Este aplicativo coleta dados de saúde sensíveis (diário intestinal, sintomas, alimentação) para gerar relatórios personalizados.</p>
+                  <p>Os dados são processados por inteligência artificial (Google Gemini) em servidores internacionais, e armazenados de forma segura.</p>
+                  <p>Ao continuar, você concorda com o tratamento dos seus dados conforme nossa Política de Privacidade.</p>
+                </div>
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input type="checkbox" checked={aceitouTermos}
+                    onChange={(e) => { setAceitouTermos(e.target.checked); setTentouAvancar(false); }}
+                    className="mt-1 w-4 h-4 accent-[#4A8A5C]" />
+                  <span className="text-sm text-[#2B2A28]">
+                    Li e concordo com os{' '}
+                    <a href="#" onClick={(e) => e.preventDefault()} className="text-[#4A8A5C] underline">Termos de Uso</a>{' '}
+                    e a{' '}
+                    <a href="#" onClick={(e) => e.preventDefault()} className="text-[#4A8A5C] underline">Política de Privacidade</a>.
+                  </span>
+                </label>
+                {tentouAvancar && !podeAvancarStep0 && (
+                  <p className="text-xs text-[#BD5A4A]">É necessário aceitar os termos para continuar</p>
                 )}
-                <button type="button" disabled={!podeAvancarStep1} onClick={() => { if (!podeAvancarStep1) setTentouAvancar(true); else { setTentouAvancar(false); setStep(1); } }}
+                <button type="button" disabled={!podeAvancarStep0}
+                  onClick={() => { if (!podeAvancarStep0) setTentouAvancar(true); else { setTentouAvancar(false); setStep(1); } }}
                   className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50 transition-opacity"
                   style={{ background: 'var(--brand)', color: '#fff' }}>
                   Continuar
@@ -119,8 +135,30 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
               </div>
             )}
 
-            {/* Tela 1 — Condições */}
+            {/* Tela 1 — Nome */}
             {step === 1 && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-bold text-[#2B2A28]">Olá! 👋</h2>
+                  <p className="text-sm text-[#5C5650] mt-1">Como podemos te chamar?</p>
+                </div>
+                <input autoFocus type="text" value={nome} placeholder="Seu nome"
+                  onChange={(e) => { setNome(e.target.value); setTentouAvancar(false); }} maxLength={30}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && podeAvancarStep1) { setTentouAvancar(false); setStep(2); } }}
+                  className={INPUT_CLASS} style={INPUT_STYLE} />
+                {tentouAvancar && !podeAvancarStep1 && (
+                  <p className="text-xs text-[#BD5A4A] mt-1">Preencha seu nome para continuar</p>
+                )}
+                <button type="button" disabled={!podeAvancarStep1} onClick={() => { if (!podeAvancarStep1) setTentouAvancar(true); else { setTentouAvancar(false); setStep(2); } }}
+                  className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-50 transition-opacity"
+                  style={{ background: 'var(--brand)', color: '#fff' }}>
+                  Continuar
+                </button>
+              </div>
+            )}
+
+            {/* Tela 2 — Condições */}
+            {step === 2 && (
               <div className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-[#2B2A28]">Você possui alguma destas condições?</h2>
@@ -156,16 +194,16 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
                     className={`mt-1 ${INPUT_CLASS}`} style={INPUT_STYLE} />
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setStep(0)}
+                  <button type="button" onClick={() => setStep(1)}
                     className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
                     style={{ background: 'rgba(255,255,255,0.5)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
                     <ChevronLeft size={16} />
                   </button>
                   {tentouAvancar && !temCondSelecionada && (
-                    <p className="text-xs text-[#BD5A4A] text-center mt-1">Selecione ao menos uma condição ou marque "Nenhuma"</p>
+                    <p className="text-xs text-[#BD5A4A] text-center mt-1">Selecione ao menos uma condição, marque "Nenhuma" ou digite em "Outras"</p>
                   )}
                   <button type="button" disabled={!temCondSelecionada}
-                    onClick={() => { if (!temCondSelecionada) setTentouAvancar(true); else { setTentouAvancar(false); setStep(2); } }}
+                    onClick={() => { if (!temCondSelecionada) setTentouAvancar(true); else { setTentouAvancar(false); setStep(3); } }}
                     className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
                     style={{ background: 'var(--brand)', color: '#fff' }}>
                     Continuar
@@ -174,8 +212,8 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
               </div>
             )}
 
-            {/* Tela 2 — Biometria */}
-            {step === 2 && (
+            {/* Tela 3 — Biometria */}
+            {step === 3 && (
               <div className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-[#2B2A28]">Dados básicos</h2>
@@ -206,7 +244,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
                     className="w-full accent-[#4A8A5C]" style={{ accentColor: 'var(--brand)' }} />
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setStep(1)}
+                  <button type="button" onClick={() => setStep(2)}
                     className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
                     style={{ background: 'rgba(255,255,255,0.5)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
                     <ChevronLeft size={16} />

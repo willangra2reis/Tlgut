@@ -2753,7 +2753,7 @@ function ObservationStep({ onConfirm, prompt }) {
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
           style={{ background: 'rgba(242,194,0,0.10)', border: '1px solid rgba(242,194,0,0.3)' }}>
           <div className="w-4 h-4 border-2 border-[#9A7A00] border-t-transparent rounded-full animate-spinner" />
-          <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo com Whisper AI…</span>
+          <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo…</span>
         </div>
       )}
 
@@ -3024,7 +3024,7 @@ function DuvidaForm({ onSave }) {
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
           style={{ background: 'rgba(242,194,0,0.10)', border: '1px solid rgba(242,194,0,0.3)' }}>
           <div className="w-4 h-4 border-2 border-[#9A7A00] border-t-transparent rounded-full animate-spinner" />
-          <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo com Whisper AI…</span>
+          <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo…</span>
         </div>
       )}
 
@@ -3439,6 +3439,8 @@ export default function App() {
   const [onboarded,  setOnboarded]  = useState(() => isOnboarded());
   const [profile,    setProfile]    = useState(() => loadProfile());
   const [editandoProfile, setEditandoProfile] = useState(false);
+  const [mostrarInstall, setMostrarInstall] = useState(false);                          // banner de instalação PWA
+  const deferredPromptRef = useRef(null);                                               // guarda o evento beforeinstallprompt
   const idRef = useRef(100);
   const rafRef = useRef(0);
   const timelineRef = useRef(null);
@@ -3493,6 +3495,29 @@ export default function App() {
   };
 
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  // Captura do evento beforeinstallprompt para PWA. Exibe banner após onboarding
+  // ou após 8 segundos se já onboarded. Não exibe se já instalado ou dispensado.
+  useEffect(() => {
+    const dismissed = localStorage.getItem('tlgut_install_dismissed') === '1';
+    if (dismissed) return; // não exibe novamente após usuário ter dispensado
+    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) return;
+    const onPrompt = (e) => {
+      e.preventDefault();
+      deferredPromptRef.current = e;
+      const isNewUser = !isOnboarded();
+      const delay = isNewUser ? 99999 : 8000; // após onboarding, o estado muda
+      const timer = setTimeout(() => setMostrarInstall(true), delay);
+      // Se o onboarding concluir, antecipa a exibição
+      const checkOnboarding = setInterval(() => {
+        if (isOnboarded()) { clearInterval(checkOnboarding); clearTimeout(timer); setMostrarInstall(true); }
+      }, 500);
+      // Cleanup se o usuário navegar para longe / prompt expirar
+      return () => { clearTimeout(timer); clearInterval(checkOnboarding); };
+    };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
+  }, []);
 
   // O gate por aba garante que Perfil/Aulas nunca exibam o estado recolhido.
   // Reseta naturalmente ao trocar de aba.
@@ -3758,6 +3783,40 @@ export default function App() {
 
         {/* Menu de Navegação Inferior (RF 3) */}
         <BottomNav abaAtiva={abaAtiva} onChangeAba={mudarAba} onAdd={() => setSheetOpen(true)} />
+
+        {/* Banner de instalação PWA */}
+        {mostrarInstall && (
+          <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+4rem)] left-3 right-3 z-30 max-w-[420px] mx-auto">
+            <div className="flex items-center gap-3 rounded-2xl p-3 shadow-[0_8px_24px_-6px_rgba(0,0,0,0.25)]"
+              style={{ background: '#FFFBF6', border: '1px solid #EDE7DD' }}>
+              <img src={mascoteImage} alt="" className="w-10 h-10 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[#2B2A28]">Instalar aplicativo</p>
+                <p className="text-[11px] text-[#7D766A] leading-snug">Adicione à tela inicial para acesso rápido.</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button type="button" onClick={() => { setMostrarInstall(false); localStorage.setItem('tlgut_install_dismissed', '1'); }}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#7D766A]"
+                  style={{ background: 'rgba(150,140,120,0.1)' }}>
+                  Depois
+                </button>
+                <button type="button"
+                  onClick={async () => {
+                    setMostrarInstall(false);
+                    if (!deferredPromptRef.current) return;
+                    deferredPromptRef.current.prompt();
+                    const { outcome } = await deferredPromptRef.current.userChoice;
+                    deferredPromptRef.current = null;
+                    if (outcome === 'accepted') localStorage.setItem('tlgut_install_dismissed', '1');
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white"
+                  style={{ background: 'var(--brand)' }}>
+                  Instalar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mascote lembrete — balão flutuante quando inatividade > 6h */}
         {showBubble && (

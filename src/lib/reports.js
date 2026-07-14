@@ -41,9 +41,17 @@ export function loadReports(type) {
 }
 
 export function saveReport({ type, report, modelo, period_start, period_end }) {
+  // Validação: não salvar relatórios inválidos/truncados
+  if (!report
+      || typeof report.resumo_executivo !== 'string'
+      || !report.resumo_executivo.trim()
+      || !Array.isArray(report.correlacoes)) {
+    return { saved: null, removedId: null };
+  }
+
   const all = loadAllRaw();
   const preview =
-    report?.resumo_executivo
+    report.resumo_executivo
       ? report.resumo_executivo.replace(/\n+/g, ' ').slice(0, 120)
       : '';
 

@@ -351,9 +351,13 @@ export default function RelatorioExpressScreen() {
       }
       setReport(rel);
       const { saved } = saveReport({ type: 'express', report: rel });
-      if (saved) setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
-      const count = loadReports('express').length;
-      if (count >= MAX_REPORTS) setToast('Relatório mais antigo substituído (limite de 10)');
+      if (saved) {
+        setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
+        const count = loadReports('express').length;
+        if (count >= MAX_REPORTS) setToast('Relatório mais antigo substituído (limite de 10)');
+      } else {
+        setToast('Relatório não salvo (conteúdo inválido)');
+      }
     } catch (err) {
       setError(err.message || 'Falha ao gerar relatório.');
     } finally {
@@ -438,7 +442,7 @@ export default function RelatorioExpressScreen() {
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-2"
             style={{ background: 'rgba(242,194,0,0.10)', border: '1px solid rgba(242,194,0,0.3)' }}>
             <div className="w-4 h-4 border-2 border-[#9A7A00] border-t-transparent rounded-full animate-spinner" />
-            <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo com Whisper AI…</span>
+            <span className="text-xs font-medium text-[#9A7A00]">Transcrevendo…</span>
           </div>
         )}
         {recState === 'error' && recError && (
