@@ -7,14 +7,14 @@ import { jsPDF } from 'jspdf';
 import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
 import { dorPorRegiao } from '../lib/insights.js';
-import { ORGAN_CENTROIDES, ORGAN_LABELS } from '../lib/organs.js';
+import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
 import { extractReportFromRaw, normalizePergunta, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import PainHeatmap from './PainHeatmap.jsx';
-import digestiveImage from '../assets/sisdiges.jpg';
+import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
-if (digestiveImgEl) digestiveImgEl.src = digestiveImage;
+if (digestiveImgEl) digestiveImgEl.src = digestiveClosedImage;
 import mascoteImage from '../assets/mascote.png';
 
 const MODELOS = [
@@ -321,7 +321,7 @@ export default function RelatoriasIAScreen({ entries }) {
           const painTotal = valores.reduce((s, x) => s + x, 0);
           if (painTotal === 0) return null;
           const painMax = Math.max(1, ...valores);
-          const painItems = ORGAN_CENTROIDES
+          const painItems = REGION_CENTROIDES
             .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
             .filter(o => o.n > 0)
             .sort((a, b) => b.n - a.n);
@@ -335,7 +335,7 @@ export default function RelatoriasIAScreen({ entries }) {
               </div>
               <div className="flex flex-col sm:flex-row gap-4 items-start">
                 <div className="relative mx-auto shrink-0" style={{ width: 160, aspectRatio: '374/740' }}>
-                  <img src={digestiveImage} alt="Mapa de dor no corpo"
+                  <img src={digestiveClosedImage} alt="Mapa de dor no corpo"
                     className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
                   {painItems.map(o => {
                     const r = 9 + (o.n / painMax) * 18;
@@ -362,7 +362,7 @@ export default function RelatoriasIAScreen({ entries }) {
                 </div>
               </div>
               <p className="text-[11px] text-[#9A938A] mt-3 leading-relaxed italic">
-                <strong>Atenção:</strong> Os pontos na silhueta indicam a região onde o paciente relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.
+                <strong>Nota:</strong> Os pontos na silhueta indicam a região corporal onde o paciente relatou a sensação (lados, centro, parte superior e inferior do abdômen). A localização marcada não identifica o órgão de origem nem estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.
               </p>
             </div>
           );
@@ -577,7 +577,7 @@ export default function RelatoriasIAScreen({ entries }) {
     const painTotal = painValores.reduce((s, x) => s + x, 0);
     if (painTotal > 0) {
       const painMax = Math.max(1, ...painValores);
-      const painItems = ORGAN_CENTROIDES
+      const painItems = REGION_CENTROIDES
         .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
         .filter(o => o.n > 0)
         .sort((a, b) => b.n - a.n);
@@ -612,7 +612,7 @@ export default function RelatoriasIAScreen({ entries }) {
         lines.forEach(l => { ensureSpace(12); doc.setTextColor(100, 100, 95); doc.text(l, margin, y); y += 12; });
       });
       spacer(6);
-      const caveat = 'Atenção: os pontos na silhueta indicam a região onde o paciente relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.';
+      const caveat = 'Nota: os pontos na silhueta indicam a região corporal onde o paciente relatou a sensação (lados, centro, parte superior e inferior do abdômen). A localização marcada não identifica o órgão de origem nem estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.';
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(8);
       doc.setTextColor(125, 118, 106);

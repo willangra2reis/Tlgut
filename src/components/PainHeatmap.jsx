@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import digestiveImage from '../assets/sisdiges.jpg';
-import { ORGAN_CENTROIDES, ORGAN_LABELS } from '../lib/organs.js';
+import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
+import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
 import { dorPorRegiao, contextoRegiao } from '../lib/insights.js';
 
-// Mapa de calor da dor por região do corpo (RF 9.3).
+// Mapa de calor da dor por região corporal (conformidade bem-estar — sem órgãos).
 // `interactive` (default true): na aba Insights o usuário toca para filtrar e
 // ver o contexto/região. No relatório IA, `interactive={false}` desativa os
 // botões e mostra apenas o mapa + mensagem de leitura.
@@ -22,9 +22,9 @@ export default function PainHeatmap({ history, interactive = true }) {
       ) : (
         <>
           <div className="relative mx-auto" style={{ width: 190, aspectRatio: '374/740' }}>
-            <img src={digestiveImage} alt="Mapa de dor no corpo"
+            <img src={digestiveClosedImage} alt="Mapa de dor no corpo"
               className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
-            {ORGAN_CENTROIDES.map((o) => {
+            {REGION_CENTROIDES.map((o) => {
               const c = counts[o.id] || 0;
               if (!c) return null;
               const r = 10 + (c / max) * 22;
@@ -53,7 +53,7 @@ export default function PainHeatmap({ history, interactive = true }) {
             <div className="mt-4 overflow-hidden rounded-2xl border shadow-sm transition-all" style={{ borderColor: 'rgba(189,90,74,0.15)', background: 'linear-gradient(to bottom, #FAF7F2, #FFF)' }}>
               <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: 'rgba(189,90,74,0.1)', background: 'rgba(189,90,74,0.05)' }}>
                 <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#BD5A4A', boxShadow: '0 0 0 2px rgba(189,90,74,0.2)' }} />
-                <p className="font-bold text-sm" style={{ color: '#BD5A4A' }}>{ORGAN_LABELS[sel]}</p>
+                <p className="font-bold text-sm" style={{ color: '#BD5A4A' }}>{REGION_LABELS[sel] || sel}</p>
               </div>
               <div className="p-4 pt-3 text-xs text-[#4A443F] space-y-3">
                 <div className="flex gap-4">

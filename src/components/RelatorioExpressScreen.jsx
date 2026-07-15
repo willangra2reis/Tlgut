@@ -10,9 +10,9 @@ import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import mascoteImage from '../assets/mascote.png';
-import digestiveImage from '../assets/sisdiges.jpg';
+import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
-if (digestiveImgEl) digestiveImgEl.src = digestiveImage;
+if (digestiveImgEl) digestiveImgEl.src = digestiveClosedImage;
 
 const EXPRESS_LOADING_FRASES = [
   'Analisando quando começou...',
@@ -751,7 +751,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
           </div>
           <div className="flex flex-col sm:flex-row gap-4 items-start">
             <div className="relative mx-auto shrink-0" style={{ width: 160, aspectRatio: '374/740' }}>
-              <img src={digestiveImage} alt="Mapa de dor no corpo"
+              <img src={digestiveClosedImage} alt="Mapa de dor no corpo"
                 className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
               {clouds.map((c, i) => (
                 <span key={i} aria-label={c.organLabel || 'Dor'}
@@ -780,7 +780,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
             </div>
           </div>
           <p className="text-[11px] text-[#9A938A] mt-3 leading-relaxed italic">
-            <strong>Atenção:</strong> Os pontos na silhueta indicam a região onde você relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.
+            <strong>Nota:</strong> Os pontos na silhueta indicam a região corporal onde você relatou a sensação (lados, centro, parte superior e inferior do abdômen). A localização marcada não identifica o órgão de origem nem estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.
           </p>
         </div>
       )}
@@ -987,7 +987,7 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds) {
       lines.forEach(l => { ensureSpace(12); doc.text(l, margin, y); y += 12; });
     }
     spacer(6);
-    const caveat = 'Atenção: os pontos na silhueta indicam a região onde você relatou dor, não o órgão doente. Vários órgãos se sobrepõem na imagem (estômago, fígado, intestino delgado, cólon). A localização marcada não estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.';
+    const caveat = 'Nota: os pontos na silhueta indicam a região corporal onde você relatou a sensação (lados, centro, parte superior e inferior do abdômen). A localização marcada não identifica o órgão de origem nem estabelece diagnóstico — apenas registra o relato. A interpretação clínica é exclusiva do médico.';
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
     doc.setTextColor(125, 118, 106);

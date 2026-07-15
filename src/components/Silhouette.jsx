@@ -1,9 +1,10 @@
 import { useCallback, useRef } from 'react';
-import { nearestOrgan } from '../lib/organs.js';
-import digestiveImage from '../assets/sisdiges.jpg';
+import { nearestRegion, ORGAN_LEGACY_TO_REGION, REGION_LABELS } from '../lib/organs.js';
 import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
 
-const DIGESTIVE_IMAGE = digestiveImage;
+// Imagem fixada na silhueta fechada (sem órgãos) — conformidade bem-estar.
+// A versão com órgãos (sisdiges.jpg) foi removida para afastar viés diagnóstico.
+const DIGESTIVE_IMAGE = digestiveClosedImage;
 
 function PainCloud({ x, y, intensity, id }) {
   const alpha = 0.25 + (intensity / 10) * 0.45;
@@ -35,17 +36,18 @@ function PainCloud({ x, y, intensity, id }) {
   );
 }
 
-export default function Silhouette({ clouds, intensity, onTap, compact, showOrgans = true }) {
+export default function Silhouette({ clouds, intensity, onTap, compact, showOrgans: _showOrgans = false }) {
   const imgRef = useRef(null);
-  const currentImage = showOrgans ? DIGESTIVE_IMAGE : digestiveClosedImage;
+  // Sempre usa a silhueta fechada — `showOrgans` ignorado (conformidade bem-estar).
+  const currentImage = DIGESTIVE_IMAGE;
 
   const handleClick = useCallback((e) => {
     if (!onTap) return;
     const rect = imgRef.current.getBoundingClientRect();
     const px = ((e.clientX - rect.left) / rect.width)  * 100;
     const py = ((e.clientY - rect.top)  / rect.height) * 100;
-    const organ = nearestOrgan(px, py);
-    onTap({ x: px, y: py, organ });
+    const region = nearestRegion(px, py);
+    onTap({ x: px, y: py, region, organ: region ? region.id : null });
   }, [onTap]);
 
   return (
@@ -56,7 +58,7 @@ export default function Silhouette({ clouds, intensity, onTap, compact, showOrga
       <img
         ref={imgRef}
         src={currentImage}
-        alt="Sistema digestivo"
+        alt="Silhueta corporal"
         className="absolute inset-0 w-full h-full object-contain select-none"
         style={{ pointerEvents: onTap ? 'none' : 'none' }}
         draggable={false}

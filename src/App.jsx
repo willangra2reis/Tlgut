@@ -1,4 +1,3 @@
-import digestiveImage from './assets/sisdiges.jpg';
 import digestiveClosedImage from './assets/sisdiges_fechado.jpg';
 import mascoteImage from './assets/mascote.png';
 import capaExemplo from './assets/capaexemplo.jpg';
@@ -327,9 +326,9 @@ function tipoDeVideo(url) {
   return 'iframe';
 }
 
-// ─── Digestive image (base64 webp) ───────────────────────────────────────────
-const DIGESTIVE_IMAGE = digestiveImage;
-import { ORGAN_POINTS, ORGAN_LIST, nearestOrgan } from './lib/organs.js';
+// ─── Digestive image (silhueta fechada — sem órgãos) ─────────────────────────
+const DIGESTIVE_IMAGE = digestiveClosedImage;
+import { REGION_LIST, REGION_POINTS, ORGAN_LEGACY_TO_REGION, nearestRegion, resolveRegionLabel } from './lib/organs.js';
 
 const INITIAL_ENTRIES = [
   { id: 1, day: 'hoje',  time: '07:43', type: 'meal',     title: 'Café da manhã',  description: '2 fatias de bolo de chocolate' },
@@ -1182,12 +1181,16 @@ function CrossCard({ titulo, explicacao, children }) {
 // marcadas ao longo do tempo, numa janela deslizante (RF 9.7).
 function PainScrubber({ history, onScrub }) {
   const pains = useMemo(() => history
-    .filter((e) => e.type === 'pain' && e.organ && ORGAN_POINTS[e.organ])
+    .filter((e) => e.type === 'pain' && (e.organ || e.meta?.clouds?.[0]?.organ))
     .map((e) => {
-      const pts = ORGAN_POINTS[e.organ];
+      const organ = e.organ || e.meta?.clouds?.[0]?.organ;
+      const mapped = ORGAN_LEGACY_TO_REGION[organ] || organ;
+      const pts = REGION_POINTS[mapped];
+      if (!pts || !pts.length) return null;
       const [x, y] = pts[Math.abs(Math.floor(e.ts / 60000)) % pts.length];
-      return { ts: e.ts, x, y, intensity: e.intensity || 5 };
+      return { ts: e.ts, x, y, intensity: e.intensity || e.meta?.intensity || 5 };
     })
+    .filter(Boolean)
     .sort((a, b) => a.ts - b.ts), [history]);
   const [pos, setPos] = useState(100);
 
@@ -1708,47 +1711,47 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
 }
 
 // ─── Calibração de pontos de dor (FERRAMENTA TEMPORÁRIA / DEV) ─────────────────
-// Permite tocar na silhueta e capturar coordenadas (cx, cy em % da imagem) já no
-// formato do ORGAN_ZONES. Remover após concluir o mapeamento.
+// Permite tocar na silhueta fechada e capturar coordenadas (cx, cy em %) das
+// 9 REGIÕES corporais genéricas (conformidade bem-estar). Ativação: Ctrl+Shift+K.
 function CalibrationOverlay({ onClose }) {
   const boxRef = useRef(null);
-  const [organId, setOrganId] = useState(ORGAN_LIST[0].id);
+  const [regionId, setRegionId] = useState(REGION_LIST[0].id);
   const [points, setPoints] = useState([]);
-  const organ = ORGAN_LIST.find((o) => o.id === organId);
+  const region = REGION_LIST.find((o) => o.id === regionId);
 
   const handleClick = (e) => {
     const r = boxRef.current.getBoundingClientRect();
     const cx = Math.round(((e.clientX - r.left) / r.width) * 1000) / 10;
     const cy = Math.round(((e.clientY - r.top) / r.height) * 1000) / 10;
-    const p = { id: organ.id, label: organ.label, cx, cy };
+    const p = { id: region.id, label: region.label, cx, cy };
     setPoints((prev) => [...prev, p]);
-    console.log(`{ id: '${p.id}', label: '${p.label}', cx: ${cx}, cy: ${cy} },`);
+    console.log(`  [${cx}, ${cy}],  // ${p.label}`);
   };
 
   const linhas = points
-    .map((p) => `  { id: '${p.id}', label: '${p.label}', cx: ${p.cx}, cy: ${p.cy} },`)
+    .map((p) => `[${p.cx}, ${p.cy}],  // ${p.label}`)
     .join('\n');
 
   return (
     <div className="absolute inset-0 z-40 bg-white flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#EDE7DD] shrink-0">
-        <p className="font-serif text-base text-[#2B2A28]">Calibração de pontos</p>
+        <p className="font-serif text-base text-[#2B2A28]">Calibração — Regiões corporais</p>
         <button type="button" onClick={onClose} className="text-[#B6AE9F]"><X size={20} /></button>
       </div>
 
       <div className="px-4 py-3 shrink-0">
-        <label className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Órgão atual</label>
-        <select value={organId} onChange={(e) => setOrganId(e.target.value)}
+        <label className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Região atual</label>
+        <select value={regionId} onChange={(e) => setRegionId(e.target.value)}
           className="w-full mt-1 rounded-xl border border-[#EDE7DD] p-2 text-sm">
-          {ORGAN_LIST.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          {REGION_LIST.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
-        <p className="text-xs text-[#7D766A] mt-1">Toque na ilustração para capturar pontos do órgão selecionado.</p>
+        <p className="text-xs text-[#7D766A] mt-1">Toque na silhueta fechada para capturar pontos da região selecionada.</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         <div ref={boxRef} onClick={handleClick}
           className="relative mx-auto cursor-crosshair" style={{ width: 220, aspectRatio: '374/740' }}>
-          <img src={DIGESTIVE_IMAGE} alt="Silhueta" className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
+          <img src={DIGESTIVE_IMAGE} alt="Silhueta fechada" className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
           {points.map((p, i) => (
             <span key={i} className="absolute rounded-full"
               style={{ left: `${p.cx}%`, top: `${p.cy}%`, width: 8, height: 8, transform: 'translate(-50%,-50%)', background: '#BD5A4A', border: '1px solid #fff' }} />
@@ -1756,7 +1759,7 @@ function CalibrationOverlay({ onClose }) {
         </div>
 
         <div className="flex items-center justify-between mt-3 mb-1">
-          <span className="text-xs text-[#7D766A]">{points.length} ponto(s)</span>
+          <span className="text-xs text-[#7D766A]">{points.length} ponto(s) — região: {region.label}</span>
           <button type="button" onClick={() => setPoints([])} className="text-xs text-[#BD5A4A]">Limpar</button>
         </div>
         <textarea readOnly value={linhas} rows={8}
@@ -1773,30 +1776,29 @@ function PainForm({ onSave }) {
   const [clouds,    setClouds]    = useState([]);
   const [intensity, setIntensity] = useState(5);
   const [kinds,     setKinds]     = useState(new Set());
-  const [showOrgans, setShowOrgans] = useState(false);
   const color = ENTRY_TYPES.pain.color;
   const kindOptions = ['Cólica', 'Queimação', 'Pressão', 'Pontada', 'Distensão'];
 
-  const handleTap = ({ x, y, organ }) => {
+  const handleTap = ({ x, y, region }) => {
+    if (!region) return;
     setClouds((prev) => {
       // toggle: remove apenas se o toque cair bem em cima de um ponto já marcado
       // (raio pequeno para permitir marcações próximas sem desmarcar a vizinha)
       const idx = prev.findIndex((c) => Math.abs(c.x - x) < 2.5 && Math.abs(c.y - y) < 2.5);
       if (idx !== -1) return prev.filter((_, i) => i !== idx);
-      return [...prev, { x, y, organ: organ.id, organLabel: organ.label }];
+      return [...prev, { x, y, region: region.id, regionLabel: region.label }];
     });
   };
 
   const clearAll = () => {
     setClouds([]);
-    setShowOrgans(false);
   };
 
   const toggleKind = (k) => setKinds((s) => {
     const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
   });
 
-  const uniqueOrgans = [...new Set(clouds.map((c) => c.organLabel))];
+  const uniqueRegions = [...new Set(clouds.map((c) => c.regionLabel))];
 
   return (
     <div className="space-y-5">
@@ -1811,25 +1813,13 @@ function PainForm({ onSave }) {
           )}
         </div>
         <div className="bg-[#FAF7F2] rounded-2xl p-3 border border-[#EDE7DD]">
-          <Silhouette clouds={clouds} intensity={intensity} onTap={handleTap} showOrgans={showOrgans} />
+          <Silhouette clouds={clouds} intensity={intensity} onTap={handleTap} />
         </div>
-        {clouds.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowOrgans(!showOrgans)}
-            className="mt-3 w-full py-2.5 px-4 rounded-xl border text-xs font-semibold bg-white hover:bg-[#FAF7F2] active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm"
-            style={{ color: showOrgans ? '#BD5A4A' : 'var(--brand)', borderColor: showOrgans ? '#F5E1DD' : '#EDE7DD' }}
-          >
-            {showOrgans ? 'Ocultar Órgãos (Ver Corpo)' : 'Revelar órgãos afetados'}
-          </button>
-        )}
         <p className="text-sm text-center mt-3 min-h-[20px]">
           {clouds.length === 0 ? (
-            <span className="text-[#5C5650]">Nenhuma região marcada — toque na ilustração</span>
-          ) : showOrgans ? (
-            <span className="font-semibold" style={{ color }}>{uniqueOrgans.join(' · ')}</span>
+            <span className="text-[#5C5650]">Nenhuma região marcada — toque na silhueta</span>
           ) : (
-            <span className="text-[#7D766A] italic">Pontos marcados. Clique em "Revelar órgãos" para ver a área afetada.</span>
+            <span className="font-semibold" style={{ color }}>{uniqueRegions.join(' · ')}</span>
           )}
         </p>
       </div>
@@ -1858,8 +1848,8 @@ function PainForm({ onSave }) {
       {/* Note */}
       <SaveButton color={color} onClick={() => {
         const kindStr = kinds.size ? Array.from(kinds).join(' · ') : '';
-        const orgStr  = uniqueOrgans.join(' · ');
-        const desc    = [kindStr, orgStr].filter(Boolean).join(' · ') || 'Dor abdominal';
+        const regStr  = uniqueRegions.join(' · ');
+        const desc    = [kindStr, regStr].filter(Boolean).join(' · ') || 'Dor abdominal';
         onSave({ title: 'Dor abdominal', description: desc, meta: { clouds, intensity } });
       }} />
     </div>

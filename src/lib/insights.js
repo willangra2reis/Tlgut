@@ -6,7 +6,7 @@
 export const HORA = 3600 * 1000;
 export const DIA = 24 * HORA;
 
-const ORGAOS_DOR = ['estomago', 'colon_sig', 'intestino_delgado', 'colon_desc', 'figado'];
+const REGIOES_DOR = ['regiao_sup_esq', 'regiao_inf_esq', 'regiao_centro', 'regiao_inf_dir', 'regiao_sup_dir'];
 
 // PRNG determinístico (mulberry32) — mock reproduzível a partir de uma seed.
 function mulberry32(seed) {
@@ -63,7 +63,7 @@ export function gerarHistoricoMock(dias = 75, seed = 20260618, fim = Date.UTC(20
     if (rnd() < pDor) {
       const atrasoH = 1 + rnd() * 2; // dor ~1–3 h após o almoço (proximidade temporal)
       const intensidade = Math.min(10, ri(4, 7) + (poucaAgua ? 1 : 0) + (almocoPesado ? 1 : 0));
-      const organ = almocoPesado ? 'estomago' : ORGAOS_DOR[ri(0, ORGAOS_DOR.length - 1)];
+      const organ = almocoPesado ? 'regiao_sup_esq' : REGIOES_DOR[ri(0, REGIOES_DOR.length - 1)];
       push(tAlmoco + atrasoH * HORA, 'pain', { intensity: intensidade, organ });
     }
 
