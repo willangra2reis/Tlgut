@@ -2830,22 +2830,25 @@ function ObservationStep({ onConfirm, prompt }) {
           </label>
 
           {discutir && (
-            <div className="flex items-center gap-2 pl-7">
-              <span className="text-[11px] text-[#B6AE9F] w-8 text-right shrink-0">Baixa</span>
-              <div className="flex gap-1.5 flex-1 justify-center">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button key={n} type="button" onClick={() => setPrioridade(n)}
-                    className="w-7 h-7 rounded-full text-xs font-bold transition-all"
-                    style={{
-                      background: n <= prioridade ? 'var(--brand)' : '#EDE7DD',
-                      color: n <= prioridade ? '#fff' : '#B6AE9F',
-                      transform: n === prioridade ? 'scale(1.15)' : 'scale(1)',
-                    }}>
-                    {n}
-                  </button>
-                ))}
+            <div className="pl-7 space-y-1.5">
+              <p className="text-xs font-medium text-[#7D766A]">Defina o nível de prioridade dessa dúvida ou observação</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-[#B6AE9F] w-8 text-right shrink-0">Baixa</span>
+                <div className="flex gap-1.5 flex-1 justify-center">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" onClick={() => setPrioridade(n)}
+                      className="w-7 h-7 rounded-full text-xs font-bold transition-all"
+                      style={{
+                        background: n <= prioridade ? 'var(--brand)' : '#EDE7DD',
+                        color: n <= prioridade ? '#fff' : '#B6AE9F',
+                        transform: n === prioridade ? 'scale(1.15)' : 'scale(1)',
+                      }}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[11px] text-[#B6AE9F] w-8 shrink-0">Alta</span>
               </div>
-              <span className="text-[11px] text-[#B6AE9F] w-8 shrink-0">Alta</span>
             </div>
           )}
         </div>
@@ -3256,6 +3259,21 @@ function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus }) {
         <p className="entry-text text-[0.95em] mt-0.5 leading-snug break-words" style={{ color: 'var(--ink, #4A443F)' }}>
           <ExpandableText text={entry.description} />
         </p>
+
+        {entry.meta?.discutir_consulta && entry.meta?.prioridade && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="flex gap-0.5">
+              {[1, 2, 3, 4, 5].map((n) => {
+                const cor = entry.meta.prioridade >= 4 ? '#BD5A4A' : entry.meta.prioridade >= 3 ? '#C9763A' : '#4A8A5C';
+                return (
+                  <span key={n} className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: n <= entry.meta.prioridade ? cor : '#EDE7DD' }} />
+                );
+              })}
+            </span>
+            <span className="text-[10px] text-[#B6AE9F]">Discutir na consulta</span>
+          </div>
+        )}
 
         {entry.type === 'pain' && entry.meta && (
           <div className="mt-2 rounded-2xl p-4 flex flex-col items-center shadow-[0_2px_8px_-3px_rgba(0,0,0,0.18)]" style={{ background: meta.soft }}>
