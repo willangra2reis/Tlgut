@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
-  AlertTriangle, Sparkles, Stethoscope, ChevronDown, RotateCcw, Mic, Download, Share2, X, Map, FileText,
+  AlertTriangle, Sparkles, Stethoscope, ChevronDown, RotateCcw, Mic, Download, Share2, X, Map, FileText, CheckCircle2,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import Silhouette from './Silhouette.jsx';
@@ -69,7 +69,7 @@ const INTRO_TEXT = [
   'O relatório organiza seu relato em pontos claros para a conversa com o médico.',
 ];
 
-export default function RelatorioExpressScreen() {
+export default function RelatorioExpressScreen({ entries }) {
   // ── Pop-up introdutório (mostra só na primeira visita da sessão) ─────────
   const [showIntro, setShowIntro] = useState(() => {
     try {
@@ -653,7 +653,7 @@ export default function RelatorioExpressScreen() {
       )}
 
       {/* Relatório gerado */}
-      {!loading && report && <ExpressReportView report={report} clouds={clouds} intensity={intensity} kinds={kinds} />}
+      {!loading && report && <ExpressReportView report={report} clouds={clouds} intensity={intensity} kinds={kinds} entries={entries} />}
 
       {/* Toast */}
       {toast && (
@@ -667,7 +667,7 @@ export default function RelatorioExpressScreen() {
 }
 
 // ── Render do relatório Express ────────────────────────────────────────────
-function ExpressReportView({ report, clouds = [], intensity, kinds }) {
+function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
   if (!report) return null;
   const isRaw = report.isRaw === true;
   const isTruncated = report.truncated === true;
@@ -683,6 +683,22 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
   const alertas = effectiveReport ? (Array.isArray(effectiveReport.sinais_alerta) ? effectiveReport.sinais_alerta : []) : [];
   const perguntas = effectiveReport ? (Array.isArray(effectiveReport.perguntas_medico) ? effectiveReport.perguntas_medico.map(normalizePergunta) : []) : [];
   const resumo = effectiveReport && typeof effectiveReport.resumo_executivo === 'string' ? effectiveReport.resumo_executivo : '';
+
+  const [sortDiscussOrder, setSortDiscussOrder] = useState('cronologica');
+
+  const discutirEntries = useMemo(() => {
+    if (!Array.isArray(entries)) return [];
+    const candidates = entries.filter(e => e.meta?.discutir_consulta);
+    if (sortDiscussOrder === 'prioridade') {
+      return [...candidates].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
+    }
+    const dayScale = { hoje: 1, ontem: 0 };
+    return [...candidates].sort((a, b) => {
+      const dayDiff = (dayScale[a.day] || 0) - (dayScale[b.day] || 0);
+      if (dayDiff !== 0) return dayDiff;
+      return (a.time || '').localeCompare(b.time || '');
+    });
+  }, [entries, sortDiscussOrder]);
 
   // Relatório truncado sem recovery → mostrar aviso (como a tela IA)
   if (stillTruncated) {
@@ -785,6 +801,55 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
         </div>
       )}
 
+      {/* Eventos selecionados para discutir na consulta */}
+      {discutirEntries.length > 0 && (
+        <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
+          style={{ borderColor: SOFT_BORDER }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(74,138,92,0.12)' }}>
+                <CheckCircle2 size={15} style={{ color: '#4A8A5C' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#4A8A5C' }}>Discutir na consulta</h4>
+            </div>
+            <div className="flex gap-1">
+              {['cronologica', 'prioridade'].map((opt) => (
+                <button key={opt} type="button" onClick={() => setSortDiscussOrder(opt)}
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors"
+                  style={{
+                    background: sortDiscussOrder === opt ? 'rgba(74,138,92,0.12)' : 'transparent',
+                    color: sortDiscussOrder === opt ? '#4A8A5C' : '#B6AE9F',
+                  }}>
+                  {opt === 'cronologica' ? 'Cronológica' : 'Prioridade'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {discutirEntries.map((e) => {
+              const prio = e.meta?.prioridade || 3;
+              const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
+              return (
+                <div key={e.id} className="rounded-xl p-3 flex items-start gap-3"
+                  style={{ background: 'rgba(74,138,92,0.04)', border: '1px solid rgba(74,138,92,0.15)' }}>
+                  <div className="flex gap-0.5 mt-0.5 shrink-0">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <span key={n} className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: n <= prio ? cor : '#EDE7DD' }} />
+                    ))}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
+                    {e.description && <p className="text-[11px] text-[#7D766A] mt-0.5 line-clamp-2">{e.description}</p>}
+                    <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Perguntas para o Médico */}
       {perguntas.length > 0 && (
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
@@ -825,13 +890,13 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
           style={{ borderColor: SOFT_BORDER }}>
           <div className="flex gap-2.5">
-            <button type="button" onClick={() => baixarPDFExpress(report, clouds, intensity, kinds)}
+            <button type="button" onClick={() => baixarPDFExpress(report, clouds, intensity, kinds, entries)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Download size={16} />
               Baixar PDF
             </button>
-            <button type="button" onClick={() => compartilharPDFExpress(report, clouds, intensity, kinds)}
+            <button type="button" onClick={() => compartilharPDFExpress(report, clouds, intensity, kinds, entries)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Share2 size={16} />
@@ -850,7 +915,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds }) {
 }
 
 // ── PDF Express (próprio, simplificado, sem silhouette) ─────────────────────
-function gerarPDFExpress(report, clouds = [], intensity, kinds) {
+function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -996,6 +1061,29 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds) {
     spacer(8);
   }
 
+  // Discutir na consulta
+  const discutirPDF = Array.isArray(entries) ? entries.filter(e => e.meta?.discutir_consulta) : [];
+  if (discutirPDF.length > 0) {
+    heading('Discutir na consulta', '#4A8A5C');
+    const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
+    sortedPDF.forEach((e) => {
+      ensureSpace(30);
+      const prio = e.meta?.prioridade || 3;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(43, 42, 40);
+      const titulo = `${e.title || e.type || 'Registro'}  ·  Prioridade ${prio}/5  ·  ${e.day === 'hoje' ? 'Hoje' : 'Ontem'} ${e.time}`;
+      const tLines = doc.splitTextToSize(titulo, maxW);
+      tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+      if (e.description) {
+        paragraph(e.description, [125, 118, 106]);
+        spacer(4);
+      }
+      spacer(6);
+    });
+    spacer(4);
+  }
+
   // Perguntas para o Médico
   const perguntas = Array.isArray(report.perguntas_medico)
     ? report.perguntas_medico.map(normalizePergunta)
@@ -1081,8 +1169,8 @@ function montarNomeArquivoPDFExpress() {
   return `SmartGut_RelatorioExpress_${stamp}.pdf`;
 }
 
-function baixarPDFExpress(report, clouds, intensity, kinds) {
-  const doc = gerarPDFExpress(report, clouds, intensity, kinds);
+function baixarPDFExpress(report, clouds, intensity, kinds, entries) {
+  const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries);
   const nome = montarNomeArquivoPDFExpress();
   try { doc.save(nome); }
   catch { // Firefox fallback
@@ -1102,10 +1190,10 @@ function isShareSupported() {
   return true;
 }
 
-async function compartilharPDFExpress(report, clouds, intensity, kinds) {
-  if (!isShareSupported()) { baixarPDFExpress(report, clouds, intensity, kinds); return; }
+async function compartilharPDFExpress(report, clouds, intensity, kinds, entries) {
+  if (!isShareSupported()) { baixarPDFExpress(report, clouds, intensity, kinds, entries); return; }
   try {
-    const doc = gerarPDFExpress(report, clouds, intensity, kinds);
+    const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries);
     const blob = doc.output('blob');
     const file = new File([blob], montarNomeArquivoPDFExpress(), { type: 'application/pdf' });
     if (!navigator.canShare({ files: [file] })) { baixarPDFExpress(report, clouds, intensity, kinds); return; }

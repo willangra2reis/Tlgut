@@ -62,6 +62,7 @@ export default function RelatoriasIAScreen({ entries }) {
     try { return JSON.parse(localStorage.getItem('tlgut_selected_questions') || '[]'); }
     catch { return []; }
   });
+  const [sortDiscussOrder, setSortDiscussOrder] = useState('cronologica');
   const [consultaAberta, setConsultaAberta] = useState(false);
   const [votes, setVotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tlgut_model_votes') || '{}'); }
@@ -126,6 +127,19 @@ export default function RelatoriasIAScreen({ entries }) {
       return ts >= cutoff;
     });
   }, [workingEntries, periodo]);
+
+  const discutirEntries = useMemo(() => {
+    const candidates = filteredEntries.filter(e => e.meta?.discutir_consulta);
+    if (sortDiscussOrder === 'prioridade') {
+      return [...candidates].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
+    }
+    const dayScale = { hoje: 1, ontem: 0 };
+    return [...candidates].sort((a, b) => {
+      const dayDiff = (dayScale[a.day] || 0) - (dayScale[b.day] || 0);
+      if (dayDiff !== 0) return dayDiff;
+      return (a.time || '').localeCompare(b.time || '');
+    });
+  }, [filteredEntries, sortDiscussOrder]);
 
   const hasResults = Object.keys(reports).some(k => k !== '_empty');
 
@@ -367,6 +381,54 @@ export default function RelatoriasIAScreen({ entries }) {
             </div>
           );
         })()}
+
+        {/* Eventos selecionados para discutir na consulta */}
+        {discutirEntries.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(74,138,92,0.12)' }}>
+                  <CheckCircle2 size={15} style={{ color: '#4A8A5C' }} />
+                </span>
+                <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#4A8A5C' }}>Discutir na consulta</h4>
+              </div>
+              <div className="flex gap-1">
+                {['cronologica', 'prioridade'].map((opt) => (
+                  <button key={opt} type="button" onClick={() => setSortDiscussOrder(opt)}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors"
+                    style={{
+                      background: sortDiscussOrder === opt ? 'rgba(74,138,92,0.12)' : 'transparent',
+                      color: sortDiscussOrder === opt ? '#4A8A5C' : '#B6AE9F',
+                    }}>
+                    {opt === 'cronologica' ? 'Cronológica' : 'Prioridade'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {discutirEntries.map((e) => {
+                const prio = e.meta?.prioridade || 3;
+                const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
+                return (
+                  <div key={e.id} className="rounded-xl p-3 flex items-start gap-3"
+                    style={{ background: 'rgba(74,138,92,0.04)', border: '1px solid rgba(74,138,92,0.15)' }}>
+                    <div className="flex gap-0.5 mt-0.5 shrink-0">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <span key={n} className="w-1.5 h-1.5 rounded-full"
+                          style={{ background: n <= prio ? cor : '#EDE7DD' }} />
+                      ))}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
+                      {e.description && <p className="text-[11px] text-[#7D766A] mt-0.5 line-clamp-2">{e.description}</p>}
+                      <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {Array.isArray(consultas) && consultas.length > 0 && (
           <div>
@@ -619,6 +681,30 @@ export default function RelatoriasIAScreen({ entries }) {
       const cavLines = doc.splitTextToSize(caveat, maxW);
       cavLines.forEach(l => { ensureSpace(11); doc.text(l, margin, y); y += 11; });
       spacer(8);
+    }
+
+    // ── Discutir na consulta ──
+    const discutirPDF = workingEntries.filter(e => e.meta?.discutir_consulta);
+    if (discutirPDF.length > 0) {
+      heading('Discutir na consulta', [74, 138, 92]);
+      const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
+      sortedPDF.forEach((e) => {
+        ensureSpace(30);
+        const prio = e.meta?.prioridade || 3;
+        const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(43, 42, 40);
+        const titulo = `${e.title || e.type || 'Registro'}  ·  Prioridade ${prio}/5  ·  ${e.day === 'hoje' ? 'Hoje' : 'Ontem'} ${e.time}`;
+        const tLines = doc.splitTextToSize(titulo, maxW);
+        tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        if (e.description) {
+          paragraph(e.description, [125, 118, 106]);
+          spacer(4);
+        }
+        spacer(6);
+      });
+      spacer(4);
     }
 
     const consultas = Array.isArray(r.consultas) ? r.consultas.filter(c => c && (c.profissional || c.orientacao)) : [];

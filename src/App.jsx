@@ -1703,7 +1703,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
         </div>
       ) : (
         <div className="mt-3">
-          <RelatorioExpressScreen />
+          <RelatorioExpressScreen entries={entries} />
         </div>
       )}
     </main>
@@ -2513,6 +2513,8 @@ function TimestampStep({ onTimestamp }) {
 // microfone para gravar; solta para enviar ao Whisper e transcrever.
 function ObservationStep({ onConfirm, prompt }) {
   const [note, setNote] = useState('');
+  const [discutir, setDiscutir] = useState(false);
+  const [prioridade, setPrioridade] = useState(3);
 
   // Estados da gravação
   const [recState, setRecState] = useState('idle'); // 'idle' | 'recording' | 'transcribing' | 'error'
@@ -2812,13 +2814,50 @@ function ObservationStep({ onConfirm, prompt }) {
         </p>
       )}
 
+      {/* ── Selecionar para discutir na consulta ─────────────────────────── */}
+      {recState !== 'recording' && (
+        <div className="space-y-3 pt-1">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <div onClick={() => setDiscutir((d) => !d)}
+              className="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors"
+              style={{
+                borderColor: discutir ? 'var(--brand)' : '#D8D1C4',
+                background: discutir ? 'var(--brand)' : 'transparent',
+              }}>
+              {discutir && <Check size={13} className="text-white" strokeWidth={3} />}
+            </div>
+            <span className="text-sm text-[#2B2A28]">Salvar este registro para discutir com o médico</span>
+          </label>
+
+          {discutir && (
+            <div className="flex items-center gap-2 pl-7">
+              <span className="text-[11px] text-[#B6AE9F] w-8 text-right shrink-0">Baixa</span>
+              <div className="flex gap-1.5 flex-1 justify-center">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button key={n} type="button" onClick={() => setPrioridade(n)}
+                    className="w-7 h-7 rounded-full text-xs font-bold transition-all"
+                    style={{
+                      background: n <= prioridade ? 'var(--brand)' : '#EDE7DD',
+                      color: n <= prioridade ? '#fff' : '#B6AE9F',
+                      transform: n === prioridade ? 'scale(1.15)' : 'scale(1)',
+                    }}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[11px] text-[#B6AE9F] w-8 shrink-0">Alta</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Botões de confirmação (ocultos durante gravação) ─────────────── */}
       {recState !== 'recording' && (
         <>
-          <SaveButton color="var(--brand)" onClick={() => onConfirm(note.trim())} label="Salvar registro" />
+          <SaveButton color="var(--brand)" onClick={() => onConfirm({ note: note.trim(), discutir, prioridade })} label="Salvar registro" />
           <button
             type="button"
-            onClick={() => onConfirm('')}
+            onClick={() => onConfirm({ note: '', discutir, prioridade })}
             className="w-full py-2.5 rounded-2xl border text-sm font-medium"
             style={{ borderColor: '#E4DDD2', color: '#7D766A', background: '#FAF7F2' }}
           >
@@ -2866,6 +2905,7 @@ function GasForm({ onSave }) {
 // Microfone replica a lógica do ObservationStep (Whisper via /api/transcribe).
 function DuvidaForm({ onSave }) {
   const [texto, setTexto] = useState('');
+  const [prioridade, setPrioridade] = useState(3);
   const [recState, setRecState] = useState('idle');
   const [recError, setRecError] = useState('');
   const [timeLeft, setTimeLeft] = useState(30);
@@ -3071,10 +3111,32 @@ function DuvidaForm({ onSave }) {
         </p>
       )}
 
+      {/* ── Prioridade para discussão na consulta ──────────────────────────── */}
+      <div>
+        <p className="text-xs font-medium text-[#7D766A] mb-2">Prioridade para discutir na consulta</p>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-[#B6AE9F] w-8 text-right shrink-0">Baixa</span>
+          <div className="flex gap-1.5 flex-1 justify-center">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} type="button" onClick={() => setPrioridade(n)}
+                className="w-7 h-7 rounded-full text-xs font-bold transition-all"
+                style={{
+                  background: n <= prioridade ? color : '#EDE7DD',
+                  color: n <= prioridade ? '#fff' : '#B6AE9F',
+                  transform: n === prioridade ? 'scale(1.15)' : 'scale(1)',
+                }}>
+                {n}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] text-[#B6AE9F] w-8 shrink-0">Alta</span>
+        </div>
+      </div>
+
       <SaveButton color={color} label="Salvar dúvida"
         onClick={() => {
           if (!texto.trim()) return;
-          onSave({ title: 'Dúvida', description: texto.trim(), meta: { status: 'pendente' } });
+          onSave({ title: 'Dúvida', description: texto.trim(), meta: { status: 'pendente', discutir_consulta: true, prioridade } });
         }} />
     </div>
   );
@@ -3315,6 +3377,8 @@ function EditEntryForm({ entry, onSave, onCancel }) {
   const [title, setTitle] = useState(entry.title || '');
   const [description, setDescription] = useState(entry.description || '');
   const [note, setNote] = useState(entry.meta?.note || '');
+  const [discutir, setDiscutir] = useState(!!entry.meta?.discutir_consulta);
+  const [prioridade, setPrioridade] = useState(entry.meta?.prioridade || 3);
 
   const [tH, tM] = time.split(':');
   const tHn = parseInt(tH, 10);
@@ -3322,7 +3386,7 @@ function EditEntryForm({ entry, onSave, onCancel }) {
   const timeIsValid = !isNaN(tHn) && !isNaN(tMn) && tHn >= 0 && tHn <= 23 && tMn >= 0 && tMn <= 59 && tH?.length === 2 && tM?.length === 2;
 
   const handleSave = () => {
-    onSave({ time, day, title, description, note });
+    onSave({ time, day, title, description, note, discutir, prioridade });
   };
 
   return (
@@ -3389,6 +3453,40 @@ function EditEntryForm({ entry, onSave, onCancel }) {
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
           placeholder="Opcional"
           className="w-full px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white resize-none" />
+      </div>
+
+      <div className="border-t border-[#F1ECE3] pt-3 space-y-3">
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <div onClick={() => setDiscutir((d) => !d)}
+            className="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors"
+            style={{
+              borderColor: discutir ? 'var(--brand)' : '#D8D1C4',
+              background: discutir ? 'var(--brand)' : 'transparent',
+            }}>
+            {discutir && <Check size={13} className="text-white" strokeWidth={3} />}
+          </div>
+          <span className="text-sm text-[#2B2A28]">Discutir na consulta</span>
+        </label>
+
+        {discutir && (
+          <div className="flex items-center gap-2 pl-7">
+            <span className="text-[11px] text-[#B6AE9F] w-8 text-right shrink-0">Baixa</span>
+            <div className="flex gap-1.5 flex-1 justify-center">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button key={n} type="button" onClick={() => setPrioridade(n)}
+                  className="w-7 h-7 rounded-full text-xs font-bold transition-all"
+                  style={{
+                    background: n <= prioridade ? 'var(--brand)' : '#EDE7DD',
+                    color: n <= prioridade ? '#fff' : '#B6AE9F',
+                    transform: n === prioridade ? 'scale(1.15)' : 'scale(1)',
+                  }}>
+                  {n}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-[#B6AE9F] w-8 shrink-0">Alta</span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-1">
@@ -3626,11 +3724,19 @@ export default function App() {
   }
 
   // Passo 2: confirma com (ou sem) observação e persiste o registro.
-  function commitSave(note) {
+  function commitSave(payload) {
     if (!pending) return;
     const { type, data, timestamp } = pending;
     const meta = { ...(data.meta || {}) };
-    if (note) meta.note = note;
+    if (typeof payload === 'string') {
+      if (payload) meta.note = payload;
+    } else {
+      if (payload.note) meta.note = payload.note;
+      if (payload.discutir) {
+        meta.discutir_consulta = true;
+        meta.prioridade = payload.prioridade || 3;
+      }
+    }
     const finalData = { ...data };
     if (Object.keys(meta).length) finalData.meta = meta;
     persistEntry(type, finalData, timestamp);
@@ -3690,12 +3796,19 @@ export default function App() {
     if (postpone) setPostponeBubbleUntil(Date.now() + 2 * 3600000);
   }
 
-  function handleSaveEdit({ time, day, title, description, note }) {
+  function handleSaveEdit({ time, day, title, description, note, discutir, prioridade }) {
     if (!editing) return;
     setEntries((prev) => prev.map((e) => {
       if (e.id !== editing.id) return e;
       const meta = { ...(e.meta || {}) };
       if (note) meta.note = note; else delete meta.note;
+      if (discutir) {
+        meta.discutir_consulta = true;
+        meta.prioridade = prioridade || 3;
+      } else {
+        delete meta.discutir_consulta;
+        delete meta.prioridade;
+      }
       const next = { ...e, time, day, title, description };
       if (Object.keys(meta).length) next.meta = meta; else delete next.meta;
       return next;
