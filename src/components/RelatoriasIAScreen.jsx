@@ -44,17 +44,6 @@ const CARDS_BG_DARK = 'rgba(255,255,255,1)';
 export default function RelatoriasIAScreen({ entries }) {
   const [reports, setReports] = useState({});
   const [compareMode, setCompareMode] = useState(false);
-  const [redFlagTest, setRedFlagTest] = useState(() => {
-    try { return localStorage.getItem('tlgut_redflag_test') === '1'; } catch { return false; }
-  });
-  const toggleRedFlag = (v) => {
-    const next = v ?? !redFlagTest;
-    setRedFlagTest(next);
-    try {
-      if (next) localStorage.setItem('tlgut_redflag_test', '1');
-      else localStorage.removeItem('tlgut_redflag_test');
-    } catch {}
-  };
   const [selectedModel, setSelectedModel] = useState(MODELO_PADRAO);
   const [periodo, setPeriodo] = useState(30);
   const [expandedCorr, setExpandedCorr] = useState({});
@@ -118,7 +107,7 @@ export default function RelatoriasIAScreen({ entries }) {
     const hasTs = entries.some(e => e.ts || e.timestamp);
     if (!hasTs) return gerarDadosRelatorioMock();
     return entries;
-  }, [entries, redFlagTest]);
+  }, [entries]);
 
   const filteredEntries = useMemo(() => {
     const cutoff = Date.now() - periodo * 86400000;
@@ -237,35 +226,12 @@ export default function RelatoriasIAScreen({ entries }) {
   }
 
   function renderStructuredContent(report) {
-    const { resumo_executivo, evolucao, sinais_alerta, correlacoes, perguntas_medico, consultas } = report;
+    const { resumo_executivo, evolucao, correlacoes, perguntas_medico, consultas } = report;
     const perguntasNorm = Array.isArray(perguntas_medico) ? perguntas_medico.map(normalizePergunta) : [];
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
-    const alertas = Array.isArray(sinais_alerta) ? sinais_alerta.filter(a => a && (a.titulo || a.descricao)) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
     return (
       <div className="space-y-5">
-        {alertas.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(189,90,74,0.12)' }}>
-                <AlertTriangle size={15} style={{ color: '#BD5A4A' }} />
-              </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#BD5A4A' }}>Sinais de Alerta — procure atendimento se persistirem</h4>
-            </div>
-            <div className="space-y-1.5">
-              {alertas.map((a, idx) => (
-                <div key={idx} className="rounded-xl p-3"
-                  style={{ background: 'rgba(189,90,74,0.06)', border: '1px solid rgba(189,90,74,0.2)' }}>
-                  <p className="text-sm font-semibold text-[#2B2A28]">
-                    {a.titulo || `Sinal ${idx + 1}`}{a.data ? ` · ${a.data}` : ''}
-                  </p>
-                  {a.descricao && <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">{a.descricao}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {paragrafos.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -421,6 +387,7 @@ export default function RelatoriasIAScreen({ entries }) {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
                       {e.description && <p className="text-[11px] text-[#7D766A] mt-0.5 line-clamp-2">{e.description}</p>}
+                      {e.meta?.note && <p className="text-[11px] text-[#5B8C91] mt-0.5 italic line-clamp-2">{e.meta.note}</p>}
                       <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
                     </div>
                   </div>
@@ -603,22 +570,6 @@ export default function RelatoriasIAScreen({ entries }) {
       spacer(8);
     }
 
-    if (Array.isArray(r.sinais_alerta) && r.sinais_alerta.length > 0) {
-      heading('Sinais de Alerta — procure atendimento se persistirem', [189, 90, 74]);
-      r.sinais_alerta.forEach((a, i) => {
-        ensureSpace(24);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(43, 42, 40);
-        const titulo = `${i + 1}. ${a.titulo || ''}${a.data ? ' · ' + a.data : ''}`;
-        const tLines = doc.splitTextToSize(titulo, maxW);
-        tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
-        if (a.descricao) paragraph(a.descricao, [120, 70, 60]);
-        spacer(8);
-      });
-      spacer(4);
-    }
-
     if (Array.isArray(r.correlacoes) && r.correlacoes.length > 0) {
       heading('Correlações Encontradas', [201, 118, 58]);
       r.correlacoes.forEach((c, i) => {
@@ -700,6 +651,10 @@ export default function RelatoriasIAScreen({ entries }) {
         tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
         if (e.description) {
           paragraph(e.description, [125, 118, 106]);
+          spacer(4);
+        }
+        if (e.meta?.note) {
+          paragraph(e.meta.note, [91, 140, 145]);
           spacer(4);
         }
         spacer(6);
@@ -1087,16 +1042,6 @@ export default function RelatoriasIAScreen({ entries }) {
             ))}
           </div>
         )}
-
-        <label className="flex items-center gap-2 mt-3 cursor-pointer select-none"
-          title="Ativa 2 registros fictícios com sinais de alerta (sangue nas fezes, perda de peso) para validar o bloco de Sinais de Alerta da IA. Não afeta dados reais.">
-          <input type="checkbox" checked={redFlagTest} onChange={e => toggleRedFlag(e.target.checked)}
-            className="accent-[#BD5A4A]" />
-          <span className="text-sm text-[#4A443F] flex items-center gap-1.5">
-            <AlertTriangle size={14} style={{ color: '#BD5A4A' }} />
-            Modo teste: Sinais de Alerta
-          </span>
-        </label>
 
         <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
           <input type="checkbox" checked={compareMode} onChange={e => setCompareMode(e.target.checked)}

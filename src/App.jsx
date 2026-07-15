@@ -151,6 +151,10 @@ const OBSERVATION_PROMPTS = {
     titulo: 'Observações sobre a consulta',
     placeholder: 'Diagnóstico, orientações, prescrições, retorno… (ou use o microfone)',
   },
+  duvida: {
+    titulo: 'Dúvida ou observação',
+    placeholder: 'Ex: quero perguntar ao médico se isso pode ser intolerância… (ou use o microfone)',
+  },
 };
 
 // ─── Aulas (vídeo-aulas) — FASE 1: dados mockados ────────────────────────────
@@ -3728,8 +3732,9 @@ export default function App() {
     const now  = new Date();
     const timeExpr = ts && ts.time ? ts.time : `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     const dayExpr  = ts && ts.day  ? ts.day  : 'hoje';
+    const timestamp = ts?.ts || now.getTime();
     idRef.current += 1;
-    setEntries((prev) => [...prev, { id: idRef.current, day: dayExpr, time: timeExpr, type, ...data }]);
+    setEntries((prev) => [...prev, { id: idRef.current, ts: timestamp, day: dayExpr, time: timeExpr, type, ...data }]);
   }
 
   // Passo 1: ao salvar, abre a etapa de observação (empurrão suave) em vez de

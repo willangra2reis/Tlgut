@@ -680,7 +680,6 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
   const effectiveReport = stillTruncated ? null : recovered;
 
   const canPDF = !isRaw && !isTruncated && effectiveReport && effectiveReport.resumo_executivo;
-  const alertas = effectiveReport ? (Array.isArray(effectiveReport.sinais_alerta) ? effectiveReport.sinais_alerta : []) : [];
   const perguntas = effectiveReport ? (Array.isArray(effectiveReport.perguntas_medico) ? effectiveReport.perguntas_medico.map(normalizePergunta) : []) : [];
   const resumo = effectiveReport && typeof effectiveReport.resumo_executivo === 'string' ? effectiveReport.resumo_executivo : '';
 
@@ -717,30 +716,6 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
 
   return (
     <div className="space-y-3">
-      {/* Sinais de Alerta */}
-      {alertas.length > 0 && (
-        <div className="rounded-2xl border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
-          style={{ borderColor: 'rgba(189,90,74,0.3)', background: '#FDF8F6' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={16} style={{ color: '#BD5A4A' }} />
-            <p className="text-sm font-semibold text-[#BD5A4A]">Sinais de Alerta</p>
-          </div>
-          <div className="space-y-2">
-            {alertas.map((s, i) => (
-              <div key={i} className="border rounded-xl p-2.5"
-                style={{ borderColor: 'rgba(189,90,74,0.25)', background: '#FFFFFF' }}>
-                <p className="text-sm font-medium text-[#2B2A28]">{s.titulo}</p>
-                {s.descricao && <p className="text-xs mt-1" style={{ color: '#7D766A' }}>{s.descricao}</p>}
-                {s.data && <p className="text-[11px] mt-1 text-[#9A938A]">{s.data}</p>}
-              </div>
-            ))}
-          </div>
-          <p className="text-[11px] mt-2 leading-snug" style={{ color: '#BD5A4A' }}>
-            Estes pontos são apenas alertas para uma conversa cuidadosa com seu médico. Não substituem avaliação profissional.
-          </p>
-        </div>
-      )}
-
       {/* Resumo Executivo */}
       {resumo && (
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
@@ -841,6 +816,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
                     {e.description && <p className="text-[11px] text-[#7D766A] mt-0.5 line-clamp-2">{e.description}</p>}
+                    {e.meta?.note && <p className="text-[11px] text-[#5B8C91] mt-0.5 italic line-clamp-2">{e.meta.note}</p>}
                     <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
                   </div>
                 </div>
@@ -988,20 +964,6 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
   doc.line(margin, y, pageW - margin, y);
   y += 16;
 
-  // Sinais de Alerta
-  const alertas = Array.isArray(report.sinais_alerta) ? report.sinais_alerta : [];
-  if (alertas.length > 0) {
-    heading('Sinais de Alerta', '#BD5A4A');
-    alertas.forEach((s) => {
-      paragraph(s.titulo || '', '#2B2A28');
-      if (s.descricao) microLine(s.descricao);
-      if (s.data) microLine(`Data: ${s.data}`);
-      spacer(6);
-    });
-    microLine('Estes pontos são alertas para uma conversa cuidadosa com seu médico. Não substituem avaliação profissional.');
-    spacer(8);
-  }
-
   // Resumo Executivo
   const resumo = typeof report.resumo_executivo === 'string' ? report.resumo_executivo : '';
   if (resumo) {
@@ -1077,6 +1039,10 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
       tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
       if (e.description) {
         paragraph(e.description, [125, 118, 106]);
+        spacer(4);
+      }
+      if (e.meta?.note) {
+        paragraph(e.meta.note, '#5B8C91');
         spacer(4);
       }
       spacer(6);

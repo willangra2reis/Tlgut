@@ -170,11 +170,10 @@ export function dorPorRegiao(history) {
   const counts = {};
   history.forEach((e) => {
     if (e.type !== 'pain') return;
-    if (e.organ) { counts[e.organ] = (counts[e.organ] || 0) + 1; return; }
-    if (e.meta?.organ) { counts[e.meta.organ] = (counts[e.meta.organ] || 0) + 1; return; }
-    (e.meta?.clouds || []).forEach(c => {
-      if (c.organ) counts[c.organ] = (counts[c.organ] || 0) + 1;
-    });
+    const add = (id) => { if (id) counts[id] = (counts[id] || 0) + 1; };
+    add(e.region || e.organ);
+    add(e.meta?.region || e.meta?.organ);
+    (e.meta?.clouds || []).forEach(c => add(c.region || c.organ));
   });
   return counts;
 }
