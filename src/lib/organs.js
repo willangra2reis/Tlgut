@@ -6,29 +6,31 @@
 // selecione a região no dropdown e toque a silhueta fechada para capturar coordenadas.
 
 export const REGION_LABELS = {
-  regiao_sup_esq:    'Lado superior esquerdo',
-  regiao_sup_dir:    'Lado superior direito',
-  regiao_sup_centro: 'Região superior central',
-  regiao_centro:     'Centro do abdômen',
-  regiao_inf_esq:    'Lado inferior esquerdo do abdômen',
-  regiao_inf_dir:    'Lado inferior direito do abdômen',
-  regiao_inf_centro: 'Região inferior central do abdômen',
-  regiao_peito:      'Região peitoral',
-  regiao_dorsal:     'Região dorsal',
+  regiao_peitoral_esq:   'Região peitoral esquerda',
+  regiao_peitoral_dir:   'Região peitoral direita',
+  regiao_peitoral_centro: 'Região peitoral central',
+  regiao_sup_esq:        'Lado superior esquerdo',
+  regiao_sup_dir:        'Lado superior direito',
+  regiao_sup_centro:     'Região superior central',
+  regiao_centro:         'Centro do abdômen',
+  regiao_inf_esq:        'Lado inferior esquerdo do abdômen',
+  regiao_inf_dir:        'Lado inferior direito do abdômen',
+  regiao_inf_centro:     'Região inferior central do abdômen',
 };
 
-// Pontos calibrados provisórios (centroides aproximados).
-// RECALIBRAR via Ctrl+Shift+K antes do release — usar a silhueta fechada.
+// Pontos calibrados (centroides) — gerados via Ctrl+Shift+K em 15/07/2026.
+// Recalibrar se a silhueta for substituída ou reposicionada.
 export const REGION_POINTS = {
-  regiao_sup_esq:    [[38, 30]],
-  regiao_sup_dir:    [[62, 30]],
-  regiao_sup_centro: [[50, 28]],
-  regiao_centro:     [[50, 50]],
-  regiao_inf_esq:    [[35, 75]],
-  regiao_inf_dir:    [[65, 75]],
-  regiao_inf_centro: [[50, 80]],
-  regiao_peito:      [[50, 18]],
-  regiao_dorsal:     [[50, 42]],
+  regiao_peitoral_esq:   [[32.5, 43.2]],
+  regiao_peitoral_dir:   [[66.2, 42.2]],
+  regiao_peitoral_centro: [[48.7, 41.6]],
+  regiao_sup_esq:        [[34.1, 59.3]],
+  regiao_sup_dir:        [[66.3, 59.4]],
+  regiao_sup_centro:     [[50.6, 56.9]],
+  regiao_centro:         [[51.2, 67.3]],
+  regiao_inf_esq:        [[35.7, 74.2]],
+  regiao_inf_dir:        [[67.6, 73.7]],
+  regiao_inf_centro:     [[52.7, 76.9]],
 };
 
 // Compatibilidade: mapeia ids de órgãos legados (salvos em clouds antigas) → novas regiões.
@@ -44,6 +46,12 @@ export const ORGAN_LEGACY_TO_REGION = {
   colon_sig:         'regiao_inf_esq',
   apendice:          'regiao_inf_dir',
   reto:              'regiao_inf_centro',
+};
+
+// Compatibilidade: mapeia IDs de regiões legadas (removidas) → regiões atuais.
+export const REGION_LEGACY_TO_REGION = {
+  regiao_peito:  'regiao_peitoral_centro',
+  regiao_dorsal: 'regiao_inf_centro',
 };
 
 export const REGION_ZONES = Object.entries(REGION_POINTS).flatMap(([id, pts]) =>
@@ -76,6 +84,10 @@ export function resolveRegionLabel(cloud) {
   if (!cloud) return { id: null, label: 'Região marcada' };
   if (cloud.region && REGION_LABELS[cloud.region]) {
     return { id: cloud.region, label: REGION_LABELS[cloud.region] };
+  }
+  if (cloud.region && REGION_LEGACY_TO_REGION[cloud.region]) {
+    const mapped = REGION_LEGACY_TO_REGION[cloud.region];
+    return { id: mapped, label: REGION_LABELS[mapped] || 'Região marcada' };
   }
   if (cloud.organ) {
     const mapped = ORGAN_LEGACY_TO_REGION[cloud.organ];

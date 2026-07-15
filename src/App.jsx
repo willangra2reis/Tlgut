@@ -328,7 +328,7 @@ function tipoDeVideo(url) {
 
 // ─── Digestive image (silhueta fechada — sem órgãos) ─────────────────────────
 const DIGESTIVE_IMAGE = digestiveClosedImage;
-import { REGION_LIST, REGION_POINTS, ORGAN_LEGACY_TO_REGION, nearestRegion, resolveRegionLabel } from './lib/organs.js';
+import { REGION_LIST, REGION_POINTS, REGION_LEGACY_TO_REGION, ORGAN_LEGACY_TO_REGION, nearestRegion, resolveRegionLabel } from './lib/organs.js';
 
 const INITIAL_ENTRIES = [
   { id: 1, day: 'hoje',  time: '07:43', type: 'meal',     title: 'Café da manhã',  description: '2 fatias de bolo de chocolate' },
@@ -1181,10 +1181,11 @@ function CrossCard({ titulo, explicacao, children }) {
 // marcadas ao longo do tempo, numa janela deslizante (RF 9.7).
 function PainScrubber({ history, onScrub }) {
   const pains = useMemo(() => history
-    .filter((e) => e.type === 'pain' && (e.organ || e.meta?.clouds?.[0]?.organ))
+    .filter((e) => e.type === 'pain' && (e.organ || e.meta?.clouds?.[0]?.organ || e.meta?.clouds?.[0]?.region))
     .map((e) => {
-      const organ = e.organ || e.meta?.clouds?.[0]?.organ;
-      const mapped = ORGAN_LEGACY_TO_REGION[organ] || organ;
+      const cloud = e.meta?.clouds?.[0] || {};
+      const organ = e.organ || cloud.organ || cloud.region;
+      const mapped = ORGAN_LEGACY_TO_REGION[organ] || REGION_LEGACY_TO_REGION[organ] || organ;
       const pts = REGION_POINTS[mapped];
       if (!pts || !pts.length) return null;
       const [x, y] = pts[Math.abs(Math.floor(e.ts / 60000)) % pts.length];
@@ -1712,7 +1713,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
 
 // ─── Calibração de pontos de dor (FERRAMENTA TEMPORÁRIA / DEV) ─────────────────
 // Permite tocar na silhueta fechada e capturar coordenadas (cx, cy em %) das
-// 9 REGIÕES corporais genéricas (conformidade bem-estar). Ativação: Ctrl+Shift+K.
+// 10 REGIÕES corporais genéricas (conformidade bem-estar). Ativação: Ctrl+Shift+K.
 function CalibrationOverlay({ onClose }) {
   const boxRef = useRef(null);
   const [regionId, setRegionId] = useState(REGION_LIST[0].id);

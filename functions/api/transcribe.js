@@ -35,9 +35,13 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ error: 'Áudio vazio.' }, { status: 400 });
     }
 
-    // Converte de maneira eficiente o Buffer para um Array normal
-    // sem estourar a pilha de execução / memória do Worker
-    const audioArray = Array.from(new Uint8Array(audioBuffer));
+    // Converte ArrayBuffer para base64 (Web API nativa, sem Buffer)
+    const bytes = new Uint8Array(audioBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const audioBase64 = btoa(binary);
 
     let result;
     try {
@@ -45,16 +49,16 @@ export async function onRequestPost({ request, env }) {
       result = await env.AI.run(
         '@cf/openai/whisper-large-v3-turbo',
         {
-          audio: audioArray,
+          audio: audioBase64,
         }
       );
     } catch (turboErr) {
       console.warn('[transcribe] Whisper-large-v3-turbo falhou, tentando fallback para whisper standard:', turboErr);
-      // Fallback para o modelo whisper padrão caso o turbo esteja indisponível ou fora do ar
+      // Fallback para o modelo whisper padrão
       result = await env.AI.run(
         '@cf/openai/whisper',
         {
-          audio: audioArray,
+          audio: audioBase64,
         }
       );
     }

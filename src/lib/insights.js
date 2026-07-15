@@ -6,7 +6,7 @@
 export const HORA = 3600 * 1000;
 export const DIA = 24 * HORA;
 
-const REGIOES_DOR = ['regiao_sup_esq', 'regiao_inf_esq', 'regiao_centro', 'regiao_inf_dir', 'regiao_sup_dir'];
+const REGIOES_DOR = ['regiao_peitoral_esq', 'regiao_peitoral_dir', 'regiao_peitoral_centro', 'regiao_sup_esq', 'regiao_sup_dir', 'regiao_sup_centro', 'regiao_centro', 'regiao_inf_esq', 'regiao_inf_dir', 'regiao_inf_centro'];
 
 // PRNG determinístico (mulberry32) — mock reproduzível a partir de uma seed.
 function mulberry32(seed) {
