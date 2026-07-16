@@ -349,8 +349,28 @@ export default function RelatorioExpressScreen({ entries }) {
         const parsed = extractReportFromRaw(rel) || { resumo_executivo: rel, correlacoes: [] };
         rel = parsed;
       }
-      const discutirSnapshot = Array.isArray(entries) ? entries.filter(e => e.meta?.discutir_consulta) : [];
-      const relWithSnapshot = { ...rel, _discutirEntries: discutirSnapshot };
+      const discutirEntriesFromExpress = [];
+      clouds.forEach((c, idx) => {
+        const label = c.regionLabel || c.organLabel || c.organ || 'Região marcada';
+        const parts = [`Dor na região: ${label}`];
+        if (intensity != null) parts.push(`Intensidade: ${intensity}/10`);
+        if (kinds.size > 0) parts.push(`Tipo: ${Array.from(kinds).join(', ')}`);
+        discutirEntriesFromExpress.push({
+          id: `express_dor_${idx}_${Date.now()}`,
+          title: 'Dor registrada',
+          description: parts.join(' · '),
+          meta: { prioridade: 3 }
+        });
+      });
+      duvidasExtraidas.forEach((d, idx) => {
+        discutirEntriesFromExpress.push({
+          id: `express_duvida_${idx}_${Date.now()}`,
+          title: 'Dúvida ou observação',
+          description: d,
+          meta: { prioridade: 3 }
+        });
+      });
+      const relWithSnapshot = { ...rel, _discutirEntries: discutirEntriesFromExpress };
       setReport(relWithSnapshot);
       const { saved } = saveReport({ type: 'express', report: relWithSnapshot });
       if (saved) {
@@ -819,7 +839,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
                     <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
                     {e.description && <p className="text-[11px] text-[#7D766A] mt-0.5 line-clamp-2">{e.description}</p>}
                     {e.meta?.note && <p className="text-[11px] text-[#5B8C91] mt-0.5 italic line-clamp-2">{e.meta.note}</p>}
-                    <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
+                    {e.day && e.time && <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>}
                   </div>
                 </div>
               );
@@ -1001,7 +1021,8 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(43, 42, 40);
-      const titulo = `${e.title || e.type || 'Registro'}  ·  Prioridade ${prio}/5  ·  ${e.day === 'hoje' ? 'Hoje' : 'Ontem'} ${e.time}`;
+      const quando = e.day && e.time ? `  ·  ${e.day === 'hoje' ? 'Hoje' : 'Ontem'} ${e.time}` : '';
+      const titulo = `${e.title || e.type || 'Registro'}  ·  Prioridade ${prio}/5${quando}`;
       const tLines = doc.splitTextToSize(titulo, maxW);
       tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
       if (e.description) {
