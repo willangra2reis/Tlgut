@@ -349,28 +349,17 @@ export default function RelatorioExpressScreen({ entries }) {
         const parsed = extractReportFromRaw(rel) || { resumo_executivo: rel, correlacoes: [] };
         rel = parsed;
       }
-      const discutirEntriesFromExpress = [];
-      clouds.forEach((c, idx) => {
-        const label = c.regionLabel || c.organLabel || c.organ || 'Região marcada';
-        const parts = [`Dor na região: ${label}`];
-        if (intensity != null) parts.push(`Intensidade: ${intensity}/10`);
-        if (kinds.size > 0) parts.push(`Tipo: ${Array.from(kinds).join(', ')}`);
-        discutirEntriesFromExpress.push({
-          id: `express_dor_${idx}_${Date.now()}`,
-          title: 'Dor registrada',
-          description: parts.join(' · '),
-          meta: { prioridade: 3 }
-        });
-      });
-      duvidasExtraidas.forEach((d, idx) => {
-        discutirEntriesFromExpress.push({
-          id: `express_duvida_${idx}_${Date.now()}`,
-          title: 'Dúvida ou observação',
-          description: d,
-          meta: { prioridade: 3 }
-        });
-      });
-      const relWithSnapshot = { ...rel, _discutirEntries: discutirEntriesFromExpress };
+      const discutirEntriesFromExpress = duvidasExtraidas.map((d, idx) => ({
+        id: `express_duvida_${idx}_${Date.now()}`,
+        title: 'Dúvida ou observação',
+        description: d,
+        meta: { prioridade: 3 }
+      }));
+      const relWithSnapshot = {
+        ...rel,
+        _discutirEntries: discutirEntriesFromExpress,
+        _painMap: clouds.length > 0 ? { clouds, intensity, kinds: Array.from(kinds) } : null,
+      };
       setReport(relWithSnapshot);
       const { saved } = saveReport({ type: 'express', report: relWithSnapshot });
       if (saved) {
@@ -701,6 +690,12 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
   const stillTruncated = (recovered === report) && !!report?.truncated;
   const effectiveReport = stillTruncated ? null : recovered;
 
+  // Usar snapshot de mapa de dor salvo com o relatório, se existir
+  const pm = report._painMap;
+  const effClouds = pm ? pm.clouds : clouds;
+  const effIntensity = pm ? pm.intensity : intensity;
+  const effKinds = pm ? (Array.isArray(pm.kinds) ? new Set(pm.kinds) : new Set()) : kinds;
+
   const canPDF = !isRaw && !isTruncated && effectiveReport && effectiveReport.resumo_executivo;
   const resumo = effectiveReport && typeof effectiveReport.resumo_executivo === 'string' ? effectiveReport.resumo_executivo : '';
 
@@ -753,7 +748,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
       )}
 
       {/* Onde a dor aparece */}
-      {clouds && clouds.length > 0 && (
+      {effClouds && effClouds.length > 0 && (
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
           style={{ borderColor: SOFT_BORDER }}>
           <div className="flex items-center gap-2 mb-2">
@@ -766,7 +761,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
             <div className="relative mx-auto shrink-0" style={{ width: 160, aspectRatio: '374/740' }}>
               <img src={digestiveClosedImage} alt="Mapa de dor no corpo"
                 className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
-              {clouds.map((c, i) => (
+              {effClouds.map((c, i) => (
                 <span key={i} aria-label={c.organLabel || 'Dor'}
                   className="absolute rounded-full"
                   style={{
@@ -778,17 +773,17 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
               ))}
             </div>
             <div className="flex-1 min-w-0 space-y-1.5">
-              {clouds.map((c, i) => (
+              {effClouds.map((c, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-[#4A443F]">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'rgba(189,90,74,0.5)' }} />
                   <span className="font-medium text-[#2B2A28] shrink-0">{c.organLabel || c.organ || 'Região marcada'}</span>
                 </div>
               ))}
-              {intensity != null && (
-                <p className="text-xs text-[#7D766A] mt-1">Intensidade relatada: {intensity}/10</p>
+              {effIntensity != null && (
+                <p className="text-xs text-[#7D766A] mt-1">Intensidade relatada: {effIntensity}/10</p>
               )}
-              {kinds && kinds.size > 0 && (
-                <p className="text-xs text-[#7D766A]">Tipo de dor: {Array.from(kinds).join(', ')}</p>
+              {effKinds && effKinds.size > 0 && (
+                <p className="text-xs text-[#7D766A]">Tipo de dor: {Array.from(effKinds).join(', ')}</p>
               )}
             </div>
           </div>
@@ -853,13 +848,13 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
           style={{ borderColor: SOFT_BORDER }}>
           <div className="flex gap-2.5">
-            <button type="button" onClick={() => baixarPDFExpress(report, clouds, intensity, kinds, entries)}
+            <button type="button" onClick={() => baixarPDFExpress(report, effClouds, effIntensity, effKinds, entries)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Download size={16} />
               Baixar PDF
             </button>
-            <button type="button" onClick={() => compartilharPDFExpress(report, clouds, intensity, kinds, entries)}
+            <button type="button" onClick={() => compartilharPDFExpress(report, effClouds, effIntensity, effKinds, entries)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Share2 size={16} />
