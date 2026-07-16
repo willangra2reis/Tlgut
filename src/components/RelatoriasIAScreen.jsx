@@ -209,7 +209,7 @@ export default function RelatoriasIAScreen({ entries }) {
 
   function renderStructuredContent(report) {
     const { resumo_executivo, evolucao, correlacoes, consultas } = report;
-    const discutirSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : discutirEntries;
+    const discutirSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
     return (
@@ -568,7 +568,7 @@ export default function RelatoriasIAScreen({ entries }) {
     }
 
     // ── Discutir na consulta ──
-    const discutirPDF = Array.isArray(r._discutirEntries) ? r._discutirEntries : workingEntries.filter(e => e.meta?.discutir_consulta);
+    const discutirPDF = Array.isArray(r._discutirEntries) ? r._discutirEntries : [];
     if (discutirPDF.length > 0) {
       heading('Discutir na consulta', [74, 138, 92]);
       const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));

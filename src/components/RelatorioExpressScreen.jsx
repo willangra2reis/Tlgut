@@ -349,8 +349,10 @@ export default function RelatorioExpressScreen({ entries }) {
         const parsed = extractReportFromRaw(rel) || { resumo_executivo: rel, correlacoes: [] };
         rel = parsed;
       }
-      setReport(rel);
-      const { saved } = saveReport({ type: 'express', report: rel });
+      const discutirSnapshot = Array.isArray(entries) ? entries.filter(e => e.meta?.discutir_consulta) : [];
+      const relWithSnapshot = { ...rel, _discutirEntries: discutirSnapshot };
+      setReport(relWithSnapshot);
+      const { saved } = saveReport({ type: 'express', report: relWithSnapshot });
       if (saved) {
         setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
         const count = loadReports('express').length;
@@ -685,8 +687,9 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
   const [sortDiscussOrder, setSortDiscussOrder] = useState('cronologica');
 
   const discutirEntries = useMemo(() => {
-    if (!Array.isArray(entries)) return [];
-    const candidates = entries.filter(e => e.meta?.discutir_consulta);
+    const source = Array.isArray(report._discutirEntries) ? report._discutirEntries : entries;
+    if (!Array.isArray(source)) return [];
+    const candidates = source.filter(e => e.meta?.discutir_consulta);
     if (sortDiscussOrder === 'prioridade') {
       return [...candidates].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
     }
@@ -696,7 +699,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
       if (dayDiff !== 0) return dayDiff;
       return (a.time || '').localeCompare(b.time || '');
     });
-  }, [entries, sortDiscussOrder]);
+  }, [report._discutirEntries, entries, sortDiscussOrder]);
 
   // Relatório truncado sem recovery → mostrar aviso (como a tela IA)
   if (stillTruncated) {
@@ -988,7 +991,7 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
   }
 
   // Discutir na consulta
-  const discutirPDF = Array.isArray(entries) ? entries.filter(e => e.meta?.discutir_consulta) : [];
+  const discutirPDF = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
   if (discutirPDF.length > 0) {
     heading('Discutir na consulta', '#4A8A5C');
     const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
