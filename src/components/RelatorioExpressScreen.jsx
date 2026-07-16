@@ -272,11 +272,11 @@ export default function RelatorioExpressScreen({ entries }) {
   }, [recState, stopRecording]);
 
   // ── Tap handler para silhueta ───────────────────────────────────────────
-  const handleTap = useCallback(({ x, y, organ }) => {
+  const handleTap = useCallback(({ x, y, region }) => {
     setClouds((prev) => {
       const idx = prev.findIndex((c) => Math.abs(c.x - x) < 3 && Math.abs(c.y - y) < 3);
       if (idx !== -1) return prev.filter((_, i) => i !== idx);
-      return [...prev, { x, y, organ: organ.id, organLabel: organ.label }];
+      return [...prev, { x, y, region: region ? region.id : null, regionLabel: region ? region.label : null }];
     });
   }, []);
 
@@ -762,7 +762,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
               <img src={digestiveClosedImage} alt="Mapa de dor no corpo"
                 className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
               {effClouds.map((c, i) => (
-                <span key={i} aria-label={c.organLabel || 'Dor'}
+                <span key={i} aria-label={c.regionLabel || c.organLabel || 'Dor'}
                   className="absolute rounded-full"
                   style={{
                     left: `${c.x}%`, top: `${c.y}%`, width: 14, height: 14, transform: 'translate(-50%,-50%)',
@@ -776,7 +776,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
               {effClouds.map((c, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-[#4A443F]">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'rgba(189,90,74,0.5)' }} />
-                  <span className="font-medium text-[#2B2A28] shrink-0">{c.organLabel || c.organ || 'Região marcada'}</span>
+                  <span className="font-medium text-[#2B2A28] shrink-0">{c.regionLabel || c.organLabel || c.region || c.organ || 'Região marcada'}</span>
                 </div>
               ))}
               {effIntensity != null && (
@@ -981,7 +981,7 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 95);
     clouds.forEach((c) => {
-      const txt = c.organLabel || c.organ || 'Região marcada';
+      const txt = c.regionLabel || c.organLabel || c.region || c.organ || 'Região marcada';
       const lines = doc.splitTextToSize(txt, maxW);
       lines.forEach(l => { ensureSpace(12); doc.text(l, margin, y); y += 12; });
     });
