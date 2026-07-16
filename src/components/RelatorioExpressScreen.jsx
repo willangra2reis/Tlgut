@@ -884,22 +884,22 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
   const ensureSpace = (need) => {
     if (y + need > pageH - margin) { doc.addPage(); y = margin; }
   };
-  const heading = (text, color = '#2B2A28') => {
+  const heading = (text, color) => {
     ensureSpace(28);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
-    doc.setTextColor(color);
+    if (color) doc.setTextColor(color[0], color[1], color[2]);
     doc.text(text, margin, y + 14);
     y += 22;
-    doc.setDrawColor(color);
+    if (color) doc.setDrawColor(color[0], color[1], color[2]);
     doc.setLineWidth(1);
     doc.line(margin, y - 4, margin + 24, y - 4);
     y += 6;
   };
-  const paragraph = (text, fontColor = '#4A443F') => {
+  const paragraph = (text, fontColor) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
-    doc.setTextColor(fontColor);
+    if (fontColor) doc.setTextColor(fontColor[0], fontColor[1], fontColor[2]);
     const lines = doc.splitTextToSize(text, maxW);
     for (const ln of lines) {
       ensureSpace(16);
@@ -960,7 +960,7 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
     const imgW = 140;
     const imgH = imgW * 740 / 374;
     ensureSpace(imgH + 90);
-    heading('Onde a dor aparece', '#BD5A4A');
+    heading('Onde a dor aparece', [189, 90, 74]);
     const imgX = margin + (maxW - imgW) / 2;
     const imgY = y;
     if (digestiveImgEl && digestiveImgEl.complete && digestiveImgEl.naturalWidth > 0) {
@@ -1008,7 +1008,7 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
   // Discutir na consulta
   const discutirPDF = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
   if (discutirPDF.length > 0) {
-    heading('Discutir na consulta', '#4A8A5C');
+    heading('Discutir na consulta', [74, 138, 92]);
     const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
     sortedPDF.forEach((e) => {
       ensureSpace(30);
@@ -1025,7 +1025,7 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
         spacer(4);
       }
       if (e.meta?.note) {
-        paragraph(e.meta.note, '#5B8C91');
+        paragraph(e.meta.note, [91, 140, 145]);
         spacer(4);
       }
       spacer(6);
