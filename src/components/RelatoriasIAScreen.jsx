@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
-  Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, ClipboardList, X, Calendar,
+  Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, X, Calendar,
   Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle, Map,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -8,7 +8,7 @@ import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
 import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
 import { dorPorRegiao } from '../lib/insights.js';
 import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
-import { extractReportFromRaw, normalizePergunta, LOADING_FRASES } from '../lib/ai-report.js';
+import { extractReportFromRaw, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import PainHeatmap from './PainHeatmap.jsx';
@@ -47,12 +47,7 @@ export default function RelatoriasIAScreen({ entries }) {
   const [selectedModel, setSelectedModel] = useState(MODELO_PADRAO);
   const [periodo, setPeriodo] = useState(30);
   const [expandedCorr, setExpandedCorr] = useState({});
-  const [selectedQuestions, setSelectedQuestions] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('tlgut_selected_questions') || '[]'); }
-    catch { return []; }
-  });
   const [sortDiscussOrder, setSortDiscussOrder] = useState('cronologica');
-  const [consultaAberta, setConsultaAberta] = useState(false);
   const [votes, setVotes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('tlgut_model_votes') || '{}'); }
     catch { return {}; }
@@ -141,10 +136,6 @@ export default function RelatoriasIAScreen({ entries }) {
       const pr = loadProfile();
       if (pr && Object.keys(pr).length > 0) body.profile = pr;
     } catch {}
-    const duvidasPendentes = (Array.isArray(entries) ? entries : [])
-      .filter(e => e && e.type === 'duvida' && e.description && e.meta?.status !== 'resolvida')
-      .map(e => e.description);
-    if (duvidasPendentes.length > 0) body.duvidas = duvidasPendentes;
     const res = await fetch('/api/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -158,8 +149,6 @@ export default function RelatoriasIAScreen({ entries }) {
   }, [periodo, entries]);
 
   async function handleGerar() {
-    setSelectedQuestions([]);
-    localStorage.removeItem('tlgut_selected_questions');
     if (filteredEntries.length === 0) {
       setReports({ _empty: { error: 'Nenhum registro no período selecionado.' } });
       return;
@@ -188,10 +177,11 @@ export default function RelatoriasIAScreen({ entries }) {
       setReports({ [selectedModel]: { loading: true, report: null, error: null } });
       try {
         const r = await gerarRelatorio(filteredEntries, selectedModel);
-        setReports({ [selectedModel]: { loading: false, report: r.report, error: null } });
+        const reportWithSnapshot = { ...r.report, _discutirEntries: discutirEntries };
+        setReports({ [selectedModel]: { loading: false, report: reportWithSnapshot, error: null } });
         const periodStart = new Date(Date.now() - periodo * 86400000).toISOString().slice(0, 10);
         const periodEnd = new Date().toISOString().slice(0, 10);
-        const { saved } = saveReport({ type: 'ia', report: r.report, modelo: selectedModel, period_start: periodStart, period_end: periodEnd });
+        const { saved } = saveReport({ type: 'ia', report: reportWithSnapshot, modelo: selectedModel, period_start: periodStart, period_end: periodEnd });
         if (saved) {
           setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
           const allReports = loadReports('ia');
@@ -213,21 +203,13 @@ export default function RelatoriasIAScreen({ entries }) {
     localStorage.setItem('tlgut_model_votes', JSON.stringify(novosVotos));
   }
 
-  function toggleQuestao(pergunta) {
-    const next = selectedQuestions.includes(pergunta)
-      ? selectedQuestions.filter(q => q !== pergunta)
-      : [...selectedQuestions, pergunta];
-    setSelectedQuestions(next);
-    localStorage.setItem('tlgut_selected_questions', JSON.stringify(next));
-  }
-
   function toggleAccordion(idx) {
     setExpandedCorr(prev => ({ ...prev, [idx]: !prev[idx] }));
   }
 
   function renderStructuredContent(report) {
-    const { resumo_executivo, evolucao, correlacoes, perguntas_medico, consultas } = report;
-    const perguntasNorm = Array.isArray(perguntas_medico) ? perguntas_medico.map(normalizePergunta) : [];
+    const { resumo_executivo, evolucao, correlacoes, consultas } = report;
+    const discutirSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : discutirEntries;
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
     return (
@@ -349,7 +331,7 @@ export default function RelatoriasIAScreen({ entries }) {
         })()}
 
         {/* Eventos selecionados para discutir na consulta */}
-        {discutirEntries.length > 0 && (
+        {discutirSnapshot.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -372,7 +354,7 @@ export default function RelatoriasIAScreen({ entries }) {
               </div>
             </div>
             <div className="space-y-1.5">
-              {discutirEntries.map((e) => {
+              {discutirSnapshot.map((e) => {
                 const prio = e.meta?.prioridade || 3;
                 const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
                 return (
@@ -417,55 +399,6 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
 
-        {perguntasNorm.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(74,138,92,0.12)' }}>
-                <Stethoscope size={15} style={{ color: '#4A8A5C' }} />
-              </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#4A8A5C' }}>Perguntas para o Médico</h4>
-            </div>
-            <div className="space-y-1.5">
-              {perguntasNorm.map((item, idx) => {
-                const checked = selectedQuestions.includes(item.pergunta);
-                return (
-                  <label key={idx}
-                    className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors"
-                    style={{ background: checked ? 'rgba(74,138,92,0.08)' : 'transparent' }}>
-                    <input type="checkbox" checked={checked}
-                      onChange={() => toggleQuestao(item.pergunta)}
-                      className="mt-0.5 accent-[#4A8A5C]" />
-                    <div className="flex-1 min-w-0">
-                      {item.pergunta_original && (
-                        <div className="mb-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(107,91,149,0.08)' }}>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6B5B95' }}>Sua dúvida</p>
-                          <p className="text-[11px] italic" style={{ color: '#7D766A' }}>“{item.pergunta_original}”</p>
-                        </div>
-                      )}
-                      <span className="text-sm text-[#2B2A28] block">{item.pergunta}</span>
-                      {item.motivo && (
-                        <p className="text-[11px] text-[#7D766A] mt-1 leading-relaxed italic">{item.motivo}</p>
-                      )}
-                      {item.mecanismo_fisiologico && (
-                        <p className="text-[11px] text-[#5D5FA0] mt-1 leading-relaxed italic">
-                          <span className="font-semibold not-italic">Mecanismo:</span> {item.mecanismo_fisiologico}
-                        </p>
-                      )}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            {selectedQuestions.length > 0 && (
-              <button type="button" onClick={() => setConsultaAberta(true)}
-                className="mt-3 w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
-                style={{ background: 'var(--brand)', color: '#fff' }}>
-                <ClipboardList size={16} />
-                Abrir Modo Consulta ({selectedQuestions.length})
-              </button>
-            )}
-          </div>
-        )}
       </div>
     );
   }
@@ -635,7 +568,7 @@ export default function RelatoriasIAScreen({ entries }) {
     }
 
     // ── Discutir na consulta ──
-    const discutirPDF = workingEntries.filter(e => e.meta?.discutir_consulta);
+    const discutirPDF = Array.isArray(r._discutirEntries) ? r._discutirEntries : workingEntries.filter(e => e.meta?.discutir_consulta);
     if (discutirPDF.length > 0) {
       heading('Discutir na consulta', [74, 138, 92]);
       const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
@@ -680,53 +613,6 @@ export default function RelatoriasIAScreen({ entries }) {
       spacer(8);
     }
 
-    const perguntas = Array.isArray(r.perguntas_medico) ? r.perguntas_medico.map(normalizePergunta).filter(p => p.pergunta) : [];
-    if (perguntas.length > 0) {
-      heading('Perguntas para o Médico', [74, 138, 92]);
-      perguntas.forEach((item, i) => {
-        ensureSpace(20);
-        if (item.pergunta_original) {
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(8);
-          doc.setTextColor(107, 91, 149);
-          const poLines = doc.splitTextToSize(`Sua dúvida: "${item.pergunta_original}"`, maxW - 12);
-          poLines.forEach(l => { ensureSpace(11); doc.text(l, margin + 12, y); y += 11; });
-        }
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(43, 42, 40);
-        const qLines = doc.splitTextToSize(`${i + 1}. ${item.pergunta}`, maxW);
-        qLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
-        if (item.motivo) {
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(9);
-          doc.setTextColor(125, 118, 106);
-          const mLines = doc.splitTextToSize(item.motivo, maxW - 12);
-          mLines.forEach(l => { ensureSpace(12); doc.text(l, margin + 12, y); y += 12; });
-        }
-        if (item.mecanismo_fisiologico) {
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(9);
-          doc.setTextColor(93, 95, 160);
-          const mekLines = doc.splitTextToSize('Mecanismo: ' + item.mecanismo_fisiologico, maxW - 12);
-          mekLines.forEach((ln, idx) => {
-            ensureSpace(12);
-            if (idx === 0) {
-              doc.setFont('helvetica', 'bolditalic');
-              doc.text('Mecanismo: ', margin + 12, y);
-              const labelW = doc.getTextWidth('Mecanismo: ');
-              doc.setFont('helvetica', 'italic');
-              doc.text(ln.slice('Mecanismo: '.length), margin + 12 + labelW, y);
-            } else {
-              doc.setFont('helvetica', 'italic');
-              doc.text(ln, margin + 12, y);
-            }
-            y += 12;
-          });
-        }
-        spacer(10);
-      });
-    }
 
     ensureSpace(20);
     y += 4;
@@ -900,7 +786,6 @@ export default function RelatoriasIAScreen({ entries }) {
     const isTruncated = (recoveredReport === report) && !!report?.truncated;
     const effectiveReport = isTruncated ? null : recoveredReport;
     const isRaw = effectiveReport?.isRaw;
-    const perguntasNorm = effectiveReport && Array.isArray(effectiveReport.perguntas_medico) ? effectiveReport.perguntas_medico.map(normalizePergunta) : [];
 
     if (loading) {
       return (
@@ -957,22 +842,6 @@ export default function RelatoriasIAScreen({ entries }) {
                   <div>
                     <h5 className="text-[10px] font-semibold uppercase tracking-wider text-[#7D766A] mb-0.5">Resumo</h5>
                     <p className="text-xs leading-relaxed">{effectiveReport.resumo_executivo}</p>
-                  </div>
-                )}
-
-        {perguntasNorm.length > 0 && (
-                  <div>
-                    <h5 className="text-[10px] font-semibold uppercase tracking-wider text-[#7D766A] mb-0.5">Perguntas</h5>
-                    <ul className="list-disc list-inside text-xs space-y-1">
-                      {perguntasNorm.map((p, i) => (
-                        <li key={i}>
-                          {p.pergunta_original && (
-                            <span className="text-[10px] italic text-[#6B5B95] block">(({p.pergunta_original}))</span>
-                          )}
-                          {p.pergunta}
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 )}
               </div>
@@ -1133,50 +1002,6 @@ export default function RelatoriasIAScreen({ entries }) {
         <p className="text-[11px] text-[#7D766A] italic leading-snug">
           Relatório gerado por IA com base nos seus registros. Não substitui avaliação médica.
         </p>
-      )}
-
-      {consultaAberta && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setConsultaAberta(false)}>
-          <div className="w-full sm:max-w-lg max-h-[80vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-6"
-            style={{ background: '#FBF9F4' }}
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <ClipboardList size={20} style={{ color: '#4A8A5C' }} />
-                <h3 className="text-lg font-semibold text-[#2B2A28]">Modo Consulta</h3>
-              </div>
-              <button type="button" onClick={() => setConsultaAberta(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#EBE7DD] transition-colors">
-                <X size={18} style={{ color: '#7D766A' }} />
-              </button>
-            </div>
-            <p className="text-sm text-[#4A443F] mb-4">
-              Perguntas selecionadas para levar ao médico:
-            </p>
-            <div className="space-y-2">
-              {selectedQuestions.map((q, idx) => (
-                <div key={idx} className="flex items-start gap-2 px-3 py-2 rounded-xl"
-                  style={{ background: 'rgba(127,200,140,0.08)' }}>
-                  <CheckCircle2 size={16} className="mt-0.5 shrink-0" style={{ color: '#4A8A5C' }} />
-                  <span className="text-sm text-[#2B2A28]">{q}</span>
-                </div>
-              ))}
-            </div>
-            {selectedQuestions.length > 0 && (
-              <button type="button" onClick={() => {
-                const text = selectedQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n');
-                navigator.clipboard.writeText(text).catch(() => {});
-                setConsultaAberta(false);
-              }}
-                className="mt-4 w-full py-3 rounded-xl text-sm font-semibold transition-opacity hover:opacity-90"
-                style={{ background: 'var(--brand)', color: '#fff' }}>
-                Copiar perguntas
-              </button>
-            )}
-          </div>
-        </div>
       )}
 
       {/* Toast */}

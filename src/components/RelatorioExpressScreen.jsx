@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
-  AlertTriangle, Sparkles, Stethoscope, ChevronDown, RotateCcw, Mic, Download, Share2, X, Map, FileText, CheckCircle2,
+  AlertTriangle, Sparkles, Stethoscope, ChevronDown, Mic, Download, Share2, X, Map, FileText, CheckCircle2,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import Silhouette from './Silhouette.jsx';
-import { extractReportFromRaw, normalizePergunta } from '../lib/ai-report.js';
+import { extractReportFromRaw } from '../lib/ai-report.js';
 import { loadExpressDraft, saveExpressDraft, clearExpressDraft } from '../lib/express.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import { proximaConsulta } from '../lib/consulta.js';
@@ -344,9 +344,9 @@ export default function RelatorioExpressScreen({ entries }) {
       const data = await res.json();
       let rel = data?.report || data;
       if (rel && typeof rel === 'string' && !rel.startsWith('{')) {
-        rel = extractReportFromRaw(rel) || { resumo_executivo: rel, sinais_alerta: [], correlacoes: [], perguntas_medico: [] };
+        rel = extractReportFromRaw(rel) || { resumo_executivo: rel, correlacoes: [] };
       } else if (typeof rel === 'string') {
-        const parsed = extractReportFromRaw(rel) || { resumo_executivo: rel, sinais_alerta: [], correlacoes: [], perguntas_medico: [] };
+        const parsed = extractReportFromRaw(rel) || { resumo_executivo: rel, correlacoes: [] };
         rel = parsed;
       }
       setReport(rel);
@@ -680,7 +680,6 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
   const effectiveReport = stillTruncated ? null : recovered;
 
   const canPDF = !isRaw && !isTruncated && effectiveReport && effectiveReport.resumo_executivo;
-  const perguntas = effectiveReport ? (Array.isArray(effectiveReport.perguntas_medico) ? effectiveReport.perguntas_medico.map(normalizePergunta) : []) : [];
   const resumo = effectiveReport && typeof effectiveReport.resumo_executivo === 'string' ? effectiveReport.resumo_executivo : '';
 
   const [sortDiscussOrder, setSortDiscussOrder] = useState('cronologica');
@@ -823,41 +822,6 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
               );
             })}
           </div>
-        </div>
-      )}
-
-      {/* Perguntas para o Médico */}
-      {perguntas.length > 0 && (
-        <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
-          style={{ borderColor: SOFT_BORDER }}>
-          <div className="flex items-center gap-2 mb-2">
-            <RotateCcw size={16} style={{ color: 'var(--brand)' }} />
-            <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#4A8A5C' }}>Perguntas para o Médico</p>
-          </div>
-          <ol className="space-y-2">
-            {perguntas.map((p, i) => (
-              <li key={i} className="text-sm">
-                <div className="flex gap-2">
-                  <span className="shrink-0 font-semibold" style={{ color: 'var(--brand)' }}>{i + 1}.</span>
-                  <div>
-                    {p.pergunta_original && (
-                      <div className="mb-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(107,91,149,0.08)' }}>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#6B5B95' }}>Sua dúvida</p>
-                        <p className="text-[11px] italic" style={{ color: '#7D766A' }}>"{p.pergunta_original}"</p>
-                      </div>
-                    )}
-                    <p className="leading-snug" style={{ color: 'var(--ink, #4A443F)' }}>{p.pergunta}</p>
-                    {p.motivo && <p className="text-xs mt-0.5 leading-snug" style={{ color: '#9A938A' }}>{p.motivo}</p>}
-                    {p.mecanismo_fisiologico && (
-                      <p className="text-xs mt-1 leading-snug italic" style={{ color: '#5D5FA0' }}>
-                        <span className="font-semibold not-italic">Mecanismo:</span> {p.mecanismo_fisiologico}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ol>
         </div>
       )}
 
@@ -1050,70 +1014,6 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
     spacer(4);
   }
 
-  // Perguntas para o Médico
-  const perguntas = Array.isArray(report.perguntas_medico)
-    ? report.perguntas_medico.map(normalizePergunta)
-    : [];
-  if (perguntas.length > 0) {
-    heading('Perguntas para o Médico');
-    perguntas.forEach((p, i) => {
-      ensureSpace(28);
-      if (p.pergunta_original) {
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(9);
-        doc.setTextColor(107, 91, 149);
-        const poLines = doc.splitTextToSize(`Sua dúvida: "${p.pergunta_original}"`, maxW - 16);
-        poLines.forEach(l => { ensureSpace(12); doc.text(l, margin + 16, y + 11); y += 12; });
-      }
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor('#5E8A4E');
-      doc.text(`${i + 1}.`, margin, y + 11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor('#2B2A28');
-      const pLines = doc.splitTextToSize(p.pergunta, maxW - 16);
-      pLines.forEach((ln, idx) => {
-        ensureSpace(16);
-        doc.text(ln, margin + 16, y + 11);
-        y += 16;
-      });
-      if (p.motivo) {
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(10);
-        doc.setTextColor('#7D766A');
-        const mLines = doc.splitTextToSize(p.motivo, maxW - 16);
-        mLines.forEach((ln) => {
-          ensureSpace(14);
-          doc.text(ln, margin + 16, y + 11);
-          y += 14;
-        });
-      }
-      if (p.mecanismo_fisiologico) {
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(10);
-        doc.setTextColor('#5D5FA0');
-        const mekLabel = 'Mecanismo: ';
-        const mekText = p.mecanismo_fisiologico;
-        const mekLines = doc.splitTextToSize(mekLabel + mekText, maxW - 16);
-        mekLines.forEach((ln, idx) => {
-          ensureSpace(14);
-          if (idx === 0) {
-            doc.setFont('helvetica', 'bolditalic');
-            doc.text('Mecanismo: ', margin + 16, y + 11);
-            const labelW = doc.getTextWidth('Mecanismo: ');
-            doc.setFont('helvetica', 'italic');
-            const rest = ln.slice('Mecanismo: '.length);
-            doc.text(rest, margin + 16 + labelW, y + 11);
-          } else {
-            doc.setFont('helvetica', 'italic');
-            doc.text(ln, margin + 16, y + 11);
-          }
-          y += 14;
-        });
-      }
-      spacer(6);
-    });
-  }
 
   // Rodapé
   spacer(16);

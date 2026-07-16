@@ -27,17 +27,6 @@ export function extractReportFromRaw(rawText) {
   return null;
 }
 
-export function normalizePergunta(item) {
-  if (typeof item === 'string') return { pergunta: item, motivo: '', mecanismo_fisiologico: '' };
-  if (item && typeof item === 'object') return {
-    pergunta: item.pergunta || '',
-    pergunta_original: typeof item.pergunta_original === 'string' ? item.pergunta_original : '',
-    motivo: item.motivo || '',
-    mecanismo_fisiologico: typeof item.mecanismo_fisiologico === 'string' ? item.mecanismo_fisiologico : '',
-  };
-  return { pergunta: '', motivo: '', mecanismo_fisiologico: '' };
-}
-
 export const LOADING_FRASES = [
   'Lendo todo o seu histórico...',
   'Analisando com profundidade...',
@@ -59,5 +48,4 @@ export const LOADING_FRASES = [
   'Observando sua evolução no período...',
   'Analisando variações de humor...',
   'Avaliando consistência dos registros...',
-  'Preparando perguntas para o médico...',
 ];
