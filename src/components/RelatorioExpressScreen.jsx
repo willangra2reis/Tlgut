@@ -9,6 +9,7 @@ import { loadExpressDraft, saveExpressDraft, clearExpressDraft } from '../lib/ex
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
+import { nearestRegion } from '../lib/organs.js';
 import mascoteImage from '../assets/mascote.png';
 import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
@@ -56,6 +57,23 @@ function extrairDuvidasDoRelato(texto) {
     if (duvida && duvida.length > 0) results.push(duvida);
   }
   return results;
+}
+
+// cloudLabel: resolve o rótulo da região de uma cloud (nova, legada ou sem label).
+// Prioriza labels salvos; se não houver, resolve via nearestRegion(x, y).
+function cloudLabel(c) {
+  if (!c) return 'Região marcada';
+  if (c.regionLabel) return c.regionLabel;
+  if (c.organLabel) return c.organLabel;
+  if (c.region || c.organ) {
+    const r = nearestRegion(c.x || 0, c.y || 0);
+    if (r && r.label) return r.label;
+  }
+  if (c.x != null && c.y != null) {
+    const r = nearestRegion(c.x, c.y);
+    if (r && r.label) return r.label;
+  }
+  return 'Região marcada';
 }
 
 const KIND_OPTIONS = ['Cólica', 'Queimação', 'Pressão', 'Pontada', 'Distensão'];
@@ -762,7 +780,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
               <img src={digestiveClosedImage} alt="Mapa de dor no corpo"
                 className="absolute inset-0 w-full h-full object-contain select-none" draggable={false} />
               {effClouds.map((c, i) => (
-                <span key={i} aria-label={c.regionLabel || c.organLabel || 'Dor'}
+                <span key={i} aria-label={cloudLabel(c) || 'Dor'}
                   className="absolute rounded-full"
                   style={{
                     left: `${c.x}%`, top: `${c.y}%`, width: 14, height: 14, transform: 'translate(-50%,-50%)',
@@ -776,7 +794,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
               {effClouds.map((c, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-[#4A443F]">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'rgba(189,90,74,0.5)' }} />
-                  <span className="font-medium text-[#2B2A28] shrink-0">{c.regionLabel || c.organLabel || c.region || c.organ || 'Região marcada'}</span>
+                  <span className="font-medium text-[#2B2A28] shrink-0">{cloudLabel(c)}</span>
                 </div>
               ))}
               {effIntensity != null && (
@@ -981,7 +999,7 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 95);
     clouds.forEach((c) => {
-      const txt = c.regionLabel || c.organLabel || c.region || c.organ || 'Região marcada';
+      const txt = cloudLabel(c);
       const lines = doc.splitTextToSize(txt, maxW);
       lines.forEach(l => { ensureSpace(12); doc.text(l, margin, y); y += 12; });
     });
