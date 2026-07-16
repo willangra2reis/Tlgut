@@ -687,7 +687,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
   const [sortDiscussOrder, setSortDiscussOrder] = useState('cronologica');
 
   const discutirEntries = useMemo(() => {
-    const source = Array.isArray(report._discutirEntries) ? report._discutirEntries : entries;
+    const source = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
     if (!Array.isArray(source)) return [];
     const candidates = source.filter(e => e.meta?.discutir_consulta);
     if (sortDiscussOrder === 'prioridade') {
@@ -699,7 +699,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
       if (dayDiff !== 0) return dayDiff;
       return (a.time || '').localeCompare(b.time || '');
     });
-  }, [report._discutirEntries, entries, sortDiscussOrder]);
+  }, [report._discutirEntries, sortDiscussOrder]);
 
   // Relatório truncado sem recovery → mostrar aviso (como a tela IA)
   if (stillTruncated) {
