@@ -353,7 +353,7 @@ export default function RelatorioExpressScreen({ entries }) {
         id: `express_duvida_${idx}_${Date.now()}`,
         title: 'Dúvida ou observação',
         description: d,
-        meta: { prioridade: 3 }
+        meta: { prioridade: 3, discutir_consulta: true }
       }));
       const relWithSnapshot = {
         ...rel,
