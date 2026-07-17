@@ -59,21 +59,47 @@ function extrairDuvidasDoRelato(texto) {
   return results;
 }
 
+// cloudRegionId: resolve o id da região de uma cloud.
+function cloudRegionId(c) {
+  if (!c) return null;
+  if (c.region) return c.region;
+  if (c.organ) return c.organ;
+  if (c.x != null && c.y != null) {
+    const r = nearestRegion(c.x, c.y);
+    if (r && r.id) return r.id;
+  }
+  return null;
+}
+
 // cloudLabel: resolve o rótulo da região de uma cloud (nova, legada ou sem label).
 // Prioriza labels salvos; se não houver, resolve via nearestRegion(x, y).
 function cloudLabel(c) {
   if (!c) return 'Região marcada';
   if (c.regionLabel) return c.regionLabel;
   if (c.organLabel) return c.organLabel;
-  if (c.region || c.organ) {
-    const r = nearestRegion(c.x || 0, c.y || 0);
-    if (r && r.label) return r.label;
-  }
   if (c.x != null && c.y != null) {
     const r = nearestRegion(c.x, c.y);
     if (r && r.label) return r.label;
   }
   return 'Região marcada';
+}
+
+// uniqueRegions: retorna lista de regiões únicas (por id) com seus labels.
+// Evita repetir "Região superior central" quando há múltiplos pontos na mesma região.
+function uniqueRegions(clouds) {
+  if (!Array.isArray(clouds)) return [];
+  const seen = new Set();
+  const result = [];
+  clouds.forEach((c) => {
+    const id = cloudRegionId(c);
+    const label = cloudLabel(c);
+    const key = id || label;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push({ id, label });
+    }
+  });
+  return result;
 }
 
 const KIND_OPTIONS = ['Cólica', 'Queimação', 'Pressão', 'Pontada', 'Distensão'];
@@ -791,10 +817,10 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
               ))}
             </div>
             <div className="flex-1 min-w-0 space-y-1.5">
-              {effClouds.map((c, i) => (
+              {uniqueRegions(effClouds).map((r, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs text-[#4A443F]">
                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: 'rgba(189,90,74,0.5)' }} />
-                  <span className="font-medium text-[#2B2A28] shrink-0">{cloudLabel(c)}</span>
+                  <span className="font-medium text-[#2B2A28] shrink-0">{r.label}</span>
                 </div>
               ))}
               {effIntensity != null && (
@@ -998,9 +1024,8 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 95);
-    clouds.forEach((c) => {
-      const txt = cloudLabel(c);
-      const lines = doc.splitTextToSize(txt, maxW);
+    uniqueRegions(clouds).forEach((r) => {
+      const lines = doc.splitTextToSize(r.label, maxW);
       lines.forEach(l => { ensureSpace(12); doc.text(l, margin, y); y += 12; });
     });
     if (intensity != null) {
