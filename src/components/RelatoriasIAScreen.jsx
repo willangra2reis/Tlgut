@@ -177,7 +177,19 @@ export default function RelatoriasIAScreen({ entries }) {
       setReports({ [selectedModel]: { loading: true, report: null, error: null } });
       try {
         const r = await gerarRelatorio(filteredEntries, selectedModel);
-        const reportWithSnapshot = { ...r.report, _discutirEntries: discutirEntries };
+        const painCounts = dorPorRegiao(filteredEntries);
+        const painValores = Object.values(painCounts);
+        const painTotal = painValores.reduce((s, x) => s + x, 0);
+        const painMax = Math.max(1, ...painValores);
+        const painItems = REGION_CENTROIDES
+          .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
+          .filter(o => o.n > 0)
+          .sort((a, b) => b.n - a.n);
+        const reportWithSnapshot = {
+          ...r.report,
+          _discutirEntries: discutirEntries,
+          _painData: { painCounts, painItems, painTotal, painMax },
+        };
         setReports({ [selectedModel]: { loading: false, report: reportWithSnapshot, error: null } });
         const periodStart = new Date(Date.now() - periodo * 86400000).toISOString().slice(0, 10);
         const periodEnd = new Date().toISOString().slice(0, 10);
@@ -278,15 +290,23 @@ export default function RelatoriasIAScreen({ entries }) {
         )}
 
         {(() => {
-          const painCounts = dorPorRegiao(filteredEntries);
-          const valores = Object.values(painCounts);
-          const painTotal = valores.reduce((s, x) => s + x, 0);
+          const pd = report._painData;
+          let painItems, painTotal, painMax;
+          if (pd) {
+            painItems = pd.painItems;
+            painTotal = pd.painTotal;
+            painMax = pd.painMax;
+          } else {
+            const painCounts = dorPorRegiao(filteredEntries);
+            const valores = Object.values(painCounts);
+            painTotal = valores.reduce((s, x) => s + x, 0);
+            painMax = Math.max(1, ...valores);
+            painItems = REGION_CENTROIDES
+              .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
+              .filter(o => o.n > 0)
+              .sort((a, b) => b.n - a.n);
+          }
           if (painTotal === 0) return null;
-          const painMax = Math.max(1, ...valores);
-          const painItems = REGION_CENTROIDES
-            .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
-            .filter(o => o.n > 0)
-            .sort((a, b) => b.n - a.n);
           return (
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -518,15 +538,23 @@ export default function RelatoriasIAScreen({ entries }) {
       spacer(4);
     }
 
-    const painCounts = dorPorRegiao(workingEntries);
-    const painValores = Object.values(painCounts);
-    const painTotal = painValores.reduce((s, x) => s + x, 0);
-    if (painTotal > 0) {
-      const painMax = Math.max(1, ...painValores);
-      const painItems = REGION_CENTROIDES
+    const pd = r._painData;
+    let painItems, painTotal, painMax;
+    if (pd) {
+      painItems = pd.painItems;
+      painTotal = pd.painTotal;
+      painMax = pd.painMax;
+    } else {
+      const painCounts = dorPorRegiao(workingEntries);
+      const painValores = Object.values(painCounts);
+      painTotal = painValores.reduce((s, x) => s + x, 0);
+      painMax = Math.max(1, ...painValores);
+      painItems = REGION_CENTROIDES
         .map(o => ({ id: o.id, label: o.label, cx: o.cx, cy: o.cy, n: painCounts[o.id] || 0 }))
         .filter(o => o.n > 0)
         .sort((a, b) => b.n - a.n);
+    }
+    if (painTotal > 0) {
       const imgW = 140;
       const imgH = imgW * 740 / 374;
       ensureSpace(imgH + 90);
