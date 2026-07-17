@@ -227,6 +227,14 @@ export default function RelatoriasIAScreen({ entries }) {
     return next;
   });
 
+  // ── Exclusão de cards do PDF/Compartilhar ──────────────────────────────
+  const [excludedSet, setExcludedSet] = useState(() => new Set());
+  const toggleExclude = (id) => setExcludedSet(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
   function renderStructuredContent(report) {
     const { resumo_executivo, evolucao, correlacoes, consultas } = report;
     const rawSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
@@ -395,10 +403,16 @@ export default function RelatoriasIAScreen({ entries }) {
                 const prio = e.meta?.prioridade || 3;
                 const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
                 const expanded = expandSet.has(e.id);
+                const excluded = excludedSet.has(e.id);
                 const hasLong = (e.description?.length > 80) || (e.meta?.note?.length > 80);
                 return (
-                  <div key={e.id} className="rounded-xl p-3 flex items-start gap-3"
-                    style={{ background: 'rgba(74,138,92,0.04)', border: '1px solid rgba(74,138,92,0.15)' }}>
+                  <button type="button" key={e.id}
+                    onClick={() => toggleExclude(e.id)}
+                    className={`w-full rounded-xl p-3 flex items-start gap-3 text-left transition-all ${excluded ? 'opacity-35 scale-[0.98]' : ''}`}
+                    style={{
+                      background: excluded ? 'rgba(180,175,165,0.06)' : 'rgba(74,138,92,0.04)',
+                      border: excluded ? '1px solid rgba(180,175,165,0.3)' : '1px solid rgba(74,138,92,0.15)',
+                    }}>
                     <div className="flex gap-0.5 mt-0.5 shrink-0">
                       {[1, 2, 3, 4, 5].map((n) => (
                         <span key={n} className="w-1.5 h-1.5 rounded-full"
@@ -406,23 +420,27 @@ export default function RelatoriasIAScreen({ entries }) {
                       ))}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
+                      <p className="text-sm font-bold text-[#2B2A28]">{e.title || e.type}</p>
                       {e.description && (
-                        <p className={`text-[11px] text-[#7D766A] mt-0.5 ${expanded ? '' : 'line-clamp-2'}`}>{e.description}</p>
+                        <p className={`text-[13px] font-medium text-[#7D766A] mt-0.5 leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>{e.description}</p>
                       )}
                       {e.meta?.note && (
-                        <p className={`text-[11px] text-[#5B8C91] mt-0.5 italic ${expanded ? '' : 'line-clamp-2'}`}>{e.meta.note}</p>
+                        <p className={`text-[13px] font-medium text-[#5B8C91] mt-0.5 italic leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>{e.meta.note}</p>
                       )}
-                      <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
+                      <p className="text-[11px] text-[#B6AE9F] mt-1">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
                       {hasLong && (
-                        <button type="button" onClick={() => toggleExpand(e.id)}
-                          className="text-[10px] font-medium mt-0.5 transition-colors"
+                        <button type="button" onClick={(ev) => { ev.stopPropagation(); toggleExpand(e.id); }}
+                          className="text-[11px] font-semibold mt-0.5 transition-colors"
                           style={{ color: '#4A8A5C' }}>
                           {expanded ? 'Ver menos' : 'Ver mais'}
                         </button>
                       )}
+                      {excluded && (
+                        <p className="text-[10px] font-semibold uppercase tracking-wider mt-1"
+                          style={{ color: '#B6AE9F' }}>Excluído do PDF</p>
+                      )}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -626,7 +644,8 @@ export default function RelatoriasIAScreen({ entries }) {
     }
 
     // ── Discutir na consulta ──
-    const discutirPDF = Array.isArray(r._discutirEntries) ? r._discutirEntries : [];
+    const discutirAll = Array.isArray(r._discutirEntries) ? r._discutirEntries : [];
+    const discutirPDF = discutirAll.filter(e => !excludedSet.has(e.id));
     if (discutirPDF.length > 0) {
       heading('Discutir na consulta', [74, 138, 92]);
       const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
@@ -635,17 +654,25 @@ export default function RelatoriasIAScreen({ entries }) {
         const prio = e.meta?.prioridade || 3;
         const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
+        doc.setFontSize(12);
         doc.setTextColor(43, 42, 40);
         const titulo = `${e.title || e.type || 'Registro'}  ·  Prioridade ${prio}/5  ·  ${e.day === 'hoje' ? 'Hoje' : 'Ontem'} ${e.time}`;
         const tLines = doc.splitTextToSize(titulo, maxW);
-        tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        tLines.forEach(l => { ensureSpace(16); doc.text(l, margin, y); y += 16; });
         if (e.description) {
-          paragraph(e.description, [125, 118, 106]);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.setTextColor(125, 118, 106);
+          const dLines = doc.splitTextToSize(e.description, maxW);
+          dLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
           spacer(4);
         }
         if (e.meta?.note) {
-          paragraph(e.meta.note, [91, 140, 145]);
+          doc.setFont('helvetica', 'bolditalic');
+          doc.setFontSize(11);
+          doc.setTextColor(91, 140, 145);
+          const nLines = doc.splitTextToSize(e.meta.note, maxW);
+          nLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
           spacer(4);
         }
         spacer(6);
