@@ -406,9 +406,10 @@ export default function RelatoriasIAScreen({ entries }) {
                 const excluded = excludedSet.has(e.id);
                 const hasLong = (e.description?.length > 80) || (e.meta?.note?.length > 80);
                 return (
-                  <button type="button" key={e.id}
-                    onClick={() => toggleExclude(e.id)}
-                    className={`w-full rounded-xl p-3 flex items-start gap-3 text-left transition-all ${excluded ? 'opacity-35 scale-[0.98]' : ''}`}
+                  <div key={e.id} role="button" tabIndex={0}
+                    onClick={() => toggleExpand(e.id)}
+                    onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') toggleExpand(e.id); }}
+                    className={`w-full rounded-xl p-3 flex items-start gap-3 text-left transition-all cursor-pointer ${excluded ? 'opacity-35 scale-[0.98]' : ''}`}
                     style={{
                       background: excluded ? 'rgba(180,175,165,0.06)' : 'rgba(74,138,92,0.04)',
                       border: excluded ? '1px solid rgba(180,175,165,0.3)' : '1px solid rgba(74,138,92,0.15)',
@@ -420,7 +421,18 @@ export default function RelatoriasIAScreen({ entries }) {
                       ))}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-[#2B2A28]">{e.title || e.type}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-bold text-[#2B2A28]">{e.title || e.type}</p>
+                        <button type="button" onClick={(ev) => { ev.stopPropagation(); toggleExclude(e.id); }}
+                          className="text-[10px] font-semibold whitespace-nowrap shrink-0 px-2 py-0.5 rounded transition-colors"
+                          style={{
+                            color: excluded ? '#4A8A5C' : '#B6AE9F',
+                            border: '1px solid',
+                            borderColor: excluded ? '#4A8A5C' : '#B6AE9F',
+                          }}>
+                          {excluded ? 'Incluir no PDF' : 'Excluir do PDF'}
+                        </button>
+                      </div>
                       {e.description && (
                         <p className={`text-[13px] font-medium text-[#7D766A] mt-0.5 leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>{e.description}</p>
                       )}
@@ -429,18 +441,17 @@ export default function RelatoriasIAScreen({ entries }) {
                       )}
                       <p className="text-[11px] text-[#B6AE9F] mt-1">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
                       {hasLong && (
-                        <button type="button" onClick={(ev) => { ev.stopPropagation(); toggleExpand(e.id); }}
-                          className="text-[11px] font-semibold mt-0.5 transition-colors"
+                        <span className="text-[11px] font-semibold mt-0.5 inline-block cursor-pointer transition-colors"
                           style={{ color: '#4A8A5C' }}>
                           {expanded ? 'Ver menos' : 'Ver mais'}
-                        </button>
+                        </span>
                       )}
                       {excluded && (
                         <p className="text-[10px] font-semibold uppercase tracking-wider mt-1"
                           style={{ color: '#B6AE9F' }}>Excluído do PDF</p>
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
