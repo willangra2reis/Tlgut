@@ -219,11 +219,28 @@ export default function RelatoriasIAScreen({ entries }) {
     setExpandedCorr(prev => ({ ...prev, [idx]: !prev[idx] }));
   }
 
+  // ── Expansão de texto nos cards discutir ─────────────────────────────────
+  const [expandSet, setExpandSet] = useState(/* new Set */ () => new Set());
+  const toggleExpand = (id) => setExpandSet(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
   function renderStructuredContent(report) {
     const { resumo_executivo, evolucao, correlacoes, consultas } = report;
-    const discutirSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
+    const rawSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
+    const discutirSnapshot = [...rawSnapshot].sort((a, b) => {
+      if (sortDiscussOrder === 'prioridade') {
+        return (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1);
+      }
+      const dayScale = { hoje: 1, ontem: 0 };
+      const dayDiff = (dayScale[a.day] || 0) - (dayScale[b.day] || 0);
+      if (dayDiff !== 0) return dayDiff;
+      return (a.time || '').localeCompare(b.time || '');
+    });
     return (
       <div className="space-y-5">
         {paragrafos.length > 0 && (
@@ -377,6 +394,8 @@ export default function RelatoriasIAScreen({ entries }) {
               {discutirSnapshot.map((e) => {
                 const prio = e.meta?.prioridade || 3;
                 const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
+                const expanded = expandSet.has(e.id);
+                const hasLong = (e.description?.length > 80) || (e.meta?.note?.length > 80);
                 return (
                   <div key={e.id} className="rounded-xl p-3 flex items-start gap-3"
                     style={{ background: 'rgba(74,138,92,0.04)', border: '1px solid rgba(74,138,92,0.15)' }}>
@@ -388,9 +407,20 @@ export default function RelatoriasIAScreen({ entries }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
-                      {e.description && <p className="text-[11px] text-[#7D766A] mt-0.5 line-clamp-2">{e.description}</p>}
-                      {e.meta?.note && <p className="text-[11px] text-[#5B8C91] mt-0.5 italic line-clamp-2">{e.meta.note}</p>}
+                      {e.description && (
+                        <p className={`text-[11px] text-[#7D766A] mt-0.5 ${expanded ? '' : 'line-clamp-2'}`}>{e.description}</p>
+                      )}
+                      {e.meta?.note && (
+                        <p className={`text-[11px] text-[#5B8C91] mt-0.5 italic ${expanded ? '' : 'line-clamp-2'}`}>{e.meta.note}</p>
+                      )}
                       <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
+                      {hasLong && (
+                        <button type="button" onClick={() => toggleExpand(e.id)}
+                          className="text-[10px] font-medium mt-0.5 transition-colors"
+                          style={{ color: '#4A8A5C' }}>
+                          {expanded ? 'Ver menos' : 'Ver mais'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
