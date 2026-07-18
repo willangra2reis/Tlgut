@@ -20,16 +20,18 @@ export const REGION_LABELS = {
 
 // Pontos calibrados (centroides) — gerados via Ctrl+Shift+K em 15/07/2026.
 // Recalibrar se a silhueta for substituída ou reposicionada.
+// NOTA: Silhueta é vista de FRENTE — lado esquerdo da imagem = lado DIREITO
+// do paciente; e vice-versa. Centroides _esq/_dir espelhados para refletir isso.
 export const REGION_POINTS = {
-  regiao_peitoral_esq:   [[32.5, 43.2]],
-  regiao_peitoral_dir:   [[66.2, 42.2]],
+  regiao_peitoral_esq:   [[66.2, 43.2]],
+  regiao_peitoral_dir:   [[32.5, 42.2]],
   regiao_peitoral_centro: [[48.7, 41.6]],
-  regiao_sup_esq:        [[34.1, 59.3]],
-  regiao_sup_dir:        [[66.3, 59.4]],
+  regiao_sup_esq:        [[66.3, 59.3]],
+  regiao_sup_dir:        [[34.1, 59.4]],
   regiao_sup_centro:     [[50.6, 56.9]],
   regiao_centro:         [[51.2, 67.3]],
-  regiao_inf_esq:        [[35.7, 74.2]],
-  regiao_inf_dir:        [[67.6, 73.7]],
+  regiao_inf_esq:        [[67.6, 74.2]],
+  regiao_inf_dir:        [[35.7, 73.7]],
   regiao_inf_centro:     [[52.7, 76.9]],
 };
 
