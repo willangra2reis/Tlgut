@@ -166,14 +166,20 @@ export function correlacaoAguaBristol(history, minDias = 7) {
 }
 
 // Contagem de dor por região do corpo (Mapa_de_Calor_da_Dor).
+// 1+ pontos marcados em um mesmo evento contam como 1 episódio por região.
 export function dorPorRegiao(history) {
   const counts = {};
+  const seen = new Set();
   history.forEach((e) => {
     if (e.type !== 'pain') return;
-    const add = (id) => { if (id) counts[id] = (counts[id] || 0) + 1; };
-    add(e.region || e.organ);
-    add(e.meta?.region || e.meta?.organ);
-    (e.meta?.clouds || []).forEach(c => add(c.region || c.organ));
+    seen.clear();
+    const ids = [e.region || e.organ, e.meta?.region || e.meta?.organ, ...(e.meta?.clouds || []).map(c => c.region || c.organ)];
+    ids.forEach((id) => {
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        counts[id] = (counts[id] || 0) + 1;
+      }
+    });
   });
   return counts;
 }
