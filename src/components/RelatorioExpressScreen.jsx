@@ -743,22 +743,25 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
   const canPDF = !isRaw && !isTruncated && effectiveReport && effectiveReport.resumo_executivo;
   const resumo = effectiveReport && typeof effectiveReport.resumo_executivo === 'string' ? effectiveReport.resumo_executivo : '';
 
-  const [sortDiscussOrder, setSortDiscussOrder] = useState('cronologica');
+  // ── Expansão de texto e exclusão de cards discutir ────────────────────
+  const [expandSet, setExpandSet] = useState(() => new Set());
+  const toggleExpand = (id) => setExpandSet(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const [excludedSet, setExcludedSet] = useState(() => new Set());
+  const toggleExclude = (id) => setExcludedSet(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const discutirEntries = useMemo(() => {
     const source = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
     if (!Array.isArray(source)) return [];
-    const candidates = source.filter(e => e.meta?.discutir_consulta);
-    if (sortDiscussOrder === 'prioridade') {
-      return [...candidates].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
-    }
-    const dayScale = { hoje: 1, ontem: 0 };
-    return [...candidates].sort((a, b) => {
-      const dayDiff = (dayScale[a.day] || 0) - (dayScale[b.day] || 0);
-      if (dayDiff !== 0) return dayDiff;
-      return (a.time || '').localeCompare(b.time || '');
-    });
-  }, [report._discutirEntries, sortDiscussOrder]);
+    return source.filter(e => e.meta?.discutir_consulta);
+  }, [report._discutirEntries]);
 
   // Relatório truncado sem recovery → mostrar aviso (como a tela IA)
   if (stillTruncated) {
@@ -841,44 +844,58 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
       {discutirEntries.length > 0 && (
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
           style={{ borderColor: SOFT_BORDER }}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(74,138,92,0.12)' }}>
-                <CheckCircle2 size={15} style={{ color: '#4A8A5C' }} />
-              </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#4A8A5C' }}>Discutir na consulta</h4>
-            </div>
-            <div className="flex gap-1">
-              {['cronologica', 'prioridade'].map((opt) => (
-                <button key={opt} type="button" onClick={() => setSortDiscussOrder(opt)}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-colors"
-                  style={{
-                    background: sortDiscussOrder === opt ? 'rgba(74,138,92,0.12)' : 'transparent',
-                    color: sortDiscussOrder === opt ? '#4A8A5C' : '#B6AE9F',
-                  }}>
-                  {opt === 'cronologica' ? 'Cronológica' : 'Prioridade'}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(74,138,92,0.12)' }}>
+              <CheckCircle2 size={15} style={{ color: '#4A8A5C' }} />
+            </span>
+            <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#4A8A5C' }}>Discutir na consulta</h4>
           </div>
           <div className="space-y-1.5">
             {discutirEntries.map((e) => {
-              const prio = e.meta?.prioridade || 3;
-              const cor = prio >= 4 ? '#BD5A4A' : prio >= 3 ? '#C9763A' : '#4A8A5C';
+              const expanded = expandSet.has(e.id);
+              const excluded = excludedSet.has(e.id);
+              const hasLong = (e.description?.length > 80) || (e.meta?.note?.length > 80);
               return (
-                <div key={e.id} className="rounded-xl p-3 flex items-start gap-3"
-                  style={{ background: 'rgba(74,138,92,0.04)', border: '1px solid rgba(74,138,92,0.15)' }}>
-                  <div className="flex gap-0.5 mt-0.5 shrink-0">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <span key={n} className="w-1.5 h-1.5 rounded-full"
-                        style={{ background: n <= prio ? cor : '#EDE7DD' }} />
-                    ))}
-                  </div>
+                <div key={e.id} role="button" tabIndex={0}
+                  onClick={() => toggleExpand(e.id)}
+                  onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') toggleExpand(e.id); }}
+                  className={`w-full rounded-xl p-3 flex items-start gap-3 text-left transition-all cursor-pointer ${excluded ? 'opacity-35 scale-[0.98]' : ''}`}
+                  style={{
+                    background: excluded ? 'rgba(180,175,165,0.06)' : 'rgba(74,138,92,0.04)',
+                    border: excluded ? '1px solid rgba(180,175,165,0.3)' : '1px solid rgba(74,138,92,0.15)',
+                  }}>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-[#2B2A28]">{e.title || e.type}</p>
-                    {e.description && <p className="text-[11px] text-[#7D766A] mt-0.5 line-clamp-2">{e.description}</p>}
-                    {e.meta?.note && <p className="text-[11px] text-[#5B8C91] mt-0.5 italic line-clamp-2">{e.meta.note}</p>}
-                    {e.day && e.time && <p className="text-[10px] text-[#B6AE9F] mt-0.5">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-bold text-[#2B2A28]">{e.title || e.type}</p>
+                      <button type="button" onClick={(ev) => { ev.stopPropagation(); toggleExclude(e.id); }}
+                        className="text-[10px] font-semibold whitespace-nowrap shrink-0 px-2 py-0.5 rounded transition-colors"
+                        style={{
+                          color: excluded ? '#4A8A5C' : '#B6AE9F',
+                          border: '1px solid',
+                          borderColor: excluded ? '#4A8A5C' : '#B6AE9F',
+                        }}>
+                        {excluded ? 'Incluir no PDF' : 'Excluir do PDF'}
+                      </button>
+                    </div>
+                    {e.description && (
+                      <p className={`text-[13px] font-medium text-[#7D766A] mt-0.5 leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>{e.description}</p>
+                    )}
+                    {e.meta?.note && (
+                      <p className={`text-[13px] font-medium text-[#5B8C91] mt-0.5 italic leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>{e.meta.note}</p>
+                    )}
+                    {e.day && e.time && (
+                      <p className="text-[11px] text-[#B6AE9F] mt-1">{e.day === 'hoje' ? 'Hoje' : 'Ontem'} às {e.time}</p>
+                    )}
+                    {hasLong && (
+                      <span className="text-[11px] font-semibold mt-0.5 inline-block cursor-pointer transition-colors"
+                        style={{ color: '#4A8A5C' }}>
+                        {expanded ? 'Ver menos' : 'Ver mais'}
+                      </span>
+                    )}
+                    {excluded && (
+                      <p className="text-[10px] font-semibold uppercase tracking-wider mt-1"
+                        style={{ color: '#B6AE9F' }}>Excluído do PDF</p>
+                    )}
                   </div>
                 </div>
               );
@@ -892,13 +909,13 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
           style={{ borderColor: SOFT_BORDER }}>
           <div className="flex gap-2.5">
-            <button type="button" onClick={() => baixarPDFExpress(report, effClouds, effIntensity, effKinds, entries)}
+            <button type="button" onClick={() => baixarPDFExpress(report, effClouds, effIntensity, effKinds, entries, excludedSet)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Download size={16} />
               Baixar PDF
             </button>
-            <button type="button" onClick={() => compartilharPDFExpress(report, effClouds, effIntensity, effKinds, entries)}
+            <button type="button" onClick={() => compartilharPDFExpress(report, effClouds, effIntensity, effKinds, entries, excludedSet)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Share2 size={16} />
@@ -917,7 +934,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
 }
 
 // ── PDF Express (próprio, simplificado, sem silhouette) ─────────────────────
-function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
+function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, excludedSet = new Set()) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -1049,26 +1066,32 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries) {
   }
 
   // Discutir na consulta
-  const discutirPDF = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
+  const discutirAll = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
+  const discutirPDF = discutirAll.filter(e => !excludedSet.has(e.id));
   if (discutirPDF.length > 0) {
     heading('Discutir na consulta', [74, 138, 92]);
-    const sortedPDF = [...discutirPDF].sort((a, b) => (b.meta?.prioridade || 1) - (a.meta?.prioridade || 1));
-    sortedPDF.forEach((e) => {
+    discutirPDF.forEach((e) => {
       ensureSpace(30);
-      const prio = e.meta?.prioridade || 3;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
+      doc.setFontSize(12);
       doc.setTextColor(43, 42, 40);
-      const quando = e.day && e.time ? `  ·  ${e.day === 'hoje' ? 'Hoje' : 'Ontem'} ${e.time}` : '';
-      const titulo = `${e.title || e.type || 'Registro'}  ·  Prioridade ${prio}/5${quando}`;
+      const titulo = e.title || e.type || 'Registro';
       const tLines = doc.splitTextToSize(titulo, maxW);
-      tLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+      tLines.forEach(l => { ensureSpace(16); doc.text(l, margin, y); y += 16; });
       if (e.description) {
-        paragraph(e.description, [125, 118, 106]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(125, 118, 106);
+        const dLines = doc.splitTextToSize(e.description, maxW);
+        dLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
         spacer(4);
       }
       if (e.meta?.note) {
-        paragraph(e.meta.note, [91, 140, 145]);
+        doc.setFont('helvetica', 'bolditalic');
+        doc.setFontSize(11);
+        doc.setTextColor(91, 140, 145);
+        const nLines = doc.splitTextToSize(e.meta.note, maxW);
+        nLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
         spacer(4);
       }
       spacer(6);
@@ -1097,8 +1120,8 @@ function montarNomeArquivoPDFExpress() {
   return `SmartGut_RelatorioExpress_${stamp}.pdf`;
 }
 
-function baixarPDFExpress(report, clouds, intensity, kinds, entries) {
-  const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries);
+function baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet) {
+  const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet);
   const nome = montarNomeArquivoPDFExpress();
   try { doc.save(nome); }
   catch { // Firefox fallback
@@ -1118,19 +1141,19 @@ function isShareSupported() {
   return true;
 }
 
-async function compartilharPDFExpress(report, clouds, intensity, kinds, entries) {
-  if (!isShareSupported()) { baixarPDFExpress(report, clouds, intensity, kinds, entries); return; }
+async function compartilharPDFExpress(report, clouds, intensity, kinds, entries, excludedSet) {
+  if (!isShareSupported()) { baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet); return; }
   try {
-    const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries);
+    const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet);
     const blob = doc.output('blob');
     const file = new File([blob], montarNomeArquivoPDFExpress(), { type: 'application/pdf' });
-    if (!navigator.canShare({ files: [file] })) { baixarPDFExpress(report, clouds, intensity, kinds); return; }
+    if (!navigator.canShare({ files: [file] })) { baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet); return; }
     await navigator.share({
       files: [file],
       title: 'Relatório Express — Smart Gut',
       text: 'Meu relatório de preparação para consulta.',
     });
   } catch (err) {
-    if (err && err.name !== 'AbortError') baixarPDFExpress(report, clouds, intensity, kinds);
+    if (err && err.name !== 'AbortError') baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet);
   }
 }
