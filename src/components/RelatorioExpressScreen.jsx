@@ -137,7 +137,6 @@ export default function RelatorioExpressScreen({ entries }) {
     return Array.isArray(k) ? new Set(k) : new Set();
   });
   const [painOpen, setPainOpen] = useState(false);
-  const [showOrgans, setShowOrgans] = useState(false); // inicia sem órgãos
   const txRef = useRef(null);
 
   // Debounce auto-save (800ms)
@@ -588,13 +587,15 @@ export default function RelatorioExpressScreen({ entries }) {
           <div className="mt-4 space-y-3">
             {/* Silhueta */}
             <div className="bg-[#FAF7F2] rounded-2xl p-3 border border-[#EDE7DD]">
-              <Silhouette clouds={clouds} intensity={intensity} onTap={handleTap} showOrgans={showOrgans} />
+              <Silhouette clouds={clouds} intensity={intensity} onTap={handleTap} />
             </div>
-            <button type="button" onClick={() => setShowOrgans(!showOrgans)}
-              className="w-full py-2 px-4 rounded-xl border text-xs font-semibold bg-white active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm"
-              style={{ color: showOrgans ? PAIN_COLOR : 'var(--brand)', borderColor: showOrgans ? '#F5E1DD' : '#EDE7DD' }}>
-              {showOrgans ? 'Ocultar possíveis órgãos' : 'Possíveis órgãos afetados'}
-            </button>
+            {clouds.length > 0 && (
+              <button type="button" onClick={() => setClouds([])}
+                className="w-full py-2 px-4 rounded-xl border text-xs font-semibold bg-white active:scale-95 transition-transform flex items-center justify-center gap-1.5 shadow-sm"
+                style={{ color: PAIN_COLOR, borderColor: '#F5E1DD' }}>
+                Limpar marcações
+              </button>
+            )}
 
             {/* Intensidade (abaixo da silhueta, como no PainForm) */}
             <div>
@@ -948,46 +949,45 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, exclude
   const heading = (text, color) => {
     ensureSpace(28);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    if (color) doc.setTextColor(color[0], color[1], color[2]);
-    doc.text(text, margin, y + 14);
-    y += 22;
-    if (color) doc.setDrawColor(color[0], color[1], color[2]);
-    doc.setLineWidth(1);
-    doc.line(margin, y - 4, margin + 24, y - 4);
-    y += 6;
+    doc.setFontSize(12);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(text, margin, y);
+    y += 8;
+    doc.setDrawColor(color[0], color[1], color[2]);
+    doc.setLineWidth(1.5);
+    doc.line(margin, y, margin + 18, y);
+    y += 16;
   };
-  const paragraph = (text, fontColor) => {
+  const paragraph = (text, fontColor = [68, 68, 63]) => {
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    if (fontColor) doc.setTextColor(fontColor[0], fontColor[1], fontColor[2]);
+    doc.setFontSize(10);
+    doc.setTextColor(fontColor[0], fontColor[1], fontColor[2]);
     const lines = doc.splitTextToSize(text, maxW);
-    for (const ln of lines) {
-      ensureSpace(16);
-      doc.text(ln, margin, y + 11);
-      y += 16;
-    }
+    lines.forEach(line => {
+      ensureSpace(14);
+      doc.text(line, margin, y);
+      y += 14;
+    });
   };
   const microLine = (text) => {
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(10);
-    doc.setTextColor('#7D766A');
-    const lines = doc.splitTextToSize(text, maxW);
-    for (const ln of lines) {
-      ensureSpace(14);
-      doc.text(ln, margin, y + 11);
-      y += 14;
-    }
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(125, 118, 106);
+    const lines = doc.splitTextToSize(text, maxW);
+    lines.forEach(line => {
+      ensureSpace(12);
+      doc.text(line, margin, y);
+      y += 12;
+    });
   };
-  const spacer = (h = 12) => { y += h; };
+  const spacer = (h = 8) => { y += h; };
 
-  // Cabeçalho enriquecido
+  // ── Cabeçalho enriquecido ──
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.setTextColor('#2B2A28');
-  doc.text('Smart Gut · Relatório Express', margin, y + 18);
-  y += 24;
+  doc.setTextColor(43, 42, 40);
+  doc.text('Smart Gut · Relatório Express', margin, y);
+  y += 22;
 
   const pr = (typeof loadProfile === 'function') ? loadProfile() : {};
   const nomeProf = pr && pr.nome ? String(pr.nome).trim() : '';
@@ -999,20 +999,20 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, exclude
   if (pr && pr.outros) condArr.push(pr.outros);
 
   microLine(`Paciente: ${nomeProf || '—'}${bio.length ? '  ·  ' + bio.join(' · ') : ''}${condArr.length ? '  ·  Condições: ' + condArr.join(', ') : ''}`);
-  microLine(`Gerado em ${new Date().toLocaleString('pt-BR')}`);
+  microLine(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`);
 
-  spacer(4);
+  y += 4;
   doc.setDrawColor(200, 195, 185);
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageW - margin, y);
-  y += 16;
+  y += 20;
 
   // Resumo Executivo
   const resumo = typeof report.resumo_executivo === 'string' ? report.resumo_executivo : '';
   if (resumo) {
-    heading('Resumo Executivo');
-    const paragrafos = resumo.split(/\n\n+/);
-    paragrafos.forEach((p) => { paragraph(p); spacer(4); });
+    heading('Resumo Executivo', [93, 95, 160]);
+    const paragrafos = resumo.split(/\n\n+/).filter(p => p.trim());
+    paragrafos.forEach((p) => { paragraph(p.trim()); spacer(6); });
     spacer(8);
   }
 
@@ -1101,8 +1101,17 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, exclude
 
 
   // Rodapé
-  spacer(16);
-  microLine('Relatório gerado a partir do relato em texto livre do paciente (modalidade Express). Não substitui avaliação profissional.');
+  ensureSpace(20);
+  y += 4;
+  doc.setDrawColor(200, 195, 185);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageW - margin, y);
+  y += 12;
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.setTextColor(125, 118, 106);
+  const disclaimer = 'Relatório gerado a partir do relato em texto livre do paciente (modalidade Express). Não substitui avaliação profissional.';
+  doc.text(doc.splitTextToSize(disclaimer, maxW), margin, y);
 
   return doc;
 }
