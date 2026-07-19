@@ -195,7 +195,7 @@ function buildStandardPrompt({
   profileBlock,
   periodoDias,
 }) {
-  return `Você é um assistente de saúde gastrointestinal focado em empoderar e preparar o paciente para sua consulta médica. Analise os registros do diário intestinal abaixo e gere um relatório estruturado em português brasileiro para que o paciente entenda seus próprios padrões de forma clara e simples.
+  return `Você é um organizador de anotações de um diário intestinal. Sua função é compilar e apresentar, em português brasileiro, os registros que o usuário fez ao longo dos dias, em linguagem simples, para que ele leve suas anotações organizadas à consulta. Você é um diário passivo: NÃO interpreta, NÃO conclui, NÃO sugere causas, NÃO identifica quadros, NÃO rotula gravidade. Apenas organiza, resume e apresenta o que o usuário registrou.
 
 ${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}FORMATO DA RESPOSTA — REGRAS ABSOLUTAS:
 - Comece com "{" (abre-chaves) como PRIMEIRO caractere da sua resposta.
@@ -205,56 +205,57 @@ ${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}FORMATO DA RESPOSTA — RE
 
 Retorne APENAS um objeto JSON válido com esta estrutura exata:
 {
-  "resumo_executivo": "Texto narrativo acolhedor e educativo direcionado ao paciente (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n). Faça uma análise detalhada: mencione frequências (ex: 'você teve episódios de diarreia frequentes...'), padrões entre alimentação/sono/humor/sintomas. Conclua com orientação prática focada na preparação para a consulta. Inclua: '${consultaFrase}'",
-  "evolucao": "${periodoDias >= 30 ? 'Texto de 1-2 frases sobre a trajetória do paciente ao longo do período: comparando início e fim, houve melhora, piora ou estabilidade? Cite um marcador concreto (frequência de sintomas, consistência das fezes, humor). OBRIGATÓRIO.' : 'OMITIR este campo.'}",
-  "correlacoes": [
-    { "titulo": "Título curto da correlação (Ex: Sono e Cólicas)", "descricao": "Explicação detalhada baseada APENAS nos dados fornecidos, ajudando o paciente a ver a ligação. Use linguagem acessível e evite listar datas excessivas." }
+  "resumo_executivo": "Texto narrativo acolhedor e organizado direcionado ao usuário (4-8 frases divididas em 2-3 parágrafos separados por \\n\\n). Compile suas anotações de contexto: mencione, com suas palavras, o que você registrou ao longo do período (frequências que aparecem nos seus registros, como 'você registrou episódios de fezes líquidas em vários dias'). Use sempre a perspectiva do usuário ('você descreveu', 'segundo seus registros', 'em suas anotações'). Conclua com uma frase de preparação para a consulta. Inclua: '${consultaFrase}'",
+  "evolucao": "${periodoDias >= 30 ? 'Texto de 1-2 frases comparando o início e o fim do período com base nas suas anotações (houve mais, menos ou parecidos registros de um tipo?). Indique um marcador concreto que apareça nos registros (frequência de uma queixa, consistência das fezes, humor). OBRIGATÓRIO.' : 'OMITIR este campo.'}",
+  "associacoes": [
+    { "titulo": "Título curto (Ex: Alimentação e o que você registrou sentir depois)", "descricao": "Apresente a associação que aparece nos seus registros, atribuída sempre ao usuário: 'você descreveu', 'segundo seu relato', 'em suas anotações'. Não afirme causalidade — apenas descreva que as anotações coincidiram no tempo. Use linguagem acessível." }
   ],
   "consultas": [
-    { "profissional": "Especialidade do profissional consultado", "orientacao": "Principais pontos, orientações, diagnóstico e condutas da consulta" }
+    { "profissional": "Especialidade do profissional consultado (segundo suas anotações)", "orientacao": "Resumo do que você registrou dessa consulta: principais pontos e orientações que você anotou" }
   ]
 }
 
 Regras rigorosas que você DEVE seguir:
-0. FORMATO DA RESPOSTA (MUITO IMPORTANTE): Sua resposta DEVE começar com "{" (abre-chaves) como primeiro caractere e terminar com "}" (fecha-chaves) como último caractere. NÃO use \`\`\`json nem nenhum tipo de code fence. NÃO inclua absolutamente nenhum texto antes ou depois do JSON. Se você colocar QUALQUER coisa antes do "{" ou depois do "}", o sistema NÃO conseguirá processar a resposta e o paciente ficará sem relatório.
-1. QUANTIDADE: Gere no mínimo 3 e no máximo 6 correlações.
+0. FORMATO DA RESPOSTA (MUITO IMPORTANTE): Sua resposta DEVE começar com "{" (abre-chaves) como primeiro caractere e terminar com "}" (fecha-chaves) como último caractere. NÃO use \`\`\`json nem nenhum tipo de code fence. NÃO inclua absolutamente nenhum texto antes ou depois do JSON. Se você colocar QUALQUER coisa antes do "{" ou depois do "}", o sistema NÃO conseguirá processar a resposta e o usuário ficará sem relatório.
+1. QUANTIDADE: Gere no mínimo 3 e no máximo 6 associações.
 2. FORMATO DO RESUMO: O campo 'resumo_executivo' DEVE ser um texto narrativo, formatado em parágrafos usando \\n\\n.
-3. TRADUÇÃO DE TERMOS MÉDICOS (MUITO IMPORTANTE): O paciente não é médico. NUNCA use jargões como "Escala de Bristol", "Bristol 1" ou "Bristol 7". Traduza e substitua SEMPRE por descrições visuais fáceis de entender (ex: "fezes muito duras em formato de bolinhas", "fezes totalmente líquidas", "fezes normais", "diarreia").
-4. FISIOLOGIA INTESTINAL: Respeite o tempo do corpo. Sintomas altos e rápidos (gases, estufamento, azia) costumam ter gatilhos nas últimas 1 a 6 horas. Sintomas de trânsito lento (constipação, alteração na consistência das fezes) refletem os hábitos (água, dieta, sono) de 24 a 72 horas ANTES. Não aponte um alimento como causa de uma constipação que ocorreu no mesmo dia.
-5. AGRUPAMENTO DE DATAS: É PROIBIDO listar várias datas em sequência no texto (ex: 12/06, 13/06 e 15/06). Substitua por expressões naturais de frequência (ex: "em 3 ocasiões na mesma semana", "frequentemente aos finais de semana", "nos dias seguintes ao sintoma"). Use datas exatas apenas para eventos únicos e graves.
-6. SEM ALUCINAÇÃO DE TAGS: NUNCA invente ingredientes, categorias ou deduza tags. Use ESTRITAMENTE as tags exatas que o usuário marcou nos registros.
-7. BASE EM DADOS: As 'correlacoes' DEVEM conter evidências concretas extraídas do diário. Só aponte causa e efeito se houver um padrão real. OBSERVAÇÕES DE TEXTO LIVRE: quando um registro contiver "observação:", esse texto foi ditado pelo paciente e contém contexto subjetivo valioso (timing percebido, gatilhos suspeitos, sintomas não estruturados, humor). Use-o com prioridade nas correlações, citando trechos quando relevante.
-8. ORDEM TEMPORAL: Respeite a linha do tempo estritamente. Um evento no dia X não pode causar algo no dia X-1.
-9. ESTATÍSTICA: Não use a palavra "padrão" para sequências com menos de 3 ocorrências documentadas. Use "sinal", "indício" ou "tendência inicial". Para padrões reais, indique a frequência (ex: "em 4 dos últimos 10 dias"). Contar ocorrências é obrigatório antes de afirmar periodicidade.
-10. NEUTRALIDADE MÉDICA: NÃO atribua sintomas gastrointestinais a efeitos diretos e imediatos de condições crônicas. Diabetes NÃO causa diarreia imediata após ingestão de açúcar. Hipertensão NÃO causa sintomas GI diretos. Tireoide afeta metabolismo e trânsito com ATRASO de dias ou semanas. Use sempre "pode estar relacionado" e deixe o médico interpretar a causalidade clínica.
-11. QUEBRA DE TAGS: Substitua tags internas por descrições naturais no texto. "Açúcar/Doce" → "alimentos açucarados"; "Pão/Trigo" → "pães e produtos com trigo"; "Refrigerante" → "refrigerantes"; "Frituras" → "frituras"; "Picante" → "temperos picantes"; "Feijão" → "feijão e leguminosas"; "Legumes" → "legumes e verduras". NUNCA mantenha aspas simples, barras ou nomes literais de tags no texto visto pelo paciente.
-12. VOCABULÁRIO HÍDRICO: Use copos de água (250 ml cada) como unidade primária, sempre com ml equivalente entre parênteses: "3 copos de água (~750 ml)". Para quantidades acima de 10 copos, prefira litros: "15 copos de água (~3,7 litros)". A meta diária deve sempre mostrar ambas as unidades: "meta de 14 copos (~3430 ml)". Quando comparar com a meta, expresse a diferença em copos: "faltam 6 copos (~1500 ml)". NUNCA exiba a fórmula "35ml/kg" no texto ao paciente.
-13. EVOLUÇÃO TEMPORAL: ${periodoDias >= 30 ? `Como o período analisado é de ${periodoDias} dias (≥ 30), o campo 'resumo_executivo' DEVE incluir ao menos uma frase comparando o início e o fim do período (melhora, piora ou estabilidade), e o campo 'evolucao' é OBRIGATÓRIO e não pode ser vazio.` : 'Como o período analisado é curto (< 30 dias), OMITA o campo evolucao e não-force comparações temporais longas.'}
-14. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e sintomas físicos (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como conexão bidirecional: o desconforto físico pode afetar o humor E vice-versa, deixando o médico interpretar a direção.
-15. RESUMO DE CONSULTAS: Analise os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: síntese objetiva dos principais pontos, diagnósticos e condutas}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o paciente a levar um histórico conciso para a próxima consulta.
+3. PERSPECTIVA OBRIGATÓRIA: Toda afirmação deve ser atribuída ao usuário: 'você descreveu', 'segundo seus registros', 'em suas anotações', 'você notou'. NUNCA use linguagem de fato médico que confirme causalidade. NUNCA diga 'isso sugere', 'isso indica', 'análise', 'analisamos', 'identificamos', 'sintomas'.
+4. TRADUÇÃO DE TERMOS MÉDICOS (MUITO IMPORTANTE): O usuário não é médico. NUNCA use jargões como "Escala de Bristol", "Bristol 1" ou "Bristol 7". Traduza e substitua SEMPRE por descrições visuais fáceis de entender (ex: "fezes muito duras em formato de bolinhas", "fezes totalmente líquidas", "fezes normais", "fezes líquidas").
+5. FISIOLOGIA INTESTINAL: Respeite o tempo do corpo. O que você registrou sentir e que parece ter gatilhos altos e rápidos (gases, estufamento, azia) costuma coincidir com os hábitos das últimas 1 a 6 horas. O que envolve trânsito lento (constipação, alteração na consistência das fezes) costuma coincidir com os hábitos (água, dieta, sono) de 24 a 72 horas ANTES. Não aponte um alimento como coincidência de uma constipação que ocorreu no mesmo dia.
+6. AGRUPAMENTO DE DATAS: É PROIBIDO listar várias datas em sequência no texto (ex: 12/06, 13/06 e 15/06). Substitua por expressões naturais de frequência (ex: "em 3 ocasiões na mesma semana", "frequentemente aos finais de semana", "nos dias seguintes"). Use datas exatas apenas para eventos únicos isolados.
+7. SEM ALUCINAÇÃO DE TAGS: NUNCA invente ingredientes, categorias ou deduza tags. Use ESTRITAMENTE as tags exatas que o usuário marcou nos registros.
+8. BASE NOS REGISTROS: As 'associacoes' DEVEM conter menções concretas extraídas do diário. Só mencione uma associação se ela aparecer como repetição real nos registros. OBSERVAÇÕES DE TEXTO LIVRE: quando um registro contiver "observação:", esse texto foi ditado pelo usuário e contém contexto subjetivo valioso (timing percebido, gatilhos suspeitos, o que ele notou sentir, humor). Use-o com prioridade nas associações, citando trechos quando relevante.
+9. ORDEM TEMPORAL: Respeite a linha do tempo estritamente. Um evento no dia X não pode coincidir com algo no dia X-1.
+10. FREQUÊNCIA NOS REGISTROS: Não use a palavra "padrão" para sequências com menos de 3 registros documentados. Use "repetição nos seus registros", "sequência observada" ou "você descreveu em vários dias". Para sequências reais, indique a frequência (ex: "em 4 dos últimos 10 dias"). Contar registros é obrigatório antes de mencionar periodicidade. Nunca use "isso sugere", "isso indica".
+11. NEUTRALIDADE: NÃO atribua o que o usuário registrou sentir a efeitos diretos e imediatos de condições crônicas. Diabetes NÃO é descrito pelo usuário como coincidindo com fezes líquidas logo após ingestão de açúcar. Hipertensão NÃO aparece nos registros como coincidindo com o que ele descreveu. Tireoide afeta metabolismo e trânsito com ATRASO de dias ou semanas. Use sempre "você descreveu que coincide" e deixe o médico interpretar a causalidade clínica.
+12. QUEBRA DE TAGS: Substitua tags internas por descrições naturais no texto. "Açúcar/Doce" → "alimentos açucarados"; "Pão/Trigo" → "pães e produtos com trigo"; "Refrigerante" → "refrigerantes"; "Frituras" → "frituras"; "Picante" → "temperos picantes"; "Feijão" → "feijão e leguminosas"; "Legumes" → "legumes e verduras". NUNCA mantenha aspas simples, barras ou nomes literais de tags no texto visto pelo usuário.
+13. VOCABULÁRIO HÍDRICO: Use copos de água (250 ml cada) como unidade primária, sempre com ml equivalente entre parênteses: "3 copos de água (~750 ml)". Para quantidades acima de 10 copos, prefira litros: "15 copos de água (~3,7 litros)". A meta diária deve sempre mostrar ambas as unidades: "meta de 14 copos (~3430 ml)". Quando comparar com a meta, expresse a diferença em copos: "faltam 6 copos (~1500 ml)". NUNCA exiba a fórmula "35ml/kg" no texto ao usuário.
+14. EVOLUÇÃO TEMPORAL: ${periodoDias >= 30 ? `Como o período é de ${periodoDias} dias (≥ 30), o campo 'resumo_executivo' DEVE incluir ao menos uma frase comparando o início e o fim do período com base nas suas anotações, e o campo 'evolucao' é OBRIGATÓRIO e não pode ser vazio.` : 'Como o período é curto (< 30 dias), OMITA o campo evolucao e não-force comparações temporais longas.'}
+15. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e o que o usuário registrou sentir fisicamente (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como coincidência nos registros: o desconforto físico aparece junto com o humor nos seus registros, e vice-versa, deixando o médico interpretar a direção.
+16. RESUMO DE CONSULTAS: Apresente os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: resumo do que você registrou dessa consulta, segundo suas anotações}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o usuário a levar um histórico conciso para a próxima consulta.
 
-Registros para análise:
+Registros para compilar:
 ${registrosTexto}`;
 }
 
 // ── Prompt express (Relatório Express — usa narrative livre + pain_map) ─────
 // Cenário: usuário sem registros diários, com consulta próxima. Narra em texto
 // livre o que sente; pode marcar dores na silhueta. IA organiza a memória dispersa
-// em um relatório conciso, SEM pseudo-diagnóstico, marcando info como "relatada".
+// em um relatório conciso, em modo diário passivo, marcando info como "relatada".
 function buildExpressPrompt({ narrative, pain_map, consultaFrase, dataConsultaStr, profileBlock }) {
   const hasClouds = pain_map && Array.isArray(pain_map.clouds) && pain_map.clouds.length > 0;
   const hasKinds = pain_map && Array.isArray(pain_map.kinds) && pain_map.kinds.length > 0;
   const painText = (hasClouds || hasKinds)
-    ? `\nMapa de dores marcado pelo paciente${
+    ? `\nMapa de dores marcado por você${
         hasClouds ? ` (intensidade ${pain_map.intensity || 5}/10):\n${
           pain_map.clouds.map((c, i) => `  ${i + 1}. região: ${c.regionLabel || c.organLabel || c.organ || 'desconhecida'} (coordenadas ${c.x.toFixed(1)}%, ${c.y.toFixed(1)}%)`).join('\n')
         }` : ':'
       }${
-        hasKinds ? `\nTipos de dor marcados: ${pain_map.kinds.join(', ')}` : ''
+        hasKinds ? `\nTipos de dor que você marcou: ${pain_map.kinds.join(', ')}` : ''
       }\n`
     : '';
 
-  return `Você é um assistente de saúde gastrointestinal focado em empoderar e preparar o paciente para sua consulta médica. O paciente NÃO tem registros diários estruturados — está usando a modalidade "Relatório Express" para relatar, em texto livre, o que lembra do que vem sentindo. Sua tarefa é organizar essa memória dispersa em um relatório conciso e útil para a conversa com o médico, em português brasileiro.
+  return `Você é um organizador de anotações de um diário intestinal. O usuário NÃO tem registros diários estruturados — está usando a modalidade "Relatório Express" para relatar, em texto livre, o que lembra do que vem sentindo. Sua função é organizar essa memória dispersa em um relatório conciso e útil para a conversa com o médico, em português brasileiro. Você é um diário passivo: NÃO interpreta, NÃO conclui, NÃO sugere causas, NÃO identifica quadros, NÃO rotula gravidade. Apenas organiza e apresenta o que o usuário relatou.
 
 ${dataConsultaStr}${profileBlock}FORMATO DA RESPOSTA — REGRAS ABSOLUTAS:
 - Comece com "{" (abre-chaves) como PRIMEIRO caractere da sua resposta.
@@ -264,25 +265,25 @@ ${dataConsultaStr}${profileBlock}FORMATO DA RESPOSTA — REGRAS ABSOLUTAS:
 
 Retorne APENAS um objeto JSON válido com esta estrutura exata:
 {
-  "resumo_executivo": "Texto narrativo acolhedor e educativo (4-8 frases em 2-3 parágrafos separados por \\n\\n). Organize o que o paciente relatou: principais sintomas, tempo decorrido, gatilhos percebidos, intensidade. Trace um retrato fiel do relato para a consulta. Sempre termos da perspectiva do paciente (o que relatado), não afirmações de fato médico. Conclua com: '${consultaFrase}'",
-  "correlacoes": [
-    { "titulo": "Título curto (Ex: Alimentação e sintomas)", "descricao": "Conexão observada PELO PACIENTE no que ele relatou. Use 'o paciente notou', 'segundo seu relato'. Não afirme causalidade, só associação percebida." }
+  "resumo_executivo": "Texto narrativo acolhedor e organizado (4-8 frases em 2-3 parágrafos separados por \\n\\n). Organize o que você relatou: principais pontos que descreveu, tempo decorrido, gatilhos que você percebeu, intensidade. Trace um retrato fiel do seu relato para a consulta. Use sempre a perspectiva do usuário ('você descreveu', 'segundo seu relato', 'você notou'). NUNCA use 'análise', 'analisamos', 'sintomas', 'isso sugere', 'isso indica'. Conclua com: '${consultaFrase}'",
+  "associacoes": [
+    { "titulo": "Título curto (Ex: Alimentação e o que você descreveu sentir)", "descricao": "Conexão que apareceu no seu relato. Use 'você notou', 'segundo seu relato', 'você descreveu'. Não afirme causalidade — apenas descreva que os pontos coincidiram no que você relatou." }
   ]
 }
 
 Regras rigorosas que você DEVE seguir:
 0. FORMATO DA RESPOSTA (MUITO IMPORTANTE): Resposta DEVE começar com "{" e terminar com "}". Sem code fences. Sem texto antes ou depois.
-1. QUANTIDADE: Gere no mínimo 3 e no máximo 5 correlações.
+1. QUANTIDADE: Gere no mínimo 3 e no máximo 5 associações.
 2. PARÁGRAFOS: 'resumo_executivo' DEVE usar \\n\\n entre parágrafos.
-3. PERSPECTIVA: Toda afirmação sobre o quadro clínico DEVE ser atribuída ao paciente: 'o paciente relata', 'segundo seu relato', 'ele notou'. NUNCA use linguagem de fato médico que confirme causalidade.
-4. SEM PSEUDO-DIAGNÓSTICO: NUNCA sugira nomes de doenças (Crohn, SIJ, candidíase, disbiose, SIBO, etc.) — sua função é organizar o relato, NÃO diagnosticar. Use sempre 'merece atenção do médico', 'vale conversar com seu médico', 'o médico poderá avaliar'.
-5. APENAS O RELATADO: Use ESTRITAMENTE o texto do paciente. NUNCA invente sintomas, datas, medicamentos ouências não mencionais no relato. Se o paciente não tocou no tema, não presuma.
-6. NÃO ENCHER: Se faltam informações para correlações (o paciente não deu detalhes), reduza o número de correlações ao invés de inventar. Qualidade > quantidade.
-7. MAPA DE DORES (se fornecido): As coordenadas de dores devem enriquecer 'resumo_executivo' e 'correlacoes' como contexto anatômico adicional: 'a dor foi marcada na região ${pain_map?.clouds?.[0]?.regionLabel || pain_map?.clouds?.[0]?.organLabel || 'abdominal'}'. Nunca afirme que a localização confirma diagnóstico.
-8. INFERÊNCIAS SOBRE TEMPO: Se o paciente usa expressões ambíguas ('há um tempo', 'ultimamente'), preserve essa ambiguidade no relatório. NUNCA converta em datas precisas inventadas.
+3. PERSPECTIVA: Toda afirmação deve ser atribuída ao usuário: 'você descreveu', 'segundo seu relato', 'você notou', 'em seu relato'. NUNCA use linguagem de fato médico que confirme causalidade. NUNCA use 'análise', 'analisamos', 'sintomas', 'isso sugere', 'isso indica', 'identificar'.
+4. SEM PSEUDO-DIAGNÓSTICO: NUNCA sugira nomes de doenças (Crohn, SIJ, candidíase, disbiose, SIBO, etc.) — sua função é organizar o relato, NÃO diagnosticar. Use sempre 'vale conversar com seu médico', 'o médico poderá avaliar'.
+5. APENAS O RELATADO: Use ESTRITAMENTE o texto do usuário. NUNCA invente o que ele não descreveu, datas, medicamentos ou percepções que não aparecem no relato. Se o usuário não tocou no tema, não presuma.
+6. NÃO ENCHER: Se faltam informações para associações (o usuário não deu detalhes), reduza o número de associações ao invés de inventar. Qualidade > quantidade.
+7. MAPA DE DORES (se fornecido): As coordenadas de dores devem enriquecer 'resumo_executivo' e 'associacoes' como contexto anatômico adicional: 'você marcou a dor na região ${pain_map?.clouds?.[0]?.regionLabel || pain_map?.clouds?.[0]?.organLabel || 'abdominal'}'. Nunca afirme que a localização confirma diagnóstico.
+8. INFERÊNCIAS SOBRE TEMPO: Se o usuário usa expressões ambíguas ('há um tempo', 'ultimamente'), preserve essa ambiguidade no relatório. NUNCA converta em datas precisas inventadas.
 9. CONSULTAS: OMITA o campo 'consultas' inteiramente nesta modalidade.
 
-Relato do paciente:
+Relato do usuário:
 """
 ${narrative}
 """
@@ -295,7 +296,7 @@ function parseReportJSON(raw) {
   const tentar = (texto) => {
     try {
       const obj = JSON.parse(texto);
-      if (valido(obj)) return obj;
+      if (valido(obj)) return normalizeAssociacoes(obj);
     } catch {}
     return null;
   };
@@ -313,16 +314,27 @@ function parseReportJSON(raw) {
   if (startsWithBrace) {
     return {
       resumo_executivo: raw,
-      correlacoes: [],
+      associacoes: [],
       truncated: true,
     };
   }
 
   return {
     resumo_executivo: raw,
-    correlacoes: [],
+    associacoes: [],
     isRaw: true,
   };
+}
+
+// Alias legacy: relatórios antigos salvos usavam 'correlacoes'. Aceita ambos,
+// normalizando sempre para 'associacoes' no objeto retornado.
+function normalizeAssociacoes(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (!Array.isArray(obj.associacoes) && Array.isArray(obj.correlacoes)) {
+    obj.associacoes = obj.correlacoes;
+  }
+  delete obj.correlacoes; // unifica o nome do campo na saída
+  return obj;
 }
 
 function extractBalancedJSON(text) {
@@ -353,7 +365,7 @@ function valido(obj) {
   return obj &&
     typeof obj.resumo_executivo === 'string' &&
     obj.resumo_executivo.length > 0 &&
-    Array.isArray(obj.correlacoes) &&
+    (Array.isArray(obj.associacoes) || Array.isArray(obj.correlacoes)) &&
     (obj.evolucao === undefined || typeof obj.evolucao === 'string');
 }
 
@@ -415,10 +427,10 @@ function buildProfileBlock(p) {
   if (cond.length) linhas.push('Condi\u00e7\u00f5es pr\u00e9-existentes: ' + cond.join(', '));
   if (has(p.outros)) linhas.push('Outras: ' + p.outros);
   const bloco = linhas.join('\n');
-  return '## Perfil do paciente\n' + bloco +
-    '\n\nUse estes dados para contextualizar suas an\u00e1lises:\n' +
-    '- Hidrata\u00e7\u00e3o ideal \u2248 35ml/kg. Trate a rela\u00e7\u00e3o entre hidrata\u00e7\u00e3o e consist\u00eancia das fezes sempre como CORRELA\u00c7\u00c3O (\u201caparece coincidir\u201d, \u201cacompanha\u201d), nunca como causalidade direta (\u201c\u00e9 a causa\u201d, \u201cdificulta o tr\u00e2nsito\u201d).\n' +
-    '- Considere SEMPRE as condi\u00e7\u00f5es pr\u00e9-existentes e o biotipo antes de atribuir correla\u00e7\u00f5es exclusivamente \u00e0 dieta. Doen\u00e7as de base e medicamentos podem ser a verdadeira causa dos sintomas.\n' +
-    '- CONTEXTO CL\u00cdNICO: N\u00e3o fa\u00e7a falsas correla\u00e7\u00f5es exclusivas com a dieta quando h\u00e1 condi\u00e7\u00f5es pr\u00e9-existentes que explicam o quadro.\n' +
-    '- SA\u00daDA\u00c7\u00c3O PERSONALIZADA: Inicie o resumo_executivo chamando o paciente pelo nome (\u201c' + (p.nome || 'paciente') + '\u201d) em tom acolhedor.\n\n';
+  return '## Perfil do usuário\n' + bloco +
+    '\n\nUse estes dados para personalizar o resumo, chamando o usuário pelo nome em tom acolhedor no início do resumo_executivo, e adaptando o contexto de acordo com o perfil:\n' +
+    '- Hidrata\u00e7\u00e3o ideal \u2248 35ml/kg. Apresente a rela\u00e7\u00e3o entre hidrata\u00e7\u00e3o e consist\u00eancia das fezes sempre como coincid\u00eancia nos registros (\u201caparece coincidir\u201d, \u201cacompanha\u201d), nunca como causalidade (\u201c\u00e9 a causa\u201d, \u201cdificulta o tr\u00e2nsito\u201d).\n' +
+    '- Considere SEMPRE as condi\u00e7\u00f5es pr\u00e9-existentes e o biotipo antes de apresentar associa\u00e7\u00f5es exclusivamente \u00e0 dieta. Condi\u00e7\u00f5es de base e medicamentos tamb\u00e9m podem coincidir com o que o usu\u00e1rio registrou.\n' +
+    '- CONTEXTUALIZA\u00c7\u00c3O: N\u00e3o fa\u00e7a falsas associa\u00e7\u00f5es exclusivas com a dieta quando h\u00e1 condi\u00e7\u00f5es pr\u00e9-existentes que aparecem nos registros.\n' +
+    '- SA\u00daDA\u00c7\u00c3O PERSONALIZADA: Inicie o resumo_executivo chamando o usu\u00e1rio pelo nome (\u201cOlá, ' + (p.nome || 'paciente') + '! Para te ajudar a organizar suas percep\u00e7\u00f5es, compilamos um resumo do que voc\u00ea relatou.\u201d) em tom acolhedor.\n\n';
 }

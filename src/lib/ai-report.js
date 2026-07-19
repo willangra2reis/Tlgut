@@ -16,7 +16,12 @@ export function extractReportFromRaw(rawText) {
         try {
           const obj = JSON.parse(rawText.slice(i, j + 1));
           if (obj && typeof obj.resumo_executivo === 'string' && obj.resumo_executivo.length > 0
-              && Array.isArray(obj.correlacoes)) {
+              && (Array.isArray(obj.associacoes) || Array.isArray(obj.correlacoes))) {
+            // Alias legacy: relatórios antigos usavam 'correlacoes'.
+            if (!Array.isArray(obj.associacoes) && Array.isArray(obj.correlacoes)) {
+              obj.associacoes = obj.correlacoes;
+            }
+            delete obj.correlacoes;
             return obj;
           }
         } catch {}
@@ -29,23 +34,23 @@ export function extractReportFromRaw(rawText) {
 
 export const LOADING_FRASES = [
   'Lendo todo o seu histórico...',
-  'Analisando com profundidade...',
-  'Fazendo correlações entre sintomas...',
-  'Observando o consumo de água...',
-  'Verificando padrões de sono...',
-  'Conectando humor e sintomas...',
-  'Localizando pontos de dor...',
-  'Analisando tempo de evacuação...',
-  'Cruzando alimentação e sintomas...',
-  'Identificando gatilhos alimentares...',
-  'Examinando seus marcadores de saúde...',
-  'Comparando dias bons e ruins...',
-  'Analisando a qualidade do sono...',
+  'Reunindo suas anotações...',
+  'Compilando o que você registrou sentir...',
+  'Observando o consumo de água relatado...',
+  'Verificando seus registros de sono...',
+  'Reunindo humor e o que você descreveu...',
+  'Localizando os pontos de dor marcados...',
+  'Organizando suas anotações de evacuação...',
+  'Aproximando alimentação e o que você registrou...',
+  'Recolhendo gatilhos que você mencionou...',
+  'Reunindo seus marcadores anotados...',
+  'Comparando dias com mais e menos registros...',
+  'Organizando a qualidade do sono que você registrou...',
   'Mapeando sua hidratação semanal...',
-  'Detectando padrões de estresse...',
-  'Verificando frequência das refeições...',
-  'Relacionando medicamentos e sintomas...',
+  'Agrupando o que você descreveu sobre estresse...',
+  'Verificando a frequência das refeições que anotou...',
+  'Aproximando medicamentos e o que você relatou...',
   'Observando sua evolução no período...',
-  'Analisando variações de humor...',
-  'Avaliando consistência dos registros...',
+  'Reunindo variações de humor que você registrou...',
+  'Conferindo a consistência dos seus registros...',
 ];
