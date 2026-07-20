@@ -37,7 +37,15 @@ function persistAll(arr) {
 
 export function loadReports(type) {
   const all = loadAllRaw();
-  return type ? all.filter(r => r.type === type) : all;
+  const filtered = type ? all.filter(r => r.type === type) : all;
+  // Alias legacy: normaliza relatórios antigos (correlacoes → associacoes) na leitura.
+  filtered.forEach((r) => {
+    if (r && r.report && !Array.isArray(r.report.associacoes) && Array.isArray(r.report.correlacoes)) {
+      r.report.associacoes = r.report.correlacoes;
+      delete r.report.correlacoes;
+    }
+  });
+  return filtered;
 }
 
 export function saveReport({ type, report, modelo, period_start, period_end }) {
@@ -45,20 +53,27 @@ export function saveReport({ type, report, modelo, period_start, period_end }) {
   if (!report
       || typeof report.resumo_executivo !== 'string'
       || !report.resumo_executivo.trim()
-      || !Array.isArray(report.correlacoes)) {
+      || !(Array.isArray(report.associacoes) || Array.isArray(report.correlacoes))) {
     return { saved: null, removedId: null };
   }
 
+  // Alias legacy: relatórios antigos usavam 'correlacoes'. Normaliza para 'associacoes'.
+  const normalizedReport = { ...report };
+  if (!Array.isArray(normalizedReport.associacoes) && Array.isArray(normalizedReport.correlacoes)) {
+    normalizedReport.associacoes = normalizedReport.correlacoes;
+  }
+  delete normalizedReport.correlacoes;
+
   const all = loadAllRaw();
   const preview =
-    report.resumo_executivo
-      ? report.resumo_executivo.replace(/\n+/g, ' ').slice(0, 120)
+    normalizedReport.resumo_executivo
+      ? normalizedReport.resumo_executivo.replace(/\n+/g, ' ').slice(0, 120)
       : '';
 
   const item = {
     id: generateId(),
     type,
-    report,
+    report: normalizedReport,
     created_at: Date.now(),
     modelo: modelo || null,
     period_start: period_start || null,

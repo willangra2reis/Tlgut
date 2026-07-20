@@ -236,7 +236,10 @@ export default function RelatoriasIAScreen({ entries }) {
   });
 
   function renderStructuredContent(report) {
-    const { resumo_executivo, evolucao, correlacoes, consultas } = report;
+    const { resumo_executivo, evolucao, consultas } = report;
+    // Alias legacy: relatórios antigos salvos tinham 'correlacoes' (renomeado para 'associacoes').
+    const associacoes = Array.isArray(report.associacoes) ? report.associacoes
+      : (Array.isArray(report.correlacoes) ? report.correlacoes : []);
     const rawSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
@@ -279,21 +282,21 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
 
-        {Array.isArray(correlacoes) && correlacoes.length > 0 && (
+        {Array.isArray(associacoes) && associacoes.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,118,58,0.12)' }}>
                 <Sparkles size={15} style={{ color: '#C9763A' }} />
               </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#C9763A' }}>Correlações Encontradas</h4>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#C9763A' }}>Associações observadas</h4>
             </div>
             <div className="space-y-1.5">
-              {correlacoes.map((corr, idx) => (
+              {associacoes.map((corr, idx) => (
                 <div key={idx} className="rounded-xl overflow-hidden"
                   style={{ border: '1px solid rgba(201,118,58,0.2)' }}>
                   <button type="button" onClick={() => toggleAccordion(idx)}
                     className="w-full flex items-center justify-between px-3 py-2.5 text-left text-sm font-medium text-[#2B2A28] hover:bg-[#F6E9DD] transition-colors">
-                    <span>{corr.titulo || `Correlação ${idx + 1}`}</span>
+                    <span>{corr.titulo || `Associação ${idx + 1}`}</span>
                     <span style={{ color: expandedCorr[idx] ? '#C9763A' : '#7D766A' }}>
                       <ChevronDown size={16}
                         className={`transition-transform duration-200 ${expandedCorr[idx] ? 'rotate-180' : ''}`} />
@@ -304,7 +307,7 @@ export default function RelatoriasIAScreen({ entries }) {
                       style={{ background: 'rgba(246,233,221,0.3)' }}>
                       {corr.descricao && <p className="pt-1">{corr.descricao}</p>}
                       {corr.forca && (
-                        <p className="text-xs text-[#7D766A]">Força da correlação: {corr.forca}</p>
+                        <p className="text-xs text-[#7D766A]">Frequência observada: {corr.forca}</p>
                       )}
                     </div>
                   )}
