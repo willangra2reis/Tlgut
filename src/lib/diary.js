@@ -98,6 +98,26 @@ export const GAS_ALIVIO = ['Aliviou', 'Continua estufado'];
 export const GAS_SOM = ['Silencioso', 'Ruidoso'];
 
 // Normaliza o formulário de Gases numa entrada válida; todos os campos opcionais.
+
+// ─── Helper para gerar clouds mock (baseado em REGION_POINTS + jitter) ──────
+import { REGION_POINTS, REGION_LABELS } from './organs.js';
+function makeCloud(regionId, seed) {
+  const pts = REGION_POINTS[regionId];
+  if (!pts || !pts.length) return null;
+  const [cx, cy] = pts[Math.abs(Math.floor(seed * 13)) % pts.length];
+  const jx = (((seed * 17 + 5) % 400) - 200) / 100; // ~±2%
+  const jy = (((seed * 31 + 7) % 400) - 200) / 100;
+  const x = Math.max(0, Math.min(100, cx + jx));
+  const y = Math.max(0, Math.min(100, cy + jy));
+  return {
+    x: Math.round(x * 10) / 10,
+    y: Math.round(y * 10) / 10,
+    region: regionId,
+    regionLabel: REGION_LABELS[regionId] || regionId,
+    organ: regionId,
+  };
+}
+
 // ─── Gerador de dados mock enriquecidos para Relatório IA ────────────────────
 // Gera ~80 entries distribuídos pelos últimos 90 dias com ts, day, time reais.
 // Usado apenas pelo RelatoriasIAScreen enquanto Supabase não está integrado.
@@ -165,8 +185,10 @@ export function gerarDadosRelatorioMock() {
     // Dor (0-2 por dia, com padrões: mais dias com gordura = mais dor)
     if (r(23) > 0.5) {
       const intensidade = 3 + Math.floor(r(24) * 6);
+      const reg = pick(regioes, baseSeed + 7);
+      const cloud = makeCloud(reg, baseSeed * 100 + id);
       push('pain', pick(dores, baseSeed + 6), `${pick(dores, baseSeed + 6)} · intensidade ${intensidade}`,
-        { intensity: intensidade, region: pick(regioes, baseSeed + 7) },
+        { intensity: intensidade, region: reg, clouds: [cloud].filter(Boolean) },
         13 + Math.floor(r(25) * 8), Math.floor(r(26) * 60));
     }
 
@@ -187,7 +209,7 @@ export function gerarDadosRelatorioMock() {
   // B.1 — Observações fictícias (texto livre ditado pelo paciente) sempre presentes no mock.
   // Distribuídas em dias distintos do período para a IA poder correlacionar com eventos próximos.
   const obs = [
-    { dAtras: 2,  type: 'pain',       title: 'Dor abdominal',  desc: 'Dor abdominal · intensidade 6', meta: { intensity: 6, region: 'regiao_inf_esq', note: 'começou uns 40 min depois do almoço, junto com estufamento' } },
+    { dAtras: 2,  type: 'pain',       title: 'Dor abdominal',  desc: 'Dor abdominal · intensidade 6', meta: { intensity: 6, region: 'regiao_inf_esq', clouds: [makeCloud('regiao_inf_esq', 2001)], note: 'começou uns 40 min depois do almoço, junto com estufamento' } },
     { dAtras: 5,  type: 'meal',       title: 'Almoço',         desc: 'Arroz, feijoada e refrigerante',  meta: { tags: ['Feijão', 'Refrigerante'], note: 'comi rapidamente, senti que exagerei no refrigerante' } },
     { dAtras: 9,  type: 'evacuation', title: 'Evacuação',      desc: BRISTOL_DESCRICOES[1],            meta: { bristol: 1, esforco: 4, note: 'estou há 3 dias quase sem beber água' } },
     { dAtras: 14, type: 'mood',       title: 'Triste',         desc: 'Triste',                         meta: { score: 2, note: 'dia estressante no trabalho, dor de cabeça desde a manhã' } },
@@ -233,7 +255,7 @@ export function gerarDadosRelatorioMock() {
   try {
     if (typeof localStorage !== 'undefined' && localStorage.getItem('tlgut_redflag_test') === '1') {
       const flags = [
-        { dAtras: 3,  type: 'pain',       title: 'Dor abdominal', desc: 'Dor abdominal · intensidade 10', meta: { intensity: 10, region: 'regiao_inf_esq', note: 'fezes com sangue vermelho vivo pela manhã' } },
+        { dAtras: 3,  type: 'pain',       title: 'Dor abdominal', desc: 'Dor abdominal · intensidade 10', meta: { intensity: 10, region: 'regiao_inf_esq', clouds: [makeCloud('regiao_inf_esq', 3001)], note: 'fezes com sangue vermelho vivo pela manhã' } },
         { dAtras: 7,  type: 'mood',       title: 'Triste',         desc: 'Tristeza profunda',               meta: { score: 1, note: 'emagreci 4 kg nas últimas 2 semanas sem motivo' } },
       ];
       flags.forEach(o => {

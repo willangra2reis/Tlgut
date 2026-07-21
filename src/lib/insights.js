@@ -3,6 +3,25 @@
 // o Supabase, receberão o mesmo formato de registros vindos do banco — a lógica
 // não muda. Nada aqui envolve rede ou IA (RF 9.1).
 
+import { REGION_POINTS, REGION_LABELS } from './organs.js';
+
+function makeCloud(regionId, seed) {
+  const pts = REGION_POINTS[regionId];
+  if (!pts || !pts.length) return null;
+  const [cx, cy] = pts[Math.abs(Math.floor(seed * 13)) % pts.length];
+  const jx = (((seed * 17 + 5) % 400) - 200) / 100;
+  const jy = (((seed * 31 + 7) % 400) - 200) / 100;
+  const x = Math.max(0, Math.min(100, cx + jx));
+  const y = Math.max(0, Math.min(100, cy + jy));
+  return {
+    x: Math.round(x * 10) / 10,
+    y: Math.round(y * 10) / 10,
+    region: regionId,
+    regionLabel: REGION_LABELS[regionId] || regionId,
+    organ: regionId,
+  };
+}
+
 export const HORA = 3600 * 1000;
 export const DIA = 24 * HORA;
 
@@ -63,8 +82,9 @@ export function gerarHistoricoMock(dias = 75, seed = 20260618, fim = Date.UTC(20
     if (rnd() < pDor) {
       const atrasoH = 1 + rnd() * 2; // dor ~1–3 h após o almoço (proximidade temporal)
       const intensidade = Math.min(10, ri(4, 7) + (poucaAgua ? 1 : 0) + (almocoPesado ? 1 : 0));
-      const organ = almocoPesado ? 'regiao_sup_esq' : REGIOES_DOR[ri(0, REGIOES_DOR.length - 1)];
-      push(tAlmoco + atrasoH * HORA, 'pain', { intensity: intensidade, organ });
+      const regionId = almocoPesado ? 'regiao_sup_esq' : REGIOES_DOR[ri(0, REGIOES_DOR.length - 1)];
+      const cloud = makeCloud(regionId, tAlmoco + atrasoH * HORA);
+      push(tAlmoco + atrasoH * HORA, 'pain', { intensity: intensidade, region: regionId, clouds: [cloud].filter(Boolean), organ: regionId });
     }
 
     push(at(21, 0), 'mood', { score: Math.max(1, ri(2, 5) - (poucaAgua || sonoRuim ? 1 : 0)) });

@@ -342,7 +342,7 @@ const INITIAL_ENTRIES = [
   { id: 4, day: 'hoje', time: '10:30', type: 'mood',     title: 'Cansado',        description: 'Cansado', meta: { score: 3 } },
   { id: 5, day: 'hoje', time: '11:45', type: 'water',    title: 'Hidratação',     description: '3 copos de água (~750 ml)' },
   { id: 6, day: 'hoje', time: '12:21', type: 'meal',     title: 'Almoço',         description: 'Arroz, frango grelhado e salada de legumes', meta: { tags: ['Arroz', 'Legumes'], heavy: false } },
-  { id: 7, day: 'hoje', time: '14:50', type: 'pain',     title: 'Cólica',         description: 'Cólica · intensidade 7', meta: { intensity: 7, region: 'regiao_inf_dir', note: 'começou uns 40 min depois do almoço' } },
+  { id: 7, day: 'hoje', time: '14:50', type: 'pain',     title: 'Cólica',         description: 'Cólica · intensidade 7', meta: { intensity: 7, region: 'regiao_inf_dir', clouds: [{ x: 35.7, y: 73.7, region: 'regiao_inf_dir', regionLabel: 'Lado inferior direito do abdômen', organ: 'regiao_inf_dir' }], note: 'começou uns 40 min depois do almoço' } },
   { id: 8, day: 'hoje', time: '15:15', type: 'medication', title: 'Medicamento',  description: 'Probiótico', meta: { tags: ['Probiótico'] } },
   { id: 9, day: 'hoje', time: '16:30', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
   { id: 10, day: 'hoje', time: '18:30', type: 'gas',     title: 'Gases',          description: 'Gases moderados após o lanche', meta: { intensidade: 'Moderado', alivio: 'Aliviou' } },
@@ -358,7 +358,7 @@ const INITIAL_ENTRIES = [
   { id: 18, day: 'ontem', time: '10:00', type: 'mood',     title: 'Ansioso',        description: 'Ansioso', meta: { score: 2, note: 'trabalho acumulado, noite mal dormida' } },
   { id: 19, day: 'ontem', time: '11:30', type: 'water',    title: 'Hidratação',     description: '1 copo de água (~250 ml)' },
   { id: 20, day: 'ontem', time: '12:15', type: 'meal',     title: 'Almoço',         description: 'Feijoada com arroz e refrigerante', meta: { tags: ['Feijão', 'Refrigerante', 'Carne'], heavy: true } },
-  { id: 21, day: 'ontem', time: '13:45', type: 'pain',     title: 'Queimação',      description: 'Queimação · intensidade 6', meta: { intensity: 6, region: 'regiao_sup_esq', note: 'começou depois da feijoada, durou 2 horas' } },
+  { id: 21, day: 'ontem', time: '13:45', type: 'pain',     title: 'Queimação',      description: 'Queimação · intensidade 6', meta: { intensity: 6, region: 'regiao_sup_esq', clouds: [{ x: 66.3, y: 59.3, region: 'regiao_sup_esq', regionLabel: 'Lado superior esquerdo', organ: 'regiao_sup_esq' }], note: 'começou depois da feijoada, durou 2 horas' } },
   { id: 22, day: 'ontem', time: '14:00', type: 'medicalvisit', title: 'Gastroenterologista', description: 'Consulta com Gastroenterologista', meta: { especialidade: 'Gastroenterologista', note: 'Retirar lactose por 2 semanas, retorno em 30 dias com novos exames de sangue' } },
   { id: 23, day: 'ontem', time: '15:30', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
   { id: 24, day: 'ontem', time: '18:00', type: 'exercise', title: 'Caminhada',      description: 'Caminhada · 35 min · Intensidade moderada', meta: { minutes: 35 } },
@@ -378,7 +378,7 @@ const INITIAL_ENTRIES = [
   { id: 36, day: 'anteontem', time: '17:30', type: 'gas',     title: 'Gases',          description: 'Gases leves', meta: { intensidade: 'Leve', alivio: 'Não aliviou' } },
   { id: 37, day: 'anteontem', time: '19:00', type: 'meal',    title: 'Jantar',         description: 'Macarrão ao sugo e suco de maracujá', meta: { tags: ['Açúcar/Doce'], heavy: false } },
   { id: 38, day: 'anteontem', time: '21:00', type: 'water',    title: 'Hidratação',     description: '1 copo de água (~250 ml)' },
-  { id: 39, day: 'anteontem', time: '22:15', type: 'pain',    title: 'Dor abdominal',  description: 'Desconforto difuso · intensidade 4', meta: { intensity: 4, region: 'regiao_centro' } },
+  { id: 39, day: 'anteontem', time: '22:15', type: 'pain',    title: 'Dor abdominal',  description: 'Desconforto difuso · intensidade 4', meta: { intensity: 4, region: 'regiao_centro', clouds: [{ x: 51.2, y: 67.3, region: 'regiao_centro', regionLabel: 'Centro do abdômen', organ: 'regiao_centro' }] } },
   { id: 40, day: 'anteontem', time: '23:00', type: 'sleep',   title: 'Sono',           description: 'Sono tranquilo · dormiu direto', meta: { quality: 5 } },
   { id: 41, day: 'anteontem', time: '23:45', type: 'medication', title: 'Medicamento', description: 'Magnésio e Vitamina D', meta: { tags: ['Suplemento'] } },
 ];
@@ -1222,10 +1222,10 @@ function CrossCard({ titulo, explicacao, children }) {
 // marcadas ao longo do tempo, numa janela deslizante (RF 9.7).
 function PainScrubber({ history, onScrub }) {
   const pains = useMemo(() => history
-    .filter((e) => e.type === 'pain' && (e.organ || e.meta?.clouds?.[0]?.organ || e.meta?.clouds?.[0]?.region))
+    .filter((e) => e.type === 'pain' && (e.organ || e.meta?.clouds?.[0]?.organ || e.meta?.clouds?.[0]?.region || e.meta?.region))
     .map((e) => {
       const cloud = e.meta?.clouds?.[0] || {};
-      const organ = e.organ || cloud.organ || cloud.region;
+      const organ = e.organ || cloud.organ || cloud.region || e.meta?.region;
       const mapped = ORGAN_LEGACY_TO_REGION[organ] || REGION_LEGACY_TO_REGION[organ] || organ;
       const pts = REGION_POINTS[mapped];
       if (!pts || !pts.length) return null;
@@ -3230,8 +3230,20 @@ function ExpandableText({ text, max = 90 }) {
 }
 
 // ─── Zoom da silhueta (overlay sobre a tela, sem sair do Diário) ──────────────
+function deriveClouds(m) {
+  if (m?.clouds?.length > 0) return m.clouds;
+  if (m?.region) {
+    const pts = REGION_POINTS[m.region];
+    if (pts?.length) {
+      const [x, y] = pts[0];
+      return [{ x, y, region: m.region, regionLabel: resolveRegionLabel(m.region), organ: m.region }];
+    }
+  }
+  return [];
+}
 function SilhouetteZoom({ entry, onClose }) {
-  const organs = [...new Set((entry.meta?.clouds || []).map((c) => c.organLabel).filter(Boolean))];
+  const clouds = deriveClouds(entry.meta);
+  const organs = [...new Set(clouds.map((c) => c.regionLabel).filter(Boolean))];
   return (
     <div className="absolute inset-0 z-40 flex flex-col items-center justify-center p-6"
       style={{ background: 'rgba(20,18,16,0.55)', backdropFilter: 'blur(2px)' }} onClick={onClose}>
@@ -3244,7 +3256,7 @@ function SilhouetteZoom({ entry, onClose }) {
             Intensidade {entry.meta.intensity}/10
           </p>
         )}
-        <Silhouette clouds={entry.meta?.clouds || []} intensity={entry.meta?.intensity || 5} showOrgans />
+        <Silhouette clouds={clouds} intensity={entry.meta?.intensity || 5} showOrgans />
         {organs.length > 0 && (
           <p className="text-xs text-center text-[#7D766A] mt-2">{organs.join(' · ')}</p>
         )}
@@ -3319,10 +3331,10 @@ function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus }) {
 
         {entry.type === 'pain' && entry.meta && (
           <div className="mt-2 rounded-2xl p-4 flex flex-col items-center shadow-[0_2px_8px_-3px_rgba(0,0,0,0.18)]" style={{ background: meta.soft }}>
-            {entry.meta.clouds?.length > 0 && (
+            {deriveClouds(entry.meta).length > 0 && (
               <button type="button" onClick={() => onZoom && onZoom(entry)} aria-label="Ampliar silhueta"
                 className="shrink-0 rounded-2xl overflow-hidden bg-white p-1 cursor-zoom-in mb-3" style={{ width: 120 }}>
-                <Silhouette clouds={entry.meta.clouds} intensity={entry.meta.intensity} showOrgans />
+                <Silhouette clouds={deriveClouds(entry.meta)} intensity={entry.meta.intensity} showOrgans />
               </button>
             )}
             <div className="w-full flex flex-col items-center text-center">
