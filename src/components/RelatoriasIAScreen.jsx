@@ -585,9 +585,11 @@ export default function RelatoriasIAScreen({ entries }) {
       spacer(8);
     }
 
-    if (Array.isArray(r.correlacoes) && r.correlacoes.length > 0) {
-      heading('Correlações Encontradas', [201, 118, 58]);
-      r.correlacoes.forEach((c, i) => {
+    const associacoesPDF = Array.isArray(r.associacoes) ? r.associacoes
+      : (Array.isArray(r.correlacoes) ? r.correlacoes : []);
+    if (associacoesPDF.length > 0) {
+      heading('Associações observadas', [201, 118, 58]);
+      associacoesPDF.forEach((c, i) => {
         ensureSpace(30);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);

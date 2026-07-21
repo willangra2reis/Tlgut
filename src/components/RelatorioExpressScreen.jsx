@@ -387,9 +387,9 @@ export default function RelatorioExpressScreen({ entries }) {
       const data = await res.json();
       let rel = data?.report || data;
       if (rel && typeof rel === 'string' && !rel.startsWith('{')) {
-        rel = extractReportFromRaw(rel) || { resumo_executivo: rel, correlacoes: [] };
+        rel = extractReportFromRaw(rel) || { resumo_executivo: rel, associacoes: [] };
       } else if (typeof rel === 'string') {
-        const parsed = extractReportFromRaw(rel) || { resumo_executivo: rel, correlacoes: [] };
+        const parsed = extractReportFromRaw(rel) || { resumo_executivo: rel, associacoes: [] };
         rel = parsed;
       }
       const discutirEntriesFromExpress = duvidasExtraidas.map((d, idx) => ({

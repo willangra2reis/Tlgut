@@ -110,7 +110,7 @@ export function gerarDadosRelatorioMock() {
   const comidas = ['Arroz, feijão e bife', 'Salada com frango grelhado', 'Macarrão ao sugo', 'Sopa de legumes', 'Pão com ovo', 'Omelete com queijo', 'Peixe cozido com batatas', 'Sanduíche natural', 'Frutas com iogurte', 'Café com leite e biscoito', 'Açaí com granola', 'Lasanha', 'Arroz integral com legumes', 'Batata assada com carne moída', 'Panqueca de frango'];
   const bebidas = ['Café', 'Suco de laranja', 'Chá de camomila', 'Água de coco', 'Chá verde', 'Refrigerante', 'Suco de limão', 'Chá de hortelã', 'Leite morno', 'Suco de maracujá'];
   const dores = ['Cólica', 'Queimação', 'Pontada', 'Peso no estômago', 'Cólica intensa', 'Desconforto difuso', 'Cólica leve'];
-  const orgaos = ['estomago', 'colon_sig', 'intestino_delgado', 'colon_desc', 'figado'];
+  const regioes = ['regiao_sup_esq', 'regiao_sup_dir', 'regiao_centro', 'regiao_inf_dir', 'regiao_inf_esq'];
   const humores = ['Normal', 'Ansioso', 'Cansado', 'Irritado', 'Calmo', 'Alegre', 'Triste'];
   const tagsBreakfast = ['Leite', 'Pão/Trigo', 'Açúcar/Doce', 'Café', 'Ovo', 'Frutas'];
   const tagsLunch     = ['Feijão', 'Arroz', 'Carne', 'Frituras', 'Refrigerante', 'Açúcar/Doce', 'Ovo', 'Legumes'];
@@ -166,7 +166,7 @@ export function gerarDadosRelatorioMock() {
     if (r(23) > 0.5) {
       const intensidade = 3 + Math.floor(r(24) * 6);
       push('pain', pick(dores, baseSeed + 6), `${pick(dores, baseSeed + 6)} · intensidade ${intensidade}`,
-        { intensity: intensidade, organ: pick(orgaos, baseSeed + 7) },
+        { intensity: intensidade, region: pick(regioes, baseSeed + 7) },
         13 + Math.floor(r(25) * 8), Math.floor(r(26) * 60));
     }
 
@@ -187,7 +187,7 @@ export function gerarDadosRelatorioMock() {
   // B.1 — Observações fictícias (texto livre ditado pelo paciente) sempre presentes no mock.
   // Distribuídas em dias distintos do período para a IA poder correlacionar com eventos próximos.
   const obs = [
-    { dAtras: 2,  type: 'pain',       title: 'Dor abdominal',  desc: 'Dor abdominal · intensidade 6', meta: { intensity: 6, organ: 'colon_sig', note: 'começou uns 40 min depois do almoço, junto com estufamento' } },
+    { dAtras: 2,  type: 'pain',       title: 'Dor abdominal',  desc: 'Dor abdominal · intensidade 6', meta: { intensity: 6, region: 'regiao_inf_esq', note: 'começou uns 40 min depois do almoço, junto com estufamento' } },
     { dAtras: 5,  type: 'meal',       title: 'Almoço',         desc: 'Arroz, feijoada e refrigerante',  meta: { tags: ['Feijão', 'Refrigerante'], note: 'comi rapidamente, senti que exagerei no refrigerante' } },
     { dAtras: 9,  type: 'evacuation', title: 'Evacuação',      desc: BRISTOL_DESCRICOES[1],            meta: { bristol: 1, esforco: 4, note: 'estou há 3 dias quase sem beber água' } },
     { dAtras: 14, type: 'mood',       title: 'Triste',         desc: 'Triste',                         meta: { score: 2, note: 'dia estressante no trabalho, dor de cabeça desde a manhã' } },
@@ -233,7 +233,7 @@ export function gerarDadosRelatorioMock() {
   try {
     if (typeof localStorage !== 'undefined' && localStorage.getItem('tlgut_redflag_test') === '1') {
       const flags = [
-        { dAtras: 3,  type: 'pain',       title: 'Dor abdominal', desc: 'Dor abdominal · intensidade 10', meta: { intensity: 10, organ: 'colon_desc', note: 'fezes com sangue vermelho vivo pela manhã' } },
+        { dAtras: 3,  type: 'pain',       title: 'Dor abdominal', desc: 'Dor abdominal · intensidade 10', meta: { intensity: 10, region: 'regiao_inf_esq', note: 'fezes com sangue vermelho vivo pela manhã' } },
         { dAtras: 7,  type: 'mood',       title: 'Triste',         desc: 'Tristeza profunda',               meta: { score: 1, note: 'emagreci 4 kg nas últimas 2 semanas sem motivo' } },
       ];
       flags.forEach(o => {

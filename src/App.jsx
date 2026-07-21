@@ -335,15 +335,52 @@ const DIGESTIVE_IMAGE = digestiveClosedImage;
 import { REGION_LIST, REGION_POINTS, REGION_LEGACY_TO_REGION, ORGAN_LEGACY_TO_REGION, nearestRegion, resolveRegionLabel } from './lib/organs.js';
 
 const INITIAL_ENTRIES = [
-  { id: 1, day: 'hoje',  time: '07:43', type: 'meal',     title: 'Café da manhã',  description: '2 fatias de bolo de chocolate' },
-  { id: 2, day: 'hoje',  time: '08:23', type: 'water',    title: 'Hidratação',     description: '3 copos de água (~750 ml)' },
-  { id: 3, day: 'hoje',  time: '11:45', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
-  { id: 4, day: 'hoje',  time: '12:21', type: 'meal',     title: 'Almoço',         description: 'Arroz, carne gordurosa e refrigerante' },
-  { id: 5, day: 'hoje',  time: '14:50', type: 'pain',     title: 'Dor abdominal',  description: 'Cólica · Gases intensos · Cólon sigmoide', meta: { clouds: [{ x: 65, y: 82, organ: 'colon_sig' }], intensity: 7 } },
-  { id: 6, day: 'ontem', time: '18:30', type: 'exercise', title: 'Exercício',      description: 'Caminhada · 30 min · Intensidade leve' },
-  { id: 7, day: 'ontem', time: '23:10', type: 'sleep',    title: 'Sono',           description: 'Levantou 2x à noite · Acordou com desconforto abdominal', meta: { quality: 3 } },
-  { id: 8, day: 'ontem', time: '07:30', type: 'weight',   title: 'Peso',           description: '76,2 kg',                                     meta: { weight: 76.2 } },
-  { id: 9, day: 'ontem', time: '14:00', type: 'medicalvisit', title: 'Gastroenterologista', description: 'Consulta com Gastroenterologista', meta: { especialidade: 'Gastroenterologista', note: 'Retirar lactose por 2 semanas, retorno em 30 dias' } },
+  // ── Hoje ─────────────────────────────────────────────────────────────
+  { id: 1, day: 'hoje', time: '07:43', type: 'meal',     title: 'Café da manhã',  description: 'Torrada integral com ovo e café com leite', meta: { tags: ['Pão/Trigo', 'Ovo', 'Café'], saciedade: 'Satisfeito' } },
+  { id: 2, day: 'hoje', time: '08:15', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
+  { id: 3, day: 'hoje', time: '09:05', type: 'evacuation', title: 'Evacuação',    description: 'Fezes macias e pastosas — Bristol 5', meta: { bristol: 5, esforco: 2 } },
+  { id: 4, day: 'hoje', time: '10:30', type: 'mood',     title: 'Cansado',        description: 'Cansado', meta: { score: 3 } },
+  { id: 5, day: 'hoje', time: '11:45', type: 'water',    title: 'Hidratação',     description: '3 copos de água (~750 ml)' },
+  { id: 6, day: 'hoje', time: '12:21', type: 'meal',     title: 'Almoço',         description: 'Arroz, frango grelhado e salada de legumes', meta: { tags: ['Arroz', 'Legumes'], heavy: false } },
+  { id: 7, day: 'hoje', time: '14:50', type: 'pain',     title: 'Cólica',         description: 'Cólica · intensidade 7', meta: { intensity: 7, region: 'regiao_inf_dir', note: 'começou uns 40 min depois do almoço' } },
+  { id: 8, day: 'hoje', time: '15:15', type: 'medication', title: 'Medicamento',  description: 'Probiótico', meta: { tags: ['Probiótico'] } },
+  { id: 9, day: 'hoje', time: '16:30', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
+  { id: 10, day: 'hoje', time: '18:30', type: 'gas',     title: 'Gases',          description: 'Gases moderados após o lanche', meta: { intensidade: 'Moderado', alivio: 'Aliviou' } },
+  { id: 11, day: 'hoje', time: '20:00', type: 'meal',    title: 'Jantar',         description: 'Sopa de legumes com frango', meta: { tags: ['Legumes'], ritmo: 'Normal' } },
+  { id: 12, day: 'hoje', time: '22:30', type: 'water',    title: 'Hidratação',     description: '1 copo de água (~250 ml)' },
+  { id: 13, day: 'hoje', time: '23:30', type: 'sleep',    title: 'Sono',           description: 'Sono tranquilo · acordou 1x', meta: { quality: 4 } },
+
+  // ── Ontem ─────────────────────────────────────────────────────────────
+  { id: 14, day: 'ontem', time: '07:15', type: 'meal',     title: 'Café da manhã',  description: 'Pão com manteiga e suco de laranja', meta: { tags: ['Pão/Trigo', 'Açúcar/Doce'], saciedade: 'Pouco satisfeito' } },
+  { id: 15, day: 'ontem', time: '08:00', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
+  { id: 16, day: 'ontem', time: '08:45', type: 'evacuation', title: 'Evacuação',    description: 'Fezes em bolinhas duras — Bristol 1', meta: { bristol: 1, esforco: 4, note: 'se passou quase 2 dias sem beber água regular' } },
+  { id: 17, day: 'ontem', time: '09:30', type: 'weight',   title: 'Peso',           description: '76,2 kg', meta: { weight: 76.2 } },
+  { id: 18, day: 'ontem', time: '10:00', type: 'mood',     title: 'Ansioso',        description: 'Ansioso', meta: { score: 2, note: 'trabalho acumulado, noite mal dormida' } },
+  { id: 19, day: 'ontem', time: '11:30', type: 'water',    title: 'Hidratação',     description: '1 copo de água (~250 ml)' },
+  { id: 20, day: 'ontem', time: '12:15', type: 'meal',     title: 'Almoço',         description: 'Feijoada com arroz e refrigerante', meta: { tags: ['Feijão', 'Refrigerante', 'Carne'], heavy: true } },
+  { id: 21, day: 'ontem', time: '13:45', type: 'pain',     title: 'Queimação',      description: 'Queimação · intensidade 6', meta: { intensity: 6, region: 'regiao_sup_esq', note: 'começou depois da feijoada, durou 2 horas' } },
+  { id: 22, day: 'ontem', time: '14:00', type: 'medicalvisit', title: 'Gastroenterologista', description: 'Consulta com Gastroenterologista', meta: { especialidade: 'Gastroenterologista', note: 'Retirar lactose por 2 semanas, retorno em 30 dias com novos exames de sangue' } },
+  { id: 23, day: 'ontem', time: '15:30', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
+  { id: 24, day: 'ontem', time: '18:00', type: 'exercise', title: 'Caminhada',      description: 'Caminhada · 35 min · Intensidade moderada', meta: { minutes: 35 } },
+  { id: 25, day: 'ontem', time: '21:30', type: 'water',    title: 'Hidratação',     description: '1 copo de água (~250 ml)' },
+  { id: 26, day: 'ontem', time: '23:10', type: 'sleep',    title: 'Sono',           description: 'Sono agitado · levantou 2x · acordou com desconforto', meta: { quality: 2 } },
+
+  // ── Anteontem ─────────────────────────────────────────────────────────
+  { id: 27, day: 'anteontem', time: '06:45', type: 'meal',     title: 'Café da manhã',  description: 'Frutas com iogurte e granola', meta: { tags: ['Frutas', 'Açúcar/Doce'], saciedade: 'Satisfeito' } },
+  { id: 28, day: 'anteontem', time: '07:30', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
+  { id: 29, day: 'anteontem', time: '08:20', type: 'evacuation', title: 'Evacuação',    description: 'Fezes macias normais — Bristol 4', meta: { bristol: 4, esforco: 1 } },
+  { id: 30, day: 'anteontem', time: '09:30', type: 'mood',     title: 'Calmo',          description: 'Calmo', meta: { score: 4 } },
+  { id: 31, day: 'anteontem', time: '10:00', type: 'water',    title: 'Hidratação',     description: '3 copos de água (~750 ml)' },
+  { id: 32, day: 'anteontem', time: '11:45', type: 'meal',     title: 'Almoço',         description: 'Peixe cozido com batatas e legumes', meta: { tags: ['Legumes'], heavy: false } },
+  { id: 33, day: 'anteontem', time: '13:00', type: 'water',    title: 'Hidratação',     description: '2 copos de água (~500 ml)' },
+  { id: 34, day: 'anteontem', time: '14:30', type: 'exercise', title: 'Alongamento',    description: 'Alongamento · 20 min · Intensidade leve', meta: { minutes: 20 } },
+  { id: 35, day: 'anteontem', time: '15:00', type: 'water',    title: 'Hidratação',     description: '1 copo de água (~250 ml)' },
+  { id: 36, day: 'anteontem', time: '17:30', type: 'gas',     title: 'Gases',          description: 'Gases leves', meta: { intensidade: 'Leve', alivio: 'Não aliviou' } },
+  { id: 37, day: 'anteontem', time: '19:00', type: 'meal',    title: 'Jantar',         description: 'Macarrão ao sugo e suco de maracujá', meta: { tags: ['Açúcar/Doce'], heavy: false } },
+  { id: 38, day: 'anteontem', time: '21:00', type: 'water',    title: 'Hidratação',     description: '1 copo de água (~250 ml)' },
+  { id: 39, day: 'anteontem', time: '22:15', type: 'pain',    title: 'Dor abdominal',  description: 'Desconforto difuso · intensidade 4', meta: { intensity: 4, region: 'regiao_centro' } },
+  { id: 40, day: 'anteontem', time: '23:00', type: 'sleep',   title: 'Sono',           description: 'Sono tranquilo · dormiu direto', meta: { quality: 5 } },
+  { id: 41, day: 'anteontem', time: '23:45', type: 'medication', title: 'Medicamento', description: 'Magnésio e Vitamina D', meta: { tags: ['Suplemento'] } },
 ];
 
 // Silhouette + PainCloud extraídos para src/components/Silhouette.jsx (reusados
@@ -3720,8 +3757,8 @@ export default function App() {
 
   // Ordem cronológica natural: mais antigo em cima, mais recente embaixo
   // ("ontem" acima de "hoje"). Dentro de cada dia, ascendente por horário.
-  const dayOrder  = ['ontem', 'hoje'];
-  const dayLabels = { hoje: 'Registros do dia', ontem: 'Ontem' };
+  const dayOrder  = ['anteontem', 'ontem', 'hoje'];
+  const dayLabels = { anteontem: 'Anteontem', ontem: 'Ontem', hoje: 'Registros do dia' };
 
   const grouped = {};
   dayOrder.forEach((d) => {
