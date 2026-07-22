@@ -1701,7 +1701,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const sono = prep('sleep', 'quality', 'media');
   const humor = prep('mood', 'score', 'media');
   const exercicio = prep('exercise', 'minutes', 'soma');
-  const peso = prep('weight', 'weight', 'media');
+  const peso = prep('weight', 'weight', 'estado');
 
   const umDia = inicioDiaUTC(range.ini) === inicioDiaUTC(range.fim);
   const rangeLabel = umDia ? fmtData(range.ini, true) : `${fmtData(range.ini)} – ${fmtData(range.fim)}`;

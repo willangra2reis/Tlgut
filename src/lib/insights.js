@@ -217,9 +217,12 @@ export function dorPorRegiao(history) {
   return counts;
 }
 
-// Série diária de uma métrica (preenche dias sem registro com 0), para gráficos
-// de tendência. `modo`: 'soma' (ex.: copos de água) ou 'media' (ex.: intensidade
-// de dor, qualidade do sono). `campo` é o atributo numérico do registro.
+// Série diária de uma métrica para gráficos de tendência. `modo`:
+//  - 'soma'  (ex.: copos de água)       → soma do dia; dias sem registro = 0
+//  - 'media' (ex.: intensidade da dor)    → média do dia;      dias sem registro = 0
+//  - 'estado'(ex.: peso)                 → último valor conhecido (forward-fill);
+//                                          dias antes do 1º registro = 0
+// `campo` é o atributo numérico do registro (lê e[campo] ?? e.meta?.[campo] ?? 0).
 export function seriePorDia(history, type, campo, modo = 'soma') {
   if (!history.length) return [];
   let min = Infinity; let max = -Infinity;
@@ -232,11 +235,22 @@ export function seriePorDia(history, type, campo, modo = 'soma') {
     buckets.get(k).push(campo ? (e[campo] ?? e.meta?.[campo] ?? 0) : 1);
   });
   const serie = [];
+  let ultimoEstado = 0;
   for (let k = min; k <= max; k += DIA) {
     const vals = buckets.get(k) || [];
     let valor;
-    if (modo === 'media') valor = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;
-    else valor = vals.reduce((s, x) => s + x, 0);
+    if (modo === 'estado') {
+      if (vals.length) {
+        ultimoEstado = vals.reduce((s, x) => s + x, 0) / vals.length;
+        valor = ultimoEstado;
+      } else {
+        valor = ultimoEstado;
+      }
+    } else if (modo === 'media') {
+      valor = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;
+    } else {
+      valor = vals.reduce((s, x) => s + x, 0);
+    }
     serie.push({ dia: k, valor });
   }
   return serie;
