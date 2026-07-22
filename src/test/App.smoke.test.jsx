@@ -7,7 +7,7 @@ describe('App (smoke)', () => {
     render(<App />);
     expect(screen.getByText('Intestinal')).toBeInTheDocument();
     // Abas do menu inferior (textos únicos)
-    expect(screen.getByText('Insights')).toBeInTheDocument();
+    expect(screen.getByText('Análises')).toBeInTheDocument();
     expect(screen.getByText('Perfil')).toBeInTheDocument();
   });
 });

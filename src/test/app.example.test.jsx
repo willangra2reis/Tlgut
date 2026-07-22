@@ -95,7 +95,7 @@ describe('Cabeçalho Hero e Resumo do Dia (RF 2)', () => {
 describe('Menu de navegação inferior (RF 3)', () => {
   it('inicia no Diário com exatamente uma aba ativa e tem FAB', () => {
     render(<App />);
-    ['Diário', 'Insights', 'Aulas', 'Perfil'].forEach((n) =>
+    ['Diário', 'Análises', 'Aulas', 'Perfil'].forEach((n) =>
       expect(screen.getByRole('button', { name: n })).toBeInTheDocument(),
     );
     expect(document.querySelectorAll('[aria-current="page"]').length).toBe(1);
@@ -137,10 +137,10 @@ describe('Card de dor — termômetro de intensidade (RF 2)', () => {
   });
 });
 
-describe('Aba Insights (RF 9)', () => {
-  it('mostra a tela de Insights com cartões de tendência', () => {
+describe('Aba Análises (RF 9)', () => {
+  it('mostra a tela de Análises com cartões de tendência', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Insights' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Análises' }));
     expect(screen.getByText('Hidratação')).toBeInTheDocument();
     expect(screen.getByText('Qualidade do sono')).toBeInTheDocument();
     expect(screen.getAllByText('média no período').length).toBeGreaterThanOrEqual(3);
@@ -148,7 +148,7 @@ describe('Aba Insights (RF 9)', () => {
 
   it('mostra o mapa de calor e os cards de cruzamento', () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: 'Insights' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Análises' }));
     expect(screen.getByText('Onde a dor aparece')).toBeInTheDocument();
     expect(screen.getByText('Linha do tempo da dor')).toBeInTheDocument();
     expect(screen.getByText('Água e consistência (Bristol)')).toBeInTheDocument();

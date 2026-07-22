@@ -72,7 +72,7 @@ const CHIP_LABELS = {
 // com relatórios gerados por IA a partir dos dados do diário.
 const NAV_ITEMS = [
   { key: 'diario',   label: 'Diário',   icon: BookOpen },
-  { key: 'insights', label: 'Insights', icon: Lightbulb },
+  { key: 'insights', label: 'Análises', icon: Lightbulb },
   { key: 'aulas',    label: 'Aulas',    icon: GraduationCap },
   { key: 'perfil',   label: 'Perfil',   icon: User },
 ];
@@ -1678,7 +1678,13 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const [presetAtivo, setPresetAtivo] = useState(30);
   const [hover, setHover] = useState(null);
   const [scrubTs, setScrubTs] = useState(null);
-  const [suavizar, setSuavizar] = useState(false);
+  const JANELAS_SUAVIZAR = [0, 2, 5, 7, 15, 30, 60, 90];
+  const [janela, setJanela] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem('tlgut_suavizar_janela'));
+      return JANELAS_SUAVIZAR.includes(v) ? v : 7;
+    } catch { return 7; }
+  });
   const [aba, setAba] = useState('insights');
 
   const aplicaPreset = (nn) => { setRange(preset(nn)); setPresetAtivo(nn); setHover(null); };
@@ -1688,7 +1694,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
 
   const prep = (type, campo, modo) => {
     const s = seriePorDia(hist, type, campo, modo);
-    return suavizar ? mediaMovel(s, 7) : s;
+    return janela > 0 ? mediaMovel(s, janela) : s;
   };
   const agua = prep('water', 'glasses', 'soma');
   const dor = prep('pain', 'intensity', 'media');
@@ -1724,7 +1730,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
         {/* Tabs em cursiva substituem o título */}
         <div className="flex items-center gap-5">
           {[
-            { key: 'insights',   label: 'Insights',      ariaLabel: 'Aba interna Insights' },
+            { key: 'insights',   label: 'Métricas',      ariaLabel: 'Aba interna Métricas' },
             { key: 'relatorios', label: 'Relatórios IA', ariaLabel: 'Aba interna Relatórios IA' },
             { key: 'express',    label: 'Express',       ariaLabel: 'Aba interna Relatório Express' },
           ].map(({ key, label, ariaLabel }) => (
@@ -1758,9 +1764,16 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
               className="px-2.5 py-1 rounded-full border flex items-center" style={btn(calAberto || presetAtivo === null)}>
               <Calendar size={14} />
             </button>
-            <button type="button" onClick={() => setSuavizar((v) => !v)} aria-pressed={suavizar}
-              className="ml-auto px-3 py-1 rounded-full text-xs font-medium border transition-colors" style={btn(suavizar)}>
-              Suavizar
+            <button type="button"
+              onClick={() => setJanela((v) => {
+                const idx = JANELAS_SUAVIZAR.indexOf(v);
+                const next = JANELAS_SUAVIZAR[(idx + 1) % JANELAS_SUAVIZAR.length];
+                try { localStorage.setItem('tlgut_suavizar_janela', String(next)); } catch {}
+                return next;
+              })}
+              aria-pressed={janela > 0}
+              className="ml-auto px-3 py-1 rounded-full text-xs font-medium border transition-colors" style={btn(janela > 0)}>
+              {janela === 0 ? 'Sem média' : `Média ${janela}d`}
             </button>
           </div>
         )}
@@ -1799,7 +1812,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
       {aba === 'insights' ? (
         <>
           <div className="space-y-3 mt-2">
-            <MetricCard titulo="Hidratação" color={ENTRY_TYPES.water.color} serie={agua} unidade=" copos/dia" casas={suavizar ? 1 : 0} hover={hover} onHover={setHover} />
+            <MetricCard titulo="Hidratação" color={ENTRY_TYPES.water.color} serie={agua} unidade=" copos/dia" casas={janela > 0 ? 1 : 0} hover={hover} onHover={setHover} />
             <MetricCard titulo="Intensidade da dor" color={ENTRY_TYPES.pain.color} serie={dor} unidade="/10" casas={1} hover={hover} onHover={setHover} />
             <MetricCard titulo="Qualidade do sono" color={ENTRY_TYPES.sleep.color} serie={sono} unidade="/5" casas={1} hover={hover} onHover={setHover} />
             <MetricCard titulo="Humor" color={ENTRY_TYPES.mood.color} serie={humor} unidade="/5" casas={1} hover={hover} onHover={setHover} />

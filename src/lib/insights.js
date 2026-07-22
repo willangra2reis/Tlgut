@@ -108,6 +108,19 @@ export function gerarHistoricoMock(dias = 75, seed = 20260618, fim = Date.UTC(20
     sonoRuimOntem = sonoRuim;
   }
 
+  // Pesagens fictícias para o gráfico de Peso: 3 medições distribuídas no
+  // período, com tendência leve de queda (~0.9 kg/60d). Mesmo padrão do
+  // gerarDadosRelatorioMock (diary.js) para consistência visual.
+  const pesos = [
+    { d: 58, kg: 78.0 },
+    { d: 30, kg: 77.1 },
+    { d: 3,  kg: 76.2 },
+  ];
+  pesos.forEach((p) => {
+    const ts = fim - p.d * DIA + 7 * HORA + 30 * 60000;
+    entries.push({ ts, type: 'weight', weight: p.kg });
+  });
+
   return entries.sort((a, b) => a.ts - b.ts);
 }
 
@@ -216,7 +229,7 @@ export function seriePorDia(history, type, campo, modo = 'soma') {
     if (e.type !== type) return;
     const k = diaChave(e.ts);
     if (!buckets.has(k)) buckets.set(k, []);
-    buckets.get(k).push(campo ? (e[campo] ?? 0) : 1);
+    buckets.get(k).push(campo ? (e[campo] ?? e.meta?.[campo] ?? 0) : 1);
   });
   const serie = [];
   for (let k = min; k <= max; k += DIA) {

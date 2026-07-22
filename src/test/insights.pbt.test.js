@@ -12,7 +12,7 @@ import {
   faseDoCiclo,
 } from '../lib/insights.js';
 
-const TIPOS = ['water', 'meal', 'sleep', 'pain', 'exercise', 'mood', 'evacuation', 'gas', 'medication'];
+const TIPOS = ['water', 'meal', 'sleep', 'pain', 'exercise', 'mood', 'evacuation', 'gas', 'medication', 'weight'];
 
 describe('Insights — funções puras (PBT)', () => {
   // Feature: insights, Property 1: o coeficiente de Pearson está sempre em [-1, 1].
