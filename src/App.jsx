@@ -7,7 +7,7 @@ import {
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
-  Scale, Stethoscope, HelpCircle,
+  Scale, Stethoscope, HelpCircle, Download, Share2, Plus as PlusIcon,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
@@ -1034,7 +1034,7 @@ function AulasScreen({ selecionado, onSelecionado }) {
 }
 
 // ─── Tela de Perfil (configurações — hospeda a Fonte Cursiva, RF 4) ───────────
-function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile }) {
+function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick }) {
   const condLabels = (profile?.condicoes || []).map(id => CONDICOES_LABELS[id] || id).join(', ');
   const biometria = [
     profile?.idade ? `${profile.idade} anos` : null,
@@ -1080,6 +1080,8 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
           Estes dados enriquecem o Relatório de IA com contexto clínico personalizado.
         </p>
       </div>
+
+      <InstallSection installState={installState} onInstallClick={onInstallClick} />
 
       {/* Aparência (retrátil) */}
       <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
@@ -1129,6 +1131,83 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
 
       <p className="text-xs mt-4" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>Mais opções de perfil em breve.</p>
     </main>
+  );
+}
+
+// ─── Seção "Aplicativo" dentro da aba Perfil ─────────────────────────────
+function InstallSection({ installState, onInstallClick }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+      <button type="button" onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Download size={15} style={{ color: 'var(--brand)' }} />
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Aplicativo</p>
+        </div>
+        <ChevronDown size={16} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          style={{ color: '#B6AE9F' }} />
+      </button>
+      {open && (
+        <div className="mt-4 space-y-3">
+          {installState === 'installed' ? (
+            <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: 'rgba(74,138,92,0.1)' }}>
+              <CheckCircle2 size={16} style={{ color: '#4A8A5C' }} />
+              <p className="text-sm font-medium" style={{ color: '#4A8A5C' }}>Instalado ✓</p>
+            </div>
+          ) : (
+            <button type="button" onClick={onInstallClick}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity"
+              style={{ background: installState === 'available' ? 'var(--brand)' : '#9A938A' }}>
+              <Download size={16} />
+              {installState === 'available' ? 'Instalar' : 'Como instalar'}
+            </button>
+          )}
+          {installState === 'unavailable' && (
+            <p className="text-xs leading-snug" style={{ color: '#7D766A' }}>
+              No Safari do iPhone: toque no ícone <Share2 size={12} className="inline" /> Compartilhar e selecione "Adicionar à Tela Inicial".
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Modal de instruções de instalação (iOS/Safari) ──────────────────────
+function InstrucoesInstallModal({ onClose }) {
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col items-center justify-center p-6"
+      style={{ background: 'rgba(20,18,16,0.55)', backdropFilter: 'blur(2px)' }} onClick={onClose}>
+      <div className="relative bg-white rounded-3xl p-5 w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}>
+        <button type="button" onClick={onClose} aria-label="Fechar"
+          className="absolute right-3 top-3 z-10 text-[#B6AE9F]"><X size={20} /></button>
+        <div className="flex items-center gap-2 mb-4">
+          <Download size={18} style={{ color: 'var(--brand)' }} />
+          <p className="text-base font-semibold text-[#2B2A28]">Instalar aplicativo</p>
+        </div>
+        <ol className="space-y-3">
+          <li className="flex items-start gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'var(--brand)' }}>1</span>
+            <p className="text-sm text-[#2B2A28]">Toque no ícone <Share2 size={14} className="inline" /> <strong>Compartilhar</strong> na barra inferior do Safari.</p>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'var(--brand)' }}>2</span>
+            <p className="text-sm text-[#2B2A28]">Role para baixo e selecione <strong>"Adicionar à Tela Inicial"</strong>.</p>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'var(--brand)' }}>3</span>
+            <p className="text-sm text-[#2B2A28]">Toque em <strong>"Adicionar"</strong> no canto superior direito.</p>
+          </li>
+        </ol>
+        <p className="text-xs text-center text-[#7D766A] mt-4">O ícone do Diário Intestinal aparecerá na sua tela inicial.</p>
+        <button type="button" onClick={onClose}
+          className="w-full mt-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: 'var(--brand)' }}>
+          Entendi
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -3601,6 +3680,13 @@ export default function App() {
   const [editandoProfile, setEditandoProfile] = useState(false);
   const [mostrarInstall, setMostrarInstall] = useState(false);                          // banner de instalação PWA
   const deferredPromptRef = useRef(null);                                               // guarda o evento beforeinstallprompt
+  const [installState, setInstallState] = useState(() => {                               // 'installed' | 'available' | 'unavailable'
+    try {
+      if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) return 'installed';
+    } catch {}
+    return 'unavailable';
+  });
+  const [showInstrucoesInstall, setShowInstrucoesInstall] = useState(false);             // modal de instruções (iOS/Safari)
   const idRef = useRef(100);
   const rafRef = useRef(0);
   const timelineRef = useRef(null);
@@ -3658,26 +3744,48 @@ export default function App() {
 
   // Captura do evento beforeinstallprompt para PWA. Exibe banner após onboarding
   // ou após 8 segundos se já onboarded. Não exibe se já instalado ou dispensado.
+  // Também atualiza installState para o botão manual na aba Perfil.
   useEffect(() => {
     const dismissed = localStorage.getItem('tlgut_install_dismissed') === '1';
-    if (dismissed) return; // não exibe novamente após usuário ter dispensado
-    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) return;
+    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+      setInstallState('installed');
+      return;
+    }
     const onPrompt = (e) => {
       e.preventDefault();
       deferredPromptRef.current = e;
+      setInstallState('available');
+      if (dismissed) return; // não exibe banner novamente após usuário ter dispensado
       const isNewUser = !isOnboarded();
-      const delay = isNewUser ? 99999 : 8000; // após onboarding, o estado muda
+      const delay = isNewUser ? 99999 : 8000;
       const timer = setTimeout(() => setMostrarInstall(true), delay);
-      // Se o onboarding concluir, antecipa a exibição
       const checkOnboarding = setInterval(() => {
         if (isOnboarded()) { clearInterval(checkOnboarding); clearTimeout(timer); setMostrarInstall(true); }
       }, 500);
-      // Cleanup se o usuário navegar para longe / prompt expirar
       return () => { clearTimeout(timer); clearInterval(checkOnboarding); };
     };
+    const onAppInstalled = () => { setInstallState('installed'); };
     window.addEventListener('beforeinstallprompt', onPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onAppInstalled);
+    };
   }, []);
+
+  // Handler de clique do botão de instalação na aba Perfil
+  const onInstallClick = useCallback(async () => {
+    if (installState === 'installed') return;
+    if (installState === 'available' && deferredPromptRef.current) {
+      deferredPromptRef.current.prompt();
+      const { outcome } = await deferredPromptRef.current.userChoice;
+      deferredPromptRef.current = null;
+      if (outcome === 'accepted') setInstallState('installed');
+    } else {
+      // unavailable (ex: iOS Safari) — abre modal de instruções
+      setShowInstrucoesInstall(true);
+    }
+  }, [installState]);
 
   // O gate por aba garante que Perfil/Aulas nunca exibam o estado recolhido.
   // Reseta naturalmente ao trocar de aba.
@@ -3951,7 +4059,7 @@ export default function App() {
         ) : abaAtiva === 'insights' ? (
           <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} />
+          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} installState={installState} onInstallClick={onInstallClick} />
         ) : (
           <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}
@@ -3983,7 +4091,7 @@ export default function App() {
                     deferredPromptRef.current.prompt();
                     const { outcome } = await deferredPromptRef.current.userChoice;
                     deferredPromptRef.current = null;
-                    if (outcome === 'accepted') localStorage.setItem('tlgut_install_dismissed', '1');
+                    if (outcome === 'accepted') { localStorage.setItem('tlgut_install_dismissed', '1'); setInstallState('installed'); }
                   }}
                   className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white"
                   style={{ background: 'var(--brand)' }}>
@@ -3992,6 +4100,10 @@ export default function App() {
               </div>
             </div>
           </div>
+        )}
+
+        {showInstrucoesInstall && (
+          <InstrucoesInstallModal onClose={() => setShowInstrucoesInstall(false)} />
         )}
 
         {/* Mascote lembrete — balão flutuante quando inatividade > 6h */}
