@@ -433,7 +433,7 @@ export default function RelatorioExpressScreen({ entries }) {
             </button>
             <div className="flex items-center gap-2 mb-3">
               <Sparkles size={20} style={{ color: 'var(--brand)' }} />
-              <p className="titulo-cursivo text-xl font-serif" style={{ color: 'var(--amb-text)' }}>
+              <p className="titulo-cursivo text-xl font-sans" style={{ color: 'var(--amb-text)' }}>
                 Relatório Express
               </p>
             </div>
@@ -456,7 +456,7 @@ export default function RelatorioExpressScreen({ entries }) {
         style={{ borderColor: SOFT_BORDER }}>
         <div className="flex items-center gap-2 mb-2">
           <Sparkles size={20} style={{ color: 'var(--brand)' }} />
-          <p className="titulo-cursivo text-xl font-serif" style={{ color: 'var(--amb-text)' }}>
+          <p className="titulo-cursivo text-xl font-sans" style={{ color: 'var(--amb-text)' }}>
             Relatório Express
           </p>
         </div>

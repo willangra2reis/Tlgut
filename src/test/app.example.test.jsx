@@ -115,13 +115,13 @@ describe('Menu de navegação inferior (RF 3)', () => {
 });
 
 describe('Fonte cursiva e Evacuação (RF 4 e 5)', () => {
-  it('cursiva inicia ligada e alterna no Perfil', () => {
+  it('cursiva inicia desligada e alterna no Perfil', () => {
     const { container } = render(<App />);
     const root = container.querySelector('[data-theme]');
-    expect(root.classList.contains('cursiva')).toBe(true);
+    expect(root.classList.contains('cursiva')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Perfil' }));
     fireEvent.click(screen.getByRole('button', { name: /Ativada|Desativada/ }));
-    expect(root.classList.contains('cursiva')).toBe(false);
+    expect(root.classList.contains('cursiva')).toBe(true);
   });
 
   it('o seletor de tipos inclui "Evacuação"', () => {

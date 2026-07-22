@@ -639,11 +639,11 @@ function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
       className={`day-summary-mesh relative z-20 mx-5 mb-0 shrink-0 overflow-hidden rounded-2xl border border-[#EDE7DD] ${colapsado ? 'p-2 -mt-3 shadow-[0_8px_18px_-12px_rgba(0,0,0,0.4)] cursor-pointer' : 'p-4 -mt-5 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]'}`}
       {...(colapsado ? { onClick: onExpand, role: 'button', 'aria-expanded': false, tabIndex: 0 } : {})}>
       <div className={`relative z-[1] flex items-center justify-between gap-2 ${colapsado ? 'mb-0' : 'mb-3'}`}>
-        <span className="titulo-cursivo flex items-center gap-1.5 text-sm font-serif" style={{ color: 'var(--brand)' }}>
+        <span className="titulo-cursivo flex items-center gap-1.5 text-sm font-sans" style={{ color: 'var(--brand)' }}>
           <ChartColumn size={15} />
           Resumo do dia
         </span>
-        <span className="titulo-cursivo text-base font-serif text-[#2B2A28]">
+        <span className="titulo-cursivo text-base font-sans text-[#2B2A28]">
           {dateLabel}
         </span>
       </div>
@@ -1044,7 +1044,7 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
   const [showAparencia, setShowAparencia] = useState(false);
   return (
     <main className="relative z-10 flex-1 overflow-y-auto px-5 pt-3 pb-28">
-      <p className="titulo-cursivo text-2xl font-serif mb-4" style={{ color: 'var(--amb-text)' }}>Perfil</p>
+      <p className="titulo-cursivo text-2xl font-sans mb-4" style={{ color: 'var(--amb-text)' }}>Perfil</p>
 
       {/* Meus dados de saúde */}
       <div className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
@@ -1651,7 +1651,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
           ].map(({ key, label, ariaLabel }) => (
             <button key={key} type="button" onClick={() => setAba(key)}
               aria-label={ariaLabel}
-              className="titulo-cursivo text-2xl font-serif pb-0.5 transition-all"
+              className="titulo-cursivo text-xl font-sans pb-0.5 transition-all"
               style={{
                 color:       'var(--amb-text)',
                 opacity:     aba === key ? 1 : 0.38,
@@ -1728,11 +1728,11 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
             <MetricCard titulo="Peso" color={ENTRY_TYPES.weight.color} serie={peso} unidade=" kg" casas={1} hover={hover} onHover={setHover} />
           </div>
 
-          <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Onde dói</p>
+          <p className="titulo-cursivo text-lg font-sans mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Onde dói</p>
           <PainHeatmap history={hist} />
           <div className="mt-3"><PainScrubber history={hist} onScrub={setScrubTs} /></div>
 
-          <p className="titulo-cursivo text-lg font-serif mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Cruzamentos</p>
+          <p className="titulo-cursivo text-lg font-sans mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Cruzamentos</p>
           <CrossingsSection history={hist} />
 
           <p className="text-[11px] mt-4 leading-snug" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>
@@ -1777,7 +1777,7 @@ function CalibrationOverlay({ onClose }) {
   return (
     <div className="absolute inset-0 z-40 bg-white flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#EDE7DD] shrink-0">
-        <p className="font-serif text-base text-[#2B2A28]">Calibração — Regiões corporais</p>
+        <p className="font-sans text-base text-[#2B2A28]">Calibração — Regiões corporais</p>
         <button type="button" onClick={onClose} className="text-[#B6AE9F]"><X size={20} /></button>
       </div>
 
@@ -2158,7 +2158,7 @@ function WaterForm({ onSave }) {
           <Minus size={18} />
         </button>
         <div className="text-center">
-          <p className="text-3xl font-serif text-[#2B2A28]">{glasses}</p>
+          <p className="text-3xl font-sans text-[#2B2A28]">{glasses}</p>
           <p className="text-xs text-[#B6AE9F] mt-1">{glasses * 250} ml</p>
         </div>
         <button onClick={() => setGlasses((g) => g + 1)}
@@ -2288,7 +2288,7 @@ function WeightForm({ onSave }) {
     <div className="space-y-6">
       <p className="text-sm text-[#7D766A]">Registre seu peso corporal atual</p>
       <div className="text-center">
-        <p className="text-5xl font-serif text-[#2B2A28]">{weight.toFixed(1).replace('.', ',')}</p>
+        <p className="text-5xl font-sans text-[#2B2A28]">{weight.toFixed(1).replace('.', ',')}</p>
         <p className="text-xs text-[#B6AE9F] mt-1">kg</p>
       </div>
       <div className="px-2">
@@ -2409,7 +2409,7 @@ function EvacuationForm({ onSave }) {
             <Minus size={18} />
           </button>
           <div className="text-center min-w-[64px]">
-            <p className="text-3xl font-serif text-[#2B2A28]">{tempo ?? '—'}</p>
+            <p className="text-3xl font-sans text-[#2B2A28]">{tempo ?? '—'}</p>
             <p className="text-xs text-[#B6AE9F] mt-1">minutos</p>
           </div>
           <button type="button" onClick={() => setTempo((t) => Math.min(120, (t ?? 0) + 1))}
@@ -2737,7 +2737,7 @@ function ObservationStep({ onConfirm, prompt }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="titulo-cursivo font-serif text-xl text-[#2B2A28]">{prompt?.titulo || 'Quer anotar uma observação?'}</p>
+        <p className="titulo-cursivo font-sans text-xl text-[#2B2A28]">{prompt?.titulo || 'Quer anotar uma observação?'}</p>
         <p className="text-sm text-[#7D766A] mt-1">Uma nota rápida enriquece seu histórico — algo que vai além dos números.</p>
       </div>
 
@@ -3250,7 +3250,7 @@ function SilhouetteZoom({ entry, onClose }) {
       <div className="relative bg-white rounded-3xl p-4 w-full max-w-[330px]" onClick={(e) => e.stopPropagation()}>
         <button type="button" onClick={onClose} aria-label="Fechar"
           className="absolute right-3 top-3 z-10 text-[#B6AE9F]"><X size={20} /></button>
-        <p className="titulo-cursivo font-serif text-base text-[#2B2A28] mb-1">{entry.title} · {entry.time}</p>
+        <p className="titulo-cursivo font-sans text-base text-[#2B2A28] mb-1">{entry.title} · {entry.time}</p>
         {entry.meta && (
           <p className="text-xs mb-2" style={{ color: corIntensidade(entry.meta.intensity) }}>
             Intensidade {entry.meta.intensity}/10
@@ -3581,7 +3581,7 @@ export default function App() {
   const [sheetOpen,  setSheetOpen]  = useState(false);
   const [activeForm, setActiveForm] = useState(null);
   const [tema]                      = useState(() => periodoDoDia(horaLocalAtual())); // RF 1.1/1.2
-  const [cursiva,    setCursiva]    = useState(true);                                 // RF 4.1 (padrão ligado)
+  const [cursiva,    setCursiva]    = useState(false);                                // RF 4.1 (padrão desligado)
   const [abaAtiva,   setAbaAtiva]   = useState('diario');                             // RF 3.2 (padrão Diário)
   const [calibrando, setCalibrando] = useState(false);                                // ferramenta dev (temporária)
   const [pending,    setPending]    = useState(null);                                 // etapa de observação antes de salvar
@@ -3920,7 +3920,7 @@ export default function App() {
               {dayOrder.map((day) => (
                 grouped[day].length > 0 && (
                   <section key={day} className="mb-6">
-                    <p className="titulo-cursivo text-lg font-serif mb-3" style={{ color: 'var(--amb-text)' }}>{dayLabels[day]}</p>
+                    <p className="titulo-cursivo text-lg font-sans mb-3" style={{ color: 'var(--amb-text)' }}>{dayLabels[day]}</p>
                     <div className="relative">
                       {/* Fio_Conector: linha vertical pontilhada passando pelos círculos de horário */}
                       <span aria-hidden="true" className="absolute top-3 bottom-3"
@@ -4037,7 +4037,7 @@ export default function App() {
           <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl flex flex-col max-h-[92%] transition-transform duration-300 ${editing ? 'translate-y-0' : 'translate-y-full'}`}>
             <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-[#F1ECE3] shrink-0">
               <span className="w-5" />
-              <p className="titulo-cursivo font-serif text-base text-[#2B2A28]">Editar registro</p>
+              <p className="titulo-cursivo font-sans text-base text-[#2B2A28]">Editar registro</p>
               <button onClick={() => setEditing(null)} className="text-[#B6AE9F]" aria-label="Fechar edição"><X size={20} /></button>
             </div>
             <div className="px-5 py-4 overflow-y-auto flex-1">
@@ -4053,7 +4053,7 @@ export default function App() {
           <div className="absolute inset-0 bg-black/30" onClick={() => setSheetOpen(false)} />
           <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-5 pb-8 transition-transform duration-300 ${sheetOpen ? 'translate-y-0' : 'translate-y-full'}`}>
             <div className="w-10 h-1.5 bg-[#EDE7DD] rounded-full mx-auto mb-4" />
-            <p className="titulo-cursivo text-center font-serif text-lg text-[#2B2A28] mb-4">O que você quer registrar?</p>
+            <p className="titulo-cursivo text-center font-sans text-lg text-[#2B2A28] mb-4">O que você quer registrar?</p>
             <div className="grid grid-cols-3 gap-3">
               {Object.entries(ENTRY_TYPES).map(([key, meta]) => {
                 const Icon = meta.icon;
@@ -4084,7 +4084,7 @@ export default function App() {
               <button onClick={() => { if (pending) setPending(null); else { setActiveForm(null); setSheetOpen(true); } }} className="text-[#B6AE9F]">
                 <ChevronLeft size={20} />
               </button>
-              <p className="titulo-cursivo font-serif text-xl text-[#2B2A28]">{activeForm && ENTRY_TYPES[activeForm].label}</p>
+              <p className="titulo-cursivo font-sans text-xl text-[#2B2A28]">{activeForm && ENTRY_TYPES[activeForm].label}</p>
               <button onClick={() => { setPending(null); setActiveForm(null); }} className="text-[#B6AE9F]"><X size={20} /></button>
             </div>
             <div className="px-5 py-4 overflow-y-auto flex-1">

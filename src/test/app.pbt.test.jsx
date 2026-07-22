@@ -36,8 +36,8 @@ describe('Estado de UI do App (PBT)', () => {
         cleanup();
         const { container } = render(<App />);
         const root = container.querySelector('[data-theme]');
-        // Estado inicial: cursiva ligada (RF 4.1) e há textos de registro
-        expect(root.classList.contains('cursiva')).toBe(true);
+        // Estado inicial: cursiva desligada (RF 4.1) e há textos de registro
+        expect(root.classList.contains('cursiva')).toBe(false);
         expect(container.querySelectorAll('.entry-text').length).toBeGreaterThan(0);
 
         // Abrir a aba Perfil, onde vive o controle
@@ -47,8 +47,8 @@ describe('Estado de UI do App (PBT)', () => {
           fireEvent.click(screen.getByRole('button', { name: /Ativada|Desativada/ }));
         }
 
-        // par de toggles → volta ao estado inicial (ligado); ímpar → desligado
-        expect(root.classList.contains('cursiva')).toBe(n % 2 === 0);
+        // par de toggles → volta ao estado inicial (desligado); ímpar → ligado
+        expect(root.classList.contains('cursiva')).toBe(n % 2 !== 0);
       }),
       { numRuns: 100 },
     );
