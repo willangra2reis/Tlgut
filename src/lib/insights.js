@@ -108,12 +108,15 @@ export function gerarHistoricoMock(dias = 75, seed = 20260618, fim = Date.UTC(20
     sonoRuimOntem = sonoRuim;
   }
 
-  // Pesagens fictícias para o gráfico de Peso: 3 medições distribuídas no
-  // período, com tendência leve de queda (~0.9 kg/60d). Mesmo padrão do
-  // gerarDadosRelatorioMock (diary.js) para consistência visual.
+  // Pesagens fictícias para o gráfico de Peso: distribuídas ao longo do período,
+  // com tendência leve de queda (~1.8 kg/60d). Inclui uma pesagem no 1º dia do
+  // range para que o forward-fill cubra todo o gráfico (sem trecho em zero).
   const pesos = [
-    { d: 58, kg: 78.0 },
+    { d: 74, kg: 78.0 },
+    { d: 58, kg: 77.8 },
+    { d: 45, kg: 77.5 },
     { d: 30, kg: 77.1 },
+    { d: 17, kg: 76.7 },
     { d: 3,  kg: 76.2 },
   ];
   pesos.forEach((p) => {
