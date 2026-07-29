@@ -4,7 +4,7 @@ import {
   Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle, Map,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
+import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
 import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
 import { dorPorRegiao } from '../lib/insights.js';
 import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
@@ -234,6 +234,18 @@ export default function RelatoriasIAScreen({ entries }) {
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
+
+  // ── Modo anônimo para exportação (PDF/Compartilhar) ─────────────────────
+  const [anonimo, setAnonimo] = useState(() => {
+    try { return localStorage.getItem('tlgut_anonimo') === '1'; } catch { return false; }
+  });
+  const toggleAnonimo = useCallback(() => {
+    setAnonimo((v) => {
+      const next = !v;
+      try { localStorage.setItem('tlgut_anonimo', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
 
   function renderStructuredContent(report) {
     const { resumo_executivo, evolucao, consultas } = report;
@@ -485,7 +497,7 @@ export default function RelatoriasIAScreen({ entries }) {
     );
   }
 
-  function gerarPDF(reportData, modelLabel) {
+  function gerarPDF(reportData, modelLabel, anon = false) {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
@@ -543,13 +555,30 @@ export default function RelatoriasIAScreen({ entries }) {
     doc.text('Smart Gut · Relatório Gastrointestinal', margin, y);
     y += 22;
 
+    // Badge de anonimização (antes dos dados do paciente)
+    if (anon) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(74, 138, 92);
+      doc.text('Relatório Anonimizado', margin, y);
+      y += 12;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      doc.setTextColor(150, 140, 120);
+      doc.text('Nenhum dado de identificação direta (PII) está vinculado a este documento.', margin, y);
+      y += 10;
+      doc.setTextColor(43, 42, 40);
+      spacer(4);
+    }
+
     const dataGer = new Date().toLocaleDateString('pt-BR');
-    const pr = (typeof loadProfile === 'function') ? loadProfile() : {};
+    const prRaw = (typeof loadProfile === 'function') ? loadProfile() : {};
+    const pr = anon ? anonimizarPerfil(prRaw) : prRaw;
     const nomeProf = pr && pr.nome ? String(pr.nome).trim() : '';
     const bio = [];
-    if (pr && pr.idade) bio.push(`${pr.idade} anos`);
-    if (pr && pr.peso)  bio.push(`${pr.peso} kg`);
-    if (pr && pr.altura) bio.push(`${pr.altura} cm`);
+    if (pr && pr.idade)  bio.push(typeof pr.idade === 'number' ? `${pr.idade} anos` : pr.idade);
+    if (pr && pr.peso)   bio.push(typeof pr.peso === 'number' ? `${pr.peso} kg` : pr.peso);
+    if (pr && pr.altura) bio.push(typeof pr.altura === 'number' ? `${pr.altura} cm` : pr.altura);
     const condArr = Array.isArray(pr && pr.condicoes) ? pr.condicoes.map(c => CONDICOES_LABELS[c] || c).filter(Boolean) : [];
     if (pr && pr.outros) condArr.push(pr.outros);
 
@@ -571,7 +600,9 @@ export default function RelatoriasIAScreen({ entries }) {
     y += 20;
 
     const r = reportData || {};
-    const paragrafos = r.resumo_executivo ? r.resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
+    const nomeOrig = prRaw && prRaw.nome ? String(prRaw.nome).trim() : '';
+    const texRef = anon ? (t) => anonimizarTextoIA(t, nomeOrig) : (t) => t;
+    const paragrafos = r.resumo_executivo ? texRef(r.resumo_executivo).split(/\n\n+/).filter(p => p.trim()) : [];
 
     if (paragrafos.length > 0) {
       heading('Resumo Executivo', [93, 95, 160]);
@@ -581,7 +612,7 @@ export default function RelatoriasIAScreen({ entries }) {
 
     if (typeof r.evolucao === 'string' && r.evolucao.trim()) {
       heading('Evolução no período', [62, 142, 150]);
-      paragraph(r.evolucao.trim());
+      paragraph(texRef(r.evolucao.trim()));
       spacer(8);
     }
 
@@ -730,8 +761,9 @@ export default function RelatoriasIAScreen({ entries }) {
     return doc;
   }
 
-  function montarNomeArquivoPDF() {
+  function montarNomeArquivoPDF(anon = false) {
     const data = new Date().toISOString().slice(0, 10);
+    if (anon) return `SmartGut_RelatorioAnonimo_${data}.pdf`;
     let pr = {};
     try { pr = loadProfile(); } catch {}
     const nome = pr && pr.nome ? String(pr.nome).trim().replace(/[^\p{L}\p{N}_-]+/gu, '_') : '';
@@ -739,10 +771,10 @@ export default function RelatoriasIAScreen({ entries }) {
     return base + '.pdf';
   }
 
-  function baixarPDF(reportData, modelLabel) {
+  function baixarPDF(reportData, modelLabel, anon = false) {
     try {
-      const doc = gerarPDF(reportData, modelLabel);
-      const fileName = montarNomeArquivoPDF();
+      const doc = gerarPDF(reportData, modelLabel, anon);
+      const fileName = montarNomeArquivoPDF(anon);
       if (navigator.userAgent.includes('Firefox')) {
         const blobUrl = doc.output('bloburl');
         const a = document.createElement('a');
@@ -766,10 +798,10 @@ export default function RelatoriasIAScreen({ entries }) {
            !navigator.userAgent.includes('iPhone');
   }
 
-  async function compartilharPDF(reportData, modelLabel) {
+  async function compartilharPDF(reportData, modelLabel, anon = false) {
     try {
-      const doc = gerarPDF(reportData, modelLabel);
-      const fileName = montarNomeArquivoPDF();
+      const doc = gerarPDF(reportData, modelLabel, anon);
+      const fileName = montarNomeArquivoPDF(anon);
       if (isShareSupported()) {
         const blob = doc.output('blob');
         const file = new File([blob], fileName, { type: 'application/pdf' });
@@ -778,11 +810,11 @@ export default function RelatoriasIAScreen({ entries }) {
           return;
         }
       }
-      baixarPDF(reportData, modelLabel);
+      baixarPDF(reportData, modelLabel, anon);
     } catch (e) {
       if (e.name !== 'AbortError') {
         console.error('Erro ao compartilhar:', e);
-        baixarPDF(reportData, modelLabel);
+        baixarPDF(reportData, modelLabel, anon);
       }
     }
   }
@@ -861,19 +893,35 @@ export default function RelatoriasIAScreen({ entries }) {
         )}
 
         {canPDF && (
-          <div className="flex gap-2.5 mt-4 pt-4 border-t" style={{ borderColor: 'rgba(150,140,120,0.2)' }}>
-            <button type="button" onClick={() => baixarPDF(effectiveReport, nomeModelo)}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-              style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
-              <Download size={16} />
-              Baixar PDF
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'rgba(150,140,120,0.2)' }}>
+            {/* Switch modo anônimo */}
+            <button type="button" onClick={toggleAnonimo}
+              className="w-full flex items-center justify-between gap-3 mb-3 px-3 py-2 rounded-xl transition-colors"
+              style={{ background: anonimo ? 'rgba(74,138,92,0.08)' : 'rgba(150,140,120,0.06)', border: `1px solid ${anonimo ? 'rgba(74,138,92,0.2)' : 'rgba(150,140,120,0.15)'}` }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0 w-8 h-4 rounded-full transition-colors relative" style={{ background: anonimo ? '#4A8A5C' : '#C9C2B4' }}>
+                  <span className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: anonimo ? '18px' : '2px' }} />
+                </span>
+                <span className="text-xs font-medium" style={{ color: anonimo ? '#4A8A5C' : '#7D766A' }}>
+                  {anonimo ? 'Modo anônimo' : 'Incluir meus dados'}
+                </span>
+              </div>
+              <span className="text-[10px] text-[#9A938A] truncate">{anonimo ? 'Sem nome/PII no PDF' : 'PDF com seus dados'}</span>
             </button>
-            <button type="button" onClick={() => compartilharPDF(effectiveReport, nomeModelo)}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-              style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
-              <Share2 size={16} />
-              Compartilhar
-            </button>
+            <div className="flex gap-2.5">
+              <button type="button" onClick={() => baixarPDF(effectiveReport, nomeModelo, anonimo)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
+                <Download size={16} />
+                Baixar PDF
+              </button>
+              <button type="button" onClick={() => compartilharPDF(effectiveReport, nomeModelo, anonimo)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+                style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
+                <Share2 size={16} />
+                Compartilhar
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -8,7 +8,7 @@ import { extractReportFromRaw } from '../lib/ai-report.js';
 import { loadExpressDraft, saveExpressDraft, clearExpressDraft } from '../lib/express.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import { proximaConsulta } from '../lib/consulta.js';
-import { loadProfile, CONDICOES_LABELS } from '../lib/profile.js';
+import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
 import { nearestRegion } from '../lib/organs.js';
 import mascoteImage from '../assets/mascote.png';
 import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
@@ -758,6 +758,18 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
     return next;
   });
 
+  // ── Modo anônimo para exportação (PDF/Compartilhar) ─────────────────────
+  const [anonimo, setAnonimo] = useState(() => {
+    try { return localStorage.getItem('tlgut_anonimo') === '1'; } catch { return false; }
+  });
+  const toggleAnonimo = useCallback(() => {
+    setAnonimo((v) => {
+      const next = !v;
+      try { localStorage.setItem('tlgut_anonimo', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
+
   const discutirEntries = useMemo(() => {
     const source = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
     if (!Array.isArray(source)) return [];
@@ -909,14 +921,28 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
       {canPDF && (
         <div className="rounded-2xl bg-white border p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]"
           style={{ borderColor: SOFT_BORDER }}>
+          {/* Switch modo anônimo */}
+          <button type="button" onClick={toggleAnonimo}
+            className="w-full flex items-center justify-between gap-3 mb-3 px-3 py-2 rounded-xl transition-colors"
+            style={{ background: anonimo ? 'rgba(74,138,92,0.08)' : 'rgba(150,140,120,0.06)', border: `1px solid ${anonimo ? 'rgba(74,138,92,0.2)' : 'rgba(150,140,120,0.15)'}` }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="shrink-0 w-8 h-4 rounded-full transition-colors relative" style={{ background: anonimo ? '#4A8A5C' : '#C9C2B4' }}>
+                <span className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: anonimo ? '18px' : '2px' }} />
+              </span>
+              <span className="text-xs font-medium" style={{ color: anonimo ? '#4A8A5C' : '#7D766A' }}>
+                {anonimo ? 'Modo anônimo' : 'Incluir meus dados'}
+              </span>
+            </div>
+            <span className="text-[10px] text-[#9A938A] truncate">{anonimo ? 'Sem nome/PII no PDF' : 'PDF com seus dados'}</span>
+          </button>
           <div className="flex gap-2.5">
-            <button type="button" onClick={() => baixarPDFExpress(report, effClouds, effIntensity, effKinds, entries, excludedSet)}
+            <button type="button" onClick={() => baixarPDFExpress(report, effClouds, effIntensity, effKinds, entries, excludedSet, anonimo)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Download size={16} />
               Baixar PDF
             </button>
-            <button type="button" onClick={() => compartilharPDFExpress(report, effClouds, effIntensity, effKinds, entries, excludedSet)}
+            <button type="button" onClick={() => compartilharPDFExpress(report, effClouds, effIntensity, effKinds, entries, excludedSet, anonimo)}
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
               style={{ background: 'rgba(93,95,160,0.08)', color: '#5D5FA0', border: '1px solid rgba(93,95,160,0.2)' }}>
               <Share2 size={16} />
@@ -935,7 +961,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
 }
 
 // ── PDF Express (próprio, simplificado, sem silhouette) ─────────────────────
-function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, excludedSet = new Set()) {
+function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, excludedSet = new Set(), anon = false) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -989,12 +1015,29 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, exclude
   doc.text('Smart Gut · Relatório Express', margin, y);
   y += 22;
 
-  const pr = (typeof loadProfile === 'function') ? loadProfile() : {};
+  // Badge de anonimização (antes dos dados do paciente)
+  if (anon) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(74, 138, 92);
+    doc.text('Relatório Anonimizado', margin, y);
+    y += 12;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(150, 140, 120);
+    doc.text('Nenhum dado de identificação direta (PII) está vinculado a este documento.', margin, y);
+    y += 10;
+    doc.setTextColor(43, 42, 40);
+    spacer(4);
+  }
+
+  const prRaw = (typeof loadProfile === 'function') ? loadProfile() : {};
+  const pr = anon ? anonimizarPerfil(prRaw) : prRaw;
   const nomeProf = pr && pr.nome ? String(pr.nome).trim() : '';
   const bio = [];
-  if (pr && pr.idade) bio.push(`${pr.idade} anos`);
-  if (pr && pr.peso)  bio.push(`${pr.peso} kg`);
-  if (pr && pr.altura) bio.push(`${pr.altura} cm`);
+  if (pr && pr.idade)  bio.push(typeof pr.idade === 'number' ? `${pr.idade} anos` : pr.idade);
+  if (pr && pr.peso)   bio.push(typeof pr.peso === 'number' ? `${pr.peso} kg` : pr.peso);
+  if (pr && pr.altura) bio.push(typeof pr.altura === 'number' ? `${pr.altura} cm` : pr.altura);
   const condArr = Array.isArray(pr && pr.condicoes) ? pr.condicoes.map(c => CONDICOES_LABELS[c] || c).filter(Boolean) : [];
   if (pr && pr.outros) condArr.push(pr.outros);
 
@@ -1008,7 +1051,9 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, exclude
   y += 20;
 
   // Resumo Executivo
-  const resumo = typeof report.resumo_executivo === 'string' ? report.resumo_executivo : '';
+  const nomeOrig = prRaw && prRaw.nome ? String(prRaw.nome).trim() : '';
+  const texRef = anon ? (t) => anonimizarTextoIA(t, nomeOrig) : (t) => t;
+  const resumo = typeof report.resumo_executivo === 'string' ? texRef(report.resumo_executivo) : '';
   if (resumo) {
     heading('Resumo Executivo', [93, 95, 160]);
     const paragrafos = resumo.split(/\n\n+/).filter(p => p.trim());
@@ -1116,9 +1161,10 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, exclude
   return doc;
 }
 
-function montarNomeArquivoPDFExpress() {
+function montarNomeArquivoPDFExpress(anon = false) {
   const data = new Date();
   const stamp = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+  if (anon) return `SmartGut_RelatorioExpressAnonimo_${stamp}.pdf`;
   try {
     const pr = loadProfile();
     if (pr?.nome) {
@@ -1129,9 +1175,9 @@ function montarNomeArquivoPDFExpress() {
   return `SmartGut_RelatorioExpress_${stamp}.pdf`;
 }
 
-function baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet) {
-  const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet);
-  const nome = montarNomeArquivoPDFExpress();
+function baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet, anon = false) {
+  const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet, anon);
+  const nome = montarNomeArquivoPDFExpress(anon);
   try { doc.save(nome); }
   catch { // Firefox fallback
     const blob = doc.output('blob');
@@ -1150,19 +1196,19 @@ function isShareSupported() {
   return true;
 }
 
-async function compartilharPDFExpress(report, clouds, intensity, kinds, entries, excludedSet) {
-  if (!isShareSupported()) { baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet); return; }
+async function compartilharPDFExpress(report, clouds, intensity, kinds, entries, excludedSet, anon = false) {
+  if (!isShareSupported()) { baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet, anon); return; }
   try {
-    const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet);
+    const doc = gerarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet, anon);
     const blob = doc.output('blob');
-    const file = new File([blob], montarNomeArquivoPDFExpress(), { type: 'application/pdf' });
-    if (!navigator.canShare({ files: [file] })) { baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet); return; }
+    const file = new File([blob], montarNomeArquivoPDFExpress(anon), { type: 'application/pdf' });
+    if (!navigator.canShare({ files: [file] })) { baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet, anon); return; }
     await navigator.share({
       files: [file],
       title: 'Relatório Express — Smart Gut',
       text: 'Meu relatório de preparação para consulta.',
     });
   } catch (err) {
-    if (err && err.name !== 'AbortError') baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet);
+    if (err && err.name !== 'AbortError') baixarPDFExpress(report, clouds, intensity, kinds, entries, excludedSet, anon);
   }
 }
