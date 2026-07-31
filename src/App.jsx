@@ -7,7 +7,7 @@ import {
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
   BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
-  Scale, Stethoscope, HelpCircle, Download, Share2, Plus as PlusIcon,
+  Scale, Stethoscope, HelpCircle, Download, Share2, Plus as PlusIcon, LogOut,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
@@ -36,7 +36,15 @@ import bristol7 from './assets/bristol/bristol-7.png';
 
 const BRISTOL_IMGS = { 1: bristol1, 2: bristol2, 3: bristol3, 4: bristol4, 5: bristol5, 6: bristol6, 7: bristol7 };
 import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
-import { proximaConsulta, addConsulta, removeConsulta } from './lib/consulta.js';
+import { proximaConsulta, addConsulta, removeConsulta, loadConsultas, saveConsultas } from './lib/consulta.js';
+import { seedReports } from './lib/reports.js';
+import AuthScreen from './components/AuthScreen';
+import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
+import {
+  syncEntryInsert, syncEntryUpdate, syncEntryDelete,
+  syncProfileUpsert, syncPrefsMerge,
+  syncConsultasReplace, syncReportsReplace, syncPullAll,
+} from './lib/sync.js';
 
 const ENTRY_TYPES = {
   exercise:   { label: 'Exercício',  icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
@@ -1034,7 +1042,7 @@ function AulasScreen({ selecionado, onSelecionado }) {
 }
 
 // ─── Tela de Perfil (configurações — hospeda a Fonte Cursiva, RF 4) ───────────
-function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick }) {
+function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick, autenticado, onLogout }) {
   const condLabels = (profile?.condicoes || []).map(id => CONDICOES_LABELS[id] || id).join(', ');
   const biometria = [
     profile?.idade ? `${profile.idade} anos` : null,
@@ -1128,6 +1136,14 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
           </div>
         )}
       </div>
+
+      {autenticado && (
+        <button type="button" onClick={onLogout}
+          className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl border border-[#E0B4A8] bg-[#F5E1DD]/50 p-3 text-xs font-medium text-[#8A3B2E] transition-colors">
+          <LogOut size={14} />
+          Sair da conta
+        </button>
+      )}
 
       <p className="text-xs mt-4" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>Mais opções de perfil em breve.</p>
     </main>
@@ -1565,12 +1581,14 @@ function ConsultaCard() {
     const prev = proximaConsulta();
     if (prev) removeConsulta(prev.id);
     if (v) addConsulta({ data: v });
+    syncConsultasReplace(loadConsultas()).catch(() => {});
     setProxima(proximaConsulta());
     setEditando(false);
   };
 
   const handleRemove = () => {
     if (proxima) removeConsulta(proxima.id);
+    syncConsultasReplace(loadConsultas()).catch(() => {});
     setProxima(null);
     setEditando(false);
   };
@@ -1769,6 +1787,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
                 const idx = JANELAS_SUAVIZAR.indexOf(v);
                 const next = JANELAS_SUAVIZAR[(idx + 1) % JANELAS_SUAVIZAR.length];
                 try { localStorage.setItem('tlgut_suavizar_janela', String(next)); } catch {}
+                syncPrefsMerge({ suavizar_janela: next }).catch(() => {});
                 return next;
               })}
               aria-pressed={janela > 0}
@@ -3667,6 +3686,16 @@ function EditEntryForm({ entry, onSave, onCancel }) {
   );
 }
 
+// ─── Tela de carregamento (auth inicializando / dados da conta carregando) ──
+function SplashLoadingScreen() {
+  return (
+    <div className="min-h-[100dvh] w-full flex flex-col items-center justify-center gap-4 bg-[#EDE7DD] sm:p-6 font-sans">
+      <div className="w-14 h-14 rounded-full border-4 border-[#D9D2C4] border-t-[#2F6B43] animate-spinner" />
+      <p className="text-sm text-[#7D766A]">Carregando…</p>
+    </div>
+  );
+}
+
 // ─── App root ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [entries,    setEntries]    = useState(INITIAL_ENTRIES);
@@ -3700,6 +3729,12 @@ export default function App() {
     return 'unavailable';
   });
   const [showInstrucoesInstall, setShowInstrucoesInstall] = useState(false);             // modal de instruções (iOS/Safari)
+  const [session, setSession] = useState(null);                                          // sessão Supabase (null = não autenticado)
+  const [authReady, setAuthReady] = useState(!isSupabaseConfigured());                    // true quando a inicialização do auth terminou
+  const [dataReady, setDataReady] = useState(true);                                       // true quando os dados da conta terminaram de carregar
+  const [guestMode, setGuestMode] = useState(() => {                                       // modo demonstração (sem conta)
+    try { return localStorage.getItem('tlgut_guest_mode') === '1'; } catch { return false; }
+  });
   const idRef = useRef(100);
   const rafRef = useRef(0);
   const timelineRef = useRef(null);
@@ -3708,6 +3743,106 @@ export default function App() {
   const expandirResumo = () => {
     setColapsado(false);
   };
+
+  // ── Supabase: carrega os dados da conta (Supabase → estado + cache local) ────
+  // Preserva o modo apresentação: sem registros reais, mantém o mock populado.
+  const authLoadRef = useRef(false);
+  async function loadUserData() {
+    if (authLoadRef.current) return;
+    authLoadRef.current = true;
+    setDataReady(false);
+    try {
+      const pulled = await syncPullAll();
+      if (pulled) {
+        if (Array.isArray(pulled.entries)) {
+          setEntries(pulled.entries.length ? pulled.entries : INITIAL_ENTRIES);
+          const maxId = pulled.entries.reduce((m, e) => (Number.isFinite(e.id) ? Math.max(m, e.id) : m), 0);
+          if (maxId > 0) idRef.current = maxId;
+        }
+        if (pulled.profile) {
+          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros'].some((k) => {
+            const v = pulled.profile[k];
+            return v != null && v !== '' && !(Array.isArray(v) && v.length === 0);
+          });
+          if (filled) {
+            saveProfile(pulled.profile);
+            setProfile(pulled.profile);
+            try { localStorage.setItem('tlgut_onboarded', '1'); } catch {}
+            setOnboarded(true);
+          }
+        }
+        if (pulled.prefs) {
+          if (typeof pulled.prefs.cursiva === 'boolean') setCursiva(pulled.prefs.cursiva);
+          if (Number.isFinite(pulled.prefs.ink_level)) setInkLevel(pulled.prefs.ink_level);
+          if (Number.isFinite(pulled.prefs.font_scale)) setFontScale(pulled.prefs.font_scale);
+          try {
+            if (Number.isFinite(pulled.prefs.suavizar_janela)) localStorage.setItem('tlgut_suavizar_janela', String(pulled.prefs.suavizar_janela));
+            localStorage.setItem('tlgut_anonimo', pulled.prefs.anonimo ? '1' : '0');
+          } catch {}
+        }
+        if (Array.isArray(pulled.consultas)) saveConsultas(pulled.consultas);
+        const reportsAll = [...(pulled.reportsIA || []), ...(pulled.reportsExpress || [])];
+        if (reportsAll.length) seedReports(reportsAll);
+      }
+    } catch {}
+    setDataReady(true);
+  }
+
+  // Inicializa o auth: sessão persistida + listener de mudanças.
+  useEffect(() => {
+    if (!isSupabaseConfigured() || !supabase) return;
+    let mounted = true;
+
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        setSession(data.session || null);
+        setAuthReady(true);
+        if (data.session) loadUserData();
+        else setDataReady(true);
+      })
+      .catch(() => { setAuthReady(true); setDataReady(true); });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, next) => {
+      setSession(next || null);
+      if (next) {
+        try { localStorage.setItem('tlgut_guest_mode', '0'); } catch {}
+        loadUserData();
+      } else {
+        authLoadRef.current = false;
+        setEntries(INITIAL_ENTRIES);
+        setDataReady(true);
+      }
+    });
+
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function entrarConvidado() {
+    setGuestMode(true);
+    try { localStorage.setItem('tlgut_guest_mode', '1'); } catch {}
+    setDataReady(true);
+  }
+
+  async function handleLogout() {
+    authLoadRef.current = false;
+    try { await supabase?.auth.signOut(); } catch {}
+    setSession(null);
+    setEntries(INITIAL_ENTRIES);
+    setDataReady(true);
+  }
+
+  // Sincroniza preferências de aparência (cursiva, intensidade, tamanho) e
+  // mantém o snapshot local tlgut_prefs atualizado para o syncPrefsMerge.
+  useEffect(() => {
+    try { localStorage.setItem('tlgut_prefs', JSON.stringify({ cursiva, ink_level: inkLevel, font_scale: fontScale })); } catch {}
+    if (!session) return;
+    const t = setTimeout(() => {
+      syncPrefsMerge({ cursiva, ink_level: inkLevel, font_scale: fontScale }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+  }, [session, cursiva, inkLevel, fontScale]);
 
   // Navegação por gestos (swipe horizontal entre abas, estilo Instagram).
   // Guarda o ponto inicial do toque e um flag para ignorar gestos quando há
@@ -3904,7 +4039,9 @@ export default function App() {
     const dayExpr  = ts && ts.day  ? ts.day  : 'hoje';
     const timestamp = ts?.ts || now.getTime();
     idRef.current += 1;
-    setEntries((prev) => [...prev, { id: idRef.current, ts: timestamp, day: dayExpr, time: timeExpr, type, ...data }]);
+    const entry = { id: idRef.current, ts: timestamp, day: dayExpr, time: timeExpr, type, ...data };
+    setEntries((prev) => [...prev, entry]);
+    if (session) syncEntryInsert(entry).catch(() => {});
   }
 
   // Passo 1: ao salvar, abre a etapa de observação (empurrão suave) em vez de
@@ -3940,15 +4077,15 @@ export default function App() {
 
   function handleDelete(id) {
     setEntries((prev) => removerEntrada(prev, id)); // RF 2.7 (núcleo puro)
+    if (session) syncEntryDelete(id).catch(() => {});
   }
 
   function handleToggleStatus(entry) {
-    setEntries((prev) => prev.map((e) => {
-      if (e.id !== entry.id) return e;
-      const meta = { ...(e.meta || {}) };
-      meta.status = meta.status === 'resolvida' ? 'pendente' : 'resolvida';
-      return { ...e, meta };
-    }));
+    const meta = { ...(entry.meta || {}) };
+    meta.status = meta.status === 'resolvida' ? 'pendente' : 'resolvida';
+    const updated = { ...entry, meta };
+    setEntries((prev) => prev.map((e) => (e.id !== entry.id ? e : updated)));
+    if (session) syncEntryUpdate(updated).catch(() => {});
   }
 
   // Edição genérica (RF 2.6): atualiza apenas time/day/title/description/meta.note,
@@ -3959,6 +4096,7 @@ export default function App() {
     setProfile(p);
     setOnboarded(true);
     setEditandoProfile(false);
+    if (session) syncProfileUpsert(p).catch(() => {});
   }
 
   function pularOnboarding() {
@@ -3992,27 +4130,37 @@ export default function App() {
 
   function handleSaveEdit({ time, day, title, description, note, discutir, prioridade }) {
     if (!editing) return;
-    setEntries((prev) => prev.map((e) => {
-      if (e.id !== editing.id) return e;
-      const meta = { ...(e.meta || {}) };
-      if (note) meta.note = note; else delete meta.note;
-      if (discutir) {
-        meta.discutir_consulta = true;
-        meta.prioridade = prioridade || 3;
-      } else {
-        delete meta.discutir_consulta;
-        delete meta.prioridade;
-      }
-      const next = { ...e, time, day, title, description };
-      if (Object.keys(meta).length) next.meta = meta; else delete next.meta;
-      return next;
-    }));
+    const meta = { ...(editing.meta || {}) };
+    if (note) meta.note = note; else delete meta.note;
+    if (discutir) {
+      meta.discutir_consulta = true;
+      meta.prioridade = prioridade || 3;
+    } else {
+      delete meta.discutir_consulta;
+      delete meta.prioridade;
+    }
+    const next = { ...editing, time, day, title, description };
+    if (Object.keys(meta).length) next.meta = meta; else delete next.meta;
+    setEntries((prev) => prev.map((e) => (e.id !== editing.id ? e : next)));
+    if (session) syncEntryUpdate(next).catch(() => {});
     setEditing(null);
   }
 
   const inkL = 38 - (inkLevel / 100) * 22;            // 38% (mais claro) → 16% (mais forte)
   const inkColor = `hsl(30, 8%, ${inkL}%)`;
   const inkSoftColor = `hsl(30, 7%, ${inkL + 10}%)`;
+
+  // ── Gate de autenticação ─────────────────────────────────────────────────────
+  // Sem Supabase configurado (ex: testes), o app renderiza direto (modo demo).
+  if (isSupabaseConfigured() && !authReady) {
+    return <SplashLoadingScreen />;
+  }
+  if (isSupabaseConfigured() && !session && !guestMode) {
+    return <AuthScreen onGuest={entrarConvidado} />;
+  }
+  if (session && !dataReady) {
+    return <SplashLoadingScreen />;
+  }
 
   return (
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-[#EDE7DD] sm:p-6 font-sans">
@@ -4072,7 +4220,7 @@ export default function App() {
         ) : abaAtiva === 'insights' ? (
           <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} installState={installState} onInstallClick={onInstallClick} />
+          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} />
         ) : (
           <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}

@@ -21,7 +21,7 @@ describe('Estado de UI do App (PBT)', () => {
 
         // Voltar ao Diário e confirmar que os registros continuam intactos
         fireEvent.click(screen.getByRole('button', { name: 'Diário' }));
-        expect(screen.getByText('Café da manhã')).toBeInTheDocument();
+        expect(screen.getAllByText('Café da manhã').length).toBeGreaterThanOrEqual(1);
       }),
       { numRuns: 100 },
     );
@@ -40,8 +40,9 @@ describe('Estado de UI do App (PBT)', () => {
         expect(root.classList.contains('cursiva')).toBe(false);
         expect(container.querySelectorAll('.entry-text').length).toBeGreaterThan(0);
 
-        // Abrir a aba Perfil, onde vive o controle
+        // Abrir a aba Perfil, onde vive o controle (dentro do accordion Aparência)
         fireEvent.click(screen.getByRole('button', { name: 'Perfil' }));
+        fireEvent.click(screen.getByRole('button', { name: /Aparência/ }));
 
         for (let i = 0; i < n; i += 1) {
           fireEvent.click(screen.getByRole('button', { name: /Ativada|Desativada/ }));

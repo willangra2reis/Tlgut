@@ -94,6 +94,22 @@ export function removeReport(id) {
   return all;
 }
 
+// Preenche o cache local com relatórios vindos do Supabase (pull no login).
+// Reaplica o alias legado correlacoes → associacoes e respeita MAX_REPORTS.
+export function seedReports(list) {
+  const merged = (Array.isArray(list) ? list : []).map(r => {
+    if (r && r.report && !Array.isArray(r.report.associacoes) && Array.isArray(r.report.correlacoes)) {
+      const rep = { ...r.report };
+      rep.associacoes = rep.correlacoes;
+      delete rep.correlacoes;
+      return { ...r, report: rep };
+    }
+    return r;
+  });
+  persistAll(merged.slice(0, MAX_REPORTS));
+  return merged;
+}
+
 export function getReportCount(type) {
   const all = loadAllRaw();
   return type ? all.filter(r => r.type === type).length : all.length;

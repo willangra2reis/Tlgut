@@ -7,6 +7,7 @@ import Silhouette from './Silhouette.jsx';
 import { extractReportFromRaw } from '../lib/ai-report.js';
 import { loadExpressDraft, saveExpressDraft, clearExpressDraft } from '../lib/express.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
+import { syncReportsReplace, syncPrefsMerge } from '../lib/sync.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
 import { nearestRegion } from '../lib/organs.js';
@@ -186,6 +187,7 @@ export default function RelatorioExpressScreen({ entries }) {
 
   function handleRemoveReport(id) {
     removeReport(id);
+    syncReportsReplace('express', loadReports('express')).catch(() => {});
     setSavedReports(prev => prev.filter(r => r.id !== id));
   }
 
@@ -408,6 +410,7 @@ export default function RelatorioExpressScreen({ entries }) {
       if (saved) {
         setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
         const count = loadReports('express').length;
+        syncReportsReplace('express', loadReports('express')).catch(() => {});
         if (count >= MAX_REPORTS) setToast('Relatório mais antigo substituído (limite de 10)');
       } else {
         setToast('Relatório não salvo (conteúdo inválido)');
@@ -766,6 +769,7 @@ function ExpressReportView({ report, clouds = [], intensity, kinds, entries }) {
     setAnonimo((v) => {
       const next = !v;
       try { localStorage.setItem('tlgut_anonimo', next ? '1' : '0'); } catch {}
+      syncPrefsMerge({ anonimo: next }).catch(() => {});
       return next;
     });
   }, []);

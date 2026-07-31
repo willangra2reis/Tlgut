@@ -11,6 +11,7 @@ import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
 import { extractReportFromRaw, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
+import { syncReportsReplace, syncPrefsMerge } from '../lib/sync.js';
 import PainHeatmap from './PainHeatmap.jsx';
 import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
 const digestiveImgEl = typeof Image !== 'undefined' ? new Image() : null;
@@ -85,6 +86,7 @@ export default function RelatoriasIAScreen({ entries }) {
 
   function handleRemoveReport(id) {
     removeReport(id);
+    syncReportsReplace('ia', loadReports('ia')).catch(() => {});
     setSavedReports(prev => prev.filter(r => r.id !== id));
   }
 
@@ -197,6 +199,7 @@ export default function RelatoriasIAScreen({ entries }) {
         if (saved) {
           setSavedReports(prev => [saved, ...prev].slice(0, MAX_REPORTS));
           const allReports = loadReports('ia');
+          syncReportsReplace('ia', allReports).catch(() => {});
           if (allReports.length >= MAX_REPORTS && allReports[allReports.length - 1]?.id === saved.id) {
             setToast('Relatório mais antigo substituído (limite de 10)');
           }
@@ -243,6 +246,7 @@ export default function RelatoriasIAScreen({ entries }) {
     setAnonimo((v) => {
       const next = !v;
       try { localStorage.setItem('tlgut_anonimo', next ? '1' : '0'); } catch {}
+      syncPrefsMerge({ anonimo: next }).catch(() => {});
       return next;
     });
   }, []);

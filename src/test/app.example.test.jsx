@@ -82,7 +82,7 @@ describe('Cabeçalho Hero e Resumo do Dia (RF 2)', () => {
   it('timeline mostra o horário do registro e o título', () => {
     render(<App />);
     expect(screen.getByText('07:43')).toBeInTheDocument();
-    expect(screen.getByText('Café da manhã')).toBeInTheDocument();
+    expect(screen.getAllByText('Café da manhã').length).toBeGreaterThanOrEqual(1);
   });
 
   it('identidade verde: hero usa --brand-deep e FAB usa --brand', () => {
@@ -108,9 +108,9 @@ describe('Menu de navegação inferior (RF 3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Aulas' }));
     // O catálogo de Aulas aparece (banner do combo) e os registros do Diário somem
     expect(screen.getByText('Leve tudo')).toBeInTheDocument();
-    expect(screen.queryByText('Café da manhã')).toBeNull();
+    expect(screen.queryAllByText('Café da manhã')).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Diário' }));
-    expect(screen.getByText('Café da manhã')).toBeInTheDocument();
+    expect(screen.getAllByText('Café da manhã').length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -120,13 +120,16 @@ describe('Fonte cursiva e Evacuação (RF 4 e 5)', () => {
     const root = container.querySelector('[data-theme]');
     expect(root.classList.contains('cursiva')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Perfil' }));
+    // O controle de cursiva vive no accordion "Aparência", recolhido por padrão
+    fireEvent.click(screen.getByRole('button', { name: /Aparência/ }));
     fireEvent.click(screen.getByRole('button', { name: /Ativada|Desativada/ }));
     expect(root.classList.contains('cursiva')).toBe(true);
   });
 
   it('o seletor de tipos inclui "Evacuação"', () => {
     render(<App />);
-    expect(screen.getByText('Evacuação')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar registro' }));
+    expect(screen.getByRole('button', { name: 'Evacuação' })).toBeInTheDocument();
   });
 });
 
