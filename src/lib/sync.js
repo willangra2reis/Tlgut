@@ -321,6 +321,16 @@ export async function syncLogRequest({ tipo, modelo, status, tokens_in = 0, toke
   });
 }
 
+// ── Exclusão da conta (edge function) ───────────────────────────────────────
+// A edge function 'delete-account' (verify_jwt) apaga os dados nas 7 tabelas e
+// o usuário do auth. O JWT da sessão é anexado automaticamente pelo invoke.
+
+export async function syncDeleteAccount() {
+  if (!supabase) return;
+  const { error } = await supabase.functions.invoke('delete-account', { body: {} });
+  if (error) throw error;
+}
+
 // ── Pull completo (usado no login e no retorno da sessão) ───────────────────
 
 export async function syncPullAll() {

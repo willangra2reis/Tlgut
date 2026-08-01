@@ -5,7 +5,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Plus, X, ChevronLeft, Utensils, Droplet, Moon, Flame, Activity, Smile, Mic, Check, Minus,
   Leaf, PenLine, EllipsisVertical, ChartColumn, Trash2, Pencil,
-  BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets,
+  BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets, Sparkles,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
   Scale, Stethoscope, HelpCircle, Download, Share2, Plus as PlusIcon, LogOut,
 } from 'lucide-react';
@@ -37,14 +37,18 @@ import bristol7 from './assets/bristol/bristol-7.png';
 const BRISTOL_IMGS = { 1: bristol1, 2: bristol2, 3: bristol3, 4: bristol4, 5: bristol5, 6: bristol6, 7: bristol7 };
 import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
 import { proximaConsulta, addConsulta, removeConsulta, loadConsultas, saveConsultas } from './lib/consulta.js';
-import { seedReports } from './lib/reports.js';
+import { seedReports, loadReports } from './lib/reports.js';
 import AuthScreen from './components/AuthScreen';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
 import {
   syncEntryInsert, syncEntryUpdate, syncEntryDelete,
   syncProfileUpsert, syncPrefsMerge,
   syncConsultasReplace, syncReportsReplace, syncPullAll,
+  syncDeleteAccount, readPrefsSnapshot,
 } from './lib/sync.js';
+import { baixarJSON, montarExportJSON, limparDadosLocais } from './lib/exportData.js';
+import { montarDadosDemo } from './lib/demoData.js';
+import DeleteDataModal from './components/DeleteDataModal';
 
 const ENTRY_TYPES = {
   exercise:   { label: 'Exercício',  icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
@@ -1042,7 +1046,7 @@ function AulasScreen({ selecionado, onSelecionado }) {
 }
 
 // ─── Tela de Perfil (configurações — hospeda a Fonte Cursiva, RF 4) ───────────
-function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick, autenticado, onLogout }) {
+function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick, autenticado, onLogout, onEntrar, onBaixarDados, onCarregarDemo, onExcluirDados, demoAtivo }) {
   const condLabels = (profile?.condicoes || []).map(id => CONDICOES_LABELS[id] || id).join(', ');
   const biometria = [
     profile?.idade ? `${profile.idade} anos` : null,
@@ -1050,6 +1054,7 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
     profile?.altura ? `${profile.altura} cm` : null,
   ].filter(Boolean).join(' - ');
   const [showAparencia, setShowAparencia] = useState(false);
+  const [showDados, setShowDados] = useState(false);
   return (
     <main className="relative z-10 flex-1 overflow-y-auto px-5 pt-3 pb-28">
       <p className="titulo-cursivo text-2xl font-sans mb-4" style={{ color: 'var(--amb-text)' }}>Perfil</p>
@@ -1137,12 +1142,69 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
         )}
       </div>
 
+      {/* Dados e privacidade (retrátil) */}
+      <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+        <button type="button" onClick={() => setShowDados(!showDados)}
+          className="w-full flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Lock size={15} style={{ color: 'var(--brand)' }} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Dados e privacidade</p>
+          </div>
+          <ChevronDown size={16} className={`transition-transform duration-200 ${showDados ? 'rotate-180' : ''}`}
+            style={{ color: '#B6AE9F' }} />
+        </button>
+        {showDados && (
+          <div className="mt-4 space-y-2">
+            <button type="button" onClick={onBaixarDados}
+              className="w-full flex items-center gap-3 rounded-xl border border-[#EDE7DD] px-3 py-2.5 transition-colors hover:bg-[#F7F4EC]">
+              <Download size={16} style={{ color: 'var(--brand)' }} />
+              <span className="text-left min-w-0">
+                <span className="block text-sm font-medium text-[#2B2A28]">Baixar meus dados</span>
+                <span className="block text-[11px] text-[#7D766A]">Exporta tudo em um arquivo JSON</span>
+              </span>
+            </button>
+
+            <button type="button" onClick={onCarregarDemo}
+              className="w-full flex items-center gap-3 rounded-xl border border-[#EDE7DD] px-3 py-2.5 transition-colors hover:bg-[#F7F4EC]">
+              <Sparkles size={16} style={{ color: '#C9763A' }} />
+              <span className="text-left min-w-0">
+                <span className="block text-sm font-medium text-[#2B2A28]">{demoAtivo ? 'Restaurar meus dados' : 'Dados de demonstração'}</span>
+                <span className="block text-[11px] text-[#7D766A]">{demoAtivo ? 'Volta a mostrar seus registros reais' : 'Veja o app preenchido (só visualização)'}</span>
+              </span>
+            </button>
+
+            <button type="button" onClick={onExcluirDados}
+              className="w-full flex items-center gap-3 rounded-xl border border-[#E0B4A8] px-3 py-2.5 transition-colors hover:bg-[#F5E1DD]/50">
+              <Trash2 size={16} style={{ color: '#BD5A4A' }} />
+              <span className="text-left min-w-0">
+                <span className="block text-sm font-medium text-[#8A3B2E]">Excluir meus dados</span>
+                <span className="block text-[11px] text-[#8A3B2E]/70">Apaga registros, relatórios e a conta</span>
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+
       {autenticado && (
         <button type="button" onClick={onLogout}
           className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl border border-[#E0B4A8] bg-[#F5E1DD]/50 p-3 text-xs font-medium text-[#8A3B2E] transition-colors">
           <LogOut size={14} />
           Sair da conta
         </button>
+      )}
+
+      {!autenticado && onEntrar && (
+        <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+          <button type="button" onClick={onEntrar}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl p-3 text-sm font-semibold text-white transition-colors"
+            style={{ background: 'var(--brand)' }}>
+            <User size={16} />
+            Entrar / Criar conta
+          </button>
+          <p className="text-[11px] leading-snug mt-2" style={{ color: '#7D766A' }}>
+            Modo demonstração: seus registros ficam salvos só neste aparelho. Entre para sincronizar na nuvem.
+          </p>
+        </div>
       )}
 
       <p className="text-xs mt-4" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>Mais opções de perfil em breve.</p>
@@ -3735,6 +3797,10 @@ export default function App() {
   const [guestMode, setGuestMode] = useState(() => {                                       // modo demonstração (sem conta)
     try { return localStorage.getItem('tlgut_guest_mode') === '1'; } catch { return false; }
   });
+  const [deleteOpen, setDeleteOpen] = useState(false);                                     // modal de exclusão de dados
+  const [excluindo, setExcluindo] = useState(false);                                       // exclusão em andamento
+  const [dadosExcluidos, setDadosExcluidos] = useState(false);                             // banner de sucesso no login
+  const [demoAtivo, setDemoAtivo] = useState(false);                                       // dados de demonstração carregados
   const idRef = useRef(100);
   const rafRef = useRef(0);
   const timelineRef = useRef(null);
@@ -3825,12 +3891,79 @@ export default function App() {
     setDataReady(true);
   }
 
+  function entrarNaConta() {
+    setGuestMode(false);
+    try { localStorage.setItem('tlgut_guest_mode', '0'); } catch {}
+    setDataReady(true);
+  }
+
   async function handleLogout() {
     authLoadRef.current = false;
     try { await supabase?.auth.signOut(); } catch {}
     setSession(null);
     setEntries(INITIAL_ENTRIES);
     setDataReady(true);
+  }
+
+  // ── Dados e privacidade ──────────────────────────────────────────────────────
+  function handleBaixarDados() {
+    const dados = montarExportJSON({
+      profile: loadProfile(),
+      prefs: { ...readPrefsSnapshot(), cursiva, ink_level: inkLevel, font_scale: fontScale },
+      entries,
+      reportsIA: loadReports('ia'),
+      reportsExpress: loadReports('express'),
+      consultas: loadConsultas(),
+    });
+    baixarJSON(`tlgut-dados-${new Date().toISOString().slice(0, 10)}.json`, dados);
+  }
+
+  // Demonstração (toggle): aplica apenas no estado e no cache local (sem tocar no
+  // Supabase). Desativar restaura os dados reais da conta (ou o mock de
+  // apresentação, para convidados).
+  async function handleCarregarDemo() {
+    setDadosExcluidos(false);
+    if (demoAtivo) {
+      if (session && supabase) {
+        authLoadRef.current = false;
+        await loadUserData();
+      } else {
+        setEntries(INITIAL_ENTRIES);
+        seedReports([]);
+        saveConsultas([]);
+        saveProfile({});
+        setProfile({});
+      }
+      setDemoAtivo(false);
+      return;
+    }
+    const demo = montarDadosDemo(INITIAL_ENTRIES);
+    setEntries(demo.entries);
+    seedReports(demo.reports);
+    saveConsultas(demo.consultas);
+    if (demo.profile) { saveProfile(demo.profile); setProfile(demo.profile); }
+    setDemoAtivo(true);
+  }
+
+  async function handleConfirmarExclusao() {
+    setExcluindo(true);
+    try {
+      if (session && supabase) await syncDeleteAccount();   // apaga dados + conta no Supabase
+      limparDadosLocais();                                  // limpa cache local (tlgut_*)
+      setEntries(INITIAL_ENTRIES);
+      setProfile(loadProfile());
+      setOnboarded(false);
+      setCursiva(false);
+      setInkLevel(55);
+      setFontScale(100);
+      setGuestMode(false);
+      setDadosExcluidos(true);
+      try { await supabase?.auth.signOut(); } catch {}
+      setSession(null);
+      setDeleteOpen(false);
+    } finally {
+      setExcluindo(false);
+    }
   }
 
   // Sincroniza preferências de aparência (cursiva, intensidade, tamanho) e
@@ -4156,7 +4289,8 @@ export default function App() {
     return <SplashLoadingScreen />;
   }
   if (isSupabaseConfigured() && !session && !guestMode) {
-    return <AuthScreen onGuest={entrarConvidado} />;
+    return <AuthScreen onGuest={entrarConvidado}
+      mensagem={dadosExcluidos ? 'Seus dados foram excluídos com sucesso. Sentiremos sua falta!' : null} />;
   }
   if (session && !dataReady) {
     return <SplashLoadingScreen />;
@@ -4220,7 +4354,7 @@ export default function App() {
         ) : abaAtiva === 'insights' ? (
           <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} />
+          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} demoAtivo={demoAtivo} />
         ) : (
           <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}
@@ -4399,6 +4533,11 @@ export default function App() {
           onConcluir={concluirOnboarding}
           onPularTudo={!onboarded ? pularOnboarding : undefined} />
       )}
+
+      <DeleteDataModal open={deleteOpen} onClose={() => setDeleteOpen(false)}
+        onBaixarDados={handleBaixarDados}
+        onConfirmar={handleConfirmarExclusao}
+        excluindo={excluindo} />
 
     </div>
   );

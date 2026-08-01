@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabaseClient.js';
 const INVALID_PASSWORD = /^.{0,5}$/;
 const INVALID_EMAIL = /@/;
 
-export default function AuthScreen({ onGuest }) {
+export default function AuthScreen({ onGuest, mensagem }) {
   const [modo, setModo] = useState('entrar'); // 'entrar' | 'cadastrar'
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -113,6 +113,9 @@ export default function AuthScreen({ onGuest }) {
           )}
           {aviso && (
             <p className="mb-4 rounded-xl bg-[#E3EDE4] border border-[#BFD6C4] px-3 py-2 text-xs text-[#2F6B43]">{aviso}</p>
+          )}
+          {mensagem && (
+            <p className="mb-4 rounded-xl bg-[#E3EDE4] border border-[#BFD6C4] px-3 py-2 text-xs text-[#2F6B43]">{mensagem}</p>
           )}
 
           <button type="submit" disabled={loading}

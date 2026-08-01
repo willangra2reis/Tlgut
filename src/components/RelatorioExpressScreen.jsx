@@ -114,6 +114,13 @@ const INTRO_TEXT = [
   'O relatório organiza seu relato em pontos claros para a conversa com o médico.',
 ];
 
+// Renderiza texto com **negrito** em nós JSX (React escapa o conteúdo por padrão).
+function renderComNegrito(t) {
+  return t.split(/\*\*(.+?)\*\*/g).map((parte, i) => (
+    i % 2 === 1 ? <strong key={i}>{parte}</strong> : parte
+  ));
+}
+
 export default function RelatorioExpressScreen({ entries }) {
   // ── Pop-up introdutório (mostra só na primeira visita da sessão) ─────────
   const [showIntro, setShowIntro] = useState(() => {
@@ -442,7 +449,7 @@ export default function RelatorioExpressScreen({ entries }) {
             </div>
             <div className="space-y-2.5 text-sm leading-snug" style={{ color: '#4A443F' }}>
               {INTRO_TEXT.map((t, i) => (
-                <p key={i} dangerouslySetInnerHTML={{ __html: t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') }} />
+                <p key={i}>{renderComNegrito(t)}</p>
               ))}
             </div>
             <button type="button" onClick={fecharIntro}
