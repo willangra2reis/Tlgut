@@ -22,8 +22,16 @@ export function saveProfile(p) {
   localStorage.setItem('tlgut_profile', JSON.stringify(p));
 }
 
-export function isOnboarded() {
-  return localStorage.getItem('tlgut_onboarded') === '1';
+export function chaveOnboarded(uid) {
+  return uid ? `tlgut_onboarded_${uid}` : 'tlgut_onboarded';
+}
+
+export function isOnboarded(uid) {
+  return localStorage.getItem(chaveOnboarded(uid)) === '1';
+}
+
+export function marcarOnboarded(uid) {
+  localStorage.setItem(chaveOnboarded(uid), '1');
 }
 
 // Anonimiza um perfil para exportação (PDF/compartilhamento): remove o nome e

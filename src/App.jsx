@@ -35,7 +35,7 @@ import bristol6 from './assets/bristol/bristol-6.png';
 import bristol7 from './assets/bristol/bristol-7.png';
 
 const BRISTOL_IMGS = { 1: bristol1, 2: bristol2, 3: bristol3, 4: bristol4, 5: bristol5, 6: bristol6, 7: bristol7 };
-import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded } from './lib/profile.js';
+import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded, marcarOnboarded } from './lib/profile.js';
 import { proximaConsulta, addConsulta, removeConsulta, loadConsultas, saveConsultas } from './lib/consulta.js';
 import { seedReports, loadReports } from './lib/reports.js';
 import AuthScreen from './components/AuthScreen';
@@ -3818,10 +3818,17 @@ export default function App() {
     authLoadRef.current = true;
     setDataReady(false);
     try {
+      let uid = null;
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        uid = authData?.user?.id ?? null;
+      } catch {}
       const pulled = await syncPullAll();
       if (pulled) {
         if (Array.isArray(pulled.entries)) {
-          setEntries(pulled.entries.length ? pulled.entries : INITIAL_ENTRIES);
+          // Conta sem registros mostra o diário vazio (nada de mock). O mock
+          // (INITIAL_ENTRIES) fica reservado ao modo apresentação (convidado).
+          setEntries(pulled.entries.length ? pulled.entries : []);
           const maxId = pulled.entries.reduce((m, e) => (Number.isFinite(e.id) ? Math.max(m, e.id) : m), 0);
           if (maxId > 0) idRef.current = maxId;
         }
@@ -3833,8 +3840,11 @@ export default function App() {
           if (filled) {
             saveProfile(pulled.profile);
             setProfile(pulled.profile);
-            try { localStorage.setItem('tlgut_onboarded', '1'); } catch {}
+            if (uid) marcarOnboarded(uid);
             setOnboarded(true);
+          } else if (uid) {
+            // Conta sem perfil: onboarding aparece na 1ª entrada da conta.
+            setOnboarded(isOnboarded(uid));
           }
         }
         if (pulled.prefs) {
@@ -3848,7 +3858,9 @@ export default function App() {
         }
         if (Array.isArray(pulled.consultas)) saveConsultas(pulled.consultas);
         const reportsAll = [...(pulled.reportsIA || []), ...(pulled.reportsExpress || [])];
-        if (reportsAll.length) seedReports(reportsAll);
+        // Sempre semeia (inclusive vazio) para limpar relatórios de demonstração
+        // deixados no cache local durante o modo apresentação.
+        seedReports(reportsAll);
       }
     } catch {}
     setDataReady(true);
@@ -4225,7 +4237,7 @@ export default function App() {
   // preservando os demais campos de meta (bristol, intensity, clouds, tags, inicioTs…).
   function concluirOnboarding(p) {
     saveProfile(p);
-    localStorage.setItem('tlgut_onboarded', '1');
+    marcarOnboarded(session?.user?.id ?? null);
     setProfile(p);
     setOnboarded(true);
     setEditandoProfile(false);
@@ -4233,7 +4245,7 @@ export default function App() {
   }
 
   function pularOnboarding() {
-    localStorage.setItem('tlgut_onboarded', '1');
+    marcarOnboarded(session?.user?.id ?? null);
     setOnboarded(true);
     setEditandoProfile(false);
   }
