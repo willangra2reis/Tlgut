@@ -22,7 +22,7 @@ afterEach(() => {
 
 function renderNaHora(h) {
   vi.useFakeTimers();
-  vi.setSystemTime(new Date(2025, 5, 12, h, 0, 0));
+  vi.setSystemTime(new Date(2026, 5, 12, h, 0, 0));
   return render(<App />);
 }
 
@@ -71,7 +71,7 @@ describe('Cabeçalho Hero e Resumo do Dia (RF 2)', () => {
   });
 
   it('exibe data e chips com rótulos amigáveis', () => {
-    render(<App />);
+    renderNaHora(10);
     expect(screen.getByText('Sexta-feira, 12 de junho')).toBeInTheDocument();
     expect(screen.getByText('Alimentação')).toBeInTheDocument();
     expect(screen.getByText('Sintoma')).toBeInTheDocument();
@@ -130,6 +130,12 @@ describe('Fonte cursiva e Evacuação (RF 4 e 5)', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar registro' }));
     expect(screen.getByRole('button', { name: 'Evacuação' })).toBeInTheDocument();
+  });
+
+  it('o seletor de tipos inclui "Digestão"', () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar registro' }));
+    expect(screen.getByRole('button', { name: 'Digestão' })).toBeInTheDocument();
   });
 });
 

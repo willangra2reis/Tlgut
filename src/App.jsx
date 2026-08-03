@@ -8,6 +8,7 @@ import {
   BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets, Sparkles,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
   Scale, Stethoscope, HelpCircle, Download, Share2, Plus as PlusIcon, LogOut,
+  CookingPot,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
@@ -59,6 +60,7 @@ const ENTRY_TYPES = {
   weight:     { label: 'Peso',       icon: Scale,    color: '#7C6F5A', soft: '#EFE9DE' },
   sleep:      { label: 'Sono',       icon: Moon,     color: '#5D5FA0', soft: '#E6E5F4' },
   gas:        { label: 'Gases',      icon: Wind,     color: '#7C8CA6', soft: '#E6EAF1' },
+  digestion:  { label: 'Digestão',   icon: CookingPot, color: '#9B8C2E', soft: '#F0EDD6' },
   evacuation: { label: 'Evacuação',  icon: Leaf,     color: '#8A6D3B', soft: '#EFE7D6' },
   pain:       { label: 'Dor',        icon: Flame,    color: '#BD5A4A', soft: '#F5E1DD' },
   water:      { label: 'Água',       icon: Droplet,  color: '#3E8E96', soft: '#DEEFEF' },
@@ -70,6 +72,7 @@ const ENTRY_TYPES = {
 const CHIP_LABELS = {
   meal: 'Alimentação', water: 'Hidratação', sleep: 'Sono', pain: 'Sintoma',
   exercise: 'Exercício', mood: 'Humor', evacuation: 'Evacuação', gas: 'Gases',
+  digestion: 'Digestão',
   medication: 'Medicamento',
   cycle: 'Ciclo',
   weight: 'Peso',
@@ -146,6 +149,10 @@ const OBSERVATION_PROMPTS = {
   gas: {
     titulo: 'Observações sobre os gases',
     placeholder: 'Ex: depois do café da manhã, muito estufamento… (ou use o microfone)',
+  },
+  digestion: {
+    titulo: 'Observações sobre a digestão',
+    placeholder: 'Ex: estômago cheio depois do almoço, azia à noite… (ou use o microfone)',
   },
   medication: {
     titulo: 'Observações sobre o medicamento',
@@ -626,12 +633,16 @@ function HeroHeader({ colapsado = false }) {
 // ─── Card de Resumo do Dia (RF 2.2, 2.3) ──────────────────────────────────────
 // `colapsado` recolhe o card para um strip fino (só o cabeçalho), ocultando
 // suavemente os chips e a linha do ciclo. Os dados permanecem montados.
-function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
+function DaySummaryCard({ entries, colapsado = false, onExpand }) {
   const contagens = contarPorTipo(entries, 'hoje');
   const itens = Object.keys(ENTRY_TYPES).filter((k) => contagens[k] > 0);
 
   // "Agora" estável durante a vida do componente (evita chamada impura no render).
   const [agora] = useState(() => Date.now());
+
+  // Rótulo do dia de hoje (data atual, não fixa) — estável com o mesmo "agora".
+  const dataLabelBase = new Date(agora).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const dataLabel = dataLabelBase.charAt(0).toUpperCase() + dataLabelBase.slice(1);
 
   // Fase_do_Ciclo (RF 16.3/16.5): quando há ao menos um registro de ciclo com
   // data de início. Usa o início mais recente. Texto factual, sem juízo de
@@ -656,7 +667,7 @@ function DaySummaryCard({ dateLabel, entries, colapsado = false, onExpand }) {
           Resumo do dia
         </span>
         <span className="titulo-cursivo text-base font-sans text-[#2B2A28]">
-          {dateLabel}
+          {dataLabel}
         </span>
       </div>
 
@@ -2157,6 +2168,7 @@ function MealForm({ onSave, customFoods, onAddCustom }) {
 function MedicationForm({ onSave, customMeds, onAddCustom }) {
   const [tags, setTags] = useState(new Set());
   const [novo, setNovo] = useState('');
+  const [finalidade, setFinalidade] = useState('');
   const color = ENTRY_TYPES.medication.color;
   const todasTags = [...MED_TAGS, ...customMeds];
 
@@ -2188,10 +2200,21 @@ function MedicationForm({ onSave, customMeds, onAddCustom }) {
         </div>
       </div>
 
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Finalidade / para que (opcional)</p>
+        <input value={finalidade} onChange={(e) => setFinalidade(e.target.value)}
+          placeholder="Ex: probiótico para a flora, antiácido para a azia…"
+          className="w-full rounded-xl border border-[#EDE7DD] p-2 text-sm focus:outline-none" />
+      </div>
+
       <SaveButton color={color} onClick={() => {
         const lista = [...tags];
         const desc = lista.length ? lista.join(' · ') : 'Sem medicamento marcado';
-        onSave({ title: 'Medicamento', description: desc, meta: { tags: lista } });
+        onSave({
+          title: 'Medicamento',
+          description: desc,
+          meta: { tags: lista, finalidade: finalidade.trim() ? finalidade.trim() : undefined },
+        });
       }} />
     </div>
   );
@@ -3113,6 +3136,50 @@ function GasForm({ onSave }) {
       {linha('Alívio', GAS_ALIVIO, alivio, setAlivio)}
       {linha('Som', GAS_SOM, som, setSom)}
       <SaveButton color={color} onClick={() => onSave(buildGasEntry({ intensidade, odor, alivio, som }))} />
+    </div>
+  );
+}
+
+// ─── Form: Digestão (RF novo) — sintomas gástricos ───────────────────────────
+// Registra sensações relacionadas ao estômago/digestão (estômago cheio, azia,
+// queimação, enjoo, etc.) via chips + intensidade opcional. Texto factual.
+const DIA_SINTOMAS = [
+  'Estômago cheio', 'Empachamento', 'Azia', 'Queimação', 'Enjoo/Náusea',
+  'Refluxo', 'Arrotos', 'Peso no estômago', 'Digestão lenta', 'Estufamento',
+  'Cólica gástrica', 'Apetite reduzido',
+];
+const DIA_INTENSIDADES = ['1', '2', '3', '4', '5'];
+
+function DigestaoForm({ onSave }) {
+  const [sintomas, setSintomas] = useState(new Set());
+  const [intensidade, setIntensidade] = useState(null);
+  const color = ENTRY_TYPES.digestion.color;
+
+  const toggleSintoma = (s) => setSintomas((prev) => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Como você se sentiu</p>
+        <div className="flex flex-wrap gap-2">
+          {DIA_SINTOMAS.map((s) => (
+            <Chip key={s} active={sintomas.has(s)} color={color} onClick={() => toggleSintoma(s)}>{s}</Chip>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Intensidade do desconforto (opcional)</p>
+        <div className="flex flex-wrap gap-2">
+          {DIA_INTENSIDADES.map((n) => (
+            <Chip key={n} active={intensidade === n} color={color} onClick={() => setIntensidade(intensidade === n ? null : n)}>{n}</Chip>
+          ))}
+        </div>
+      </div>
+      <SaveButton color={color} onClick={() => {
+        const lista = [...sintomas];
+        const desc = lista.length ? lista.join(' · ') : 'Sem sintoma marcado';
+        onSave({ title: 'Digestão', description: desc, meta: { tags: lista, intensidade: intensidade ? Number(intensidade) : undefined } });
+      }} />
     </div>
   );
 }
@@ -4328,7 +4395,7 @@ export default function App() {
           <>
             <HeroHeader colapsado={heroColapsado} />
             {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
-            <DaySummaryCard dateLabel="Sexta-feira, 12 de junho" entries={entries} colapsado={heroColapsado} onExpand={expandirResumo} />
+            <DaySummaryCard entries={entries} colapsado={heroColapsado} onExpand={expandirResumo} />
 
             {/* Timeline conectada (RF 2.4–2.8) */}
             <main ref={timelineRef} className="relative z-10 flex-1 overflow-y-auto px-5 pb-28"
@@ -4526,6 +4593,7 @@ export default function App() {
                   {activeForm === 'mood'     && <MoodForm     onSave={(d) => requestSave('mood',     d)} />}
                   {activeForm === 'evacuation' && <EvacuationForm onSave={(d) => requestSave('evacuation', d)} />}
                   {activeForm === 'gas' && <GasForm onSave={(d) => requestSave('gas', d)} />}
+                  {activeForm === 'digestion' && <DigestaoForm onSave={(d) => requestSave('digestion', d)} />}
                   {activeForm === 'medication' && <MedicationForm onSave={(d) => requestSave('medication', d)} customMeds={customMeds} onAddCustom={(t) => setCustomMeds((c) => [...c, t])} />}
                   {activeForm === 'cycle' && <CycleForm onSave={(d) => requestSave('cycle', d)} />}
                   {activeForm === 'weight' && <WeightForm onSave={(d) => requestSave('weight', d)} />}

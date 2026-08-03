@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, X, Calendar,
   Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle, Map,
+  Pill,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
@@ -11,6 +12,7 @@ import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
 import { extractReportFromRaw, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
+import { agruparMedicamentos } from '../lib/meds.js';
 import { syncReportsReplace, syncPrefsMerge } from '../lib/sync.js';
 import PainHeatmap from './PainHeatmap.jsx';
 import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
@@ -191,6 +193,7 @@ export default function RelatoriasIAScreen({ entries }) {
           ...r.report,
           _discutirEntries: discutirEntries,
           _painData: { painCounts, painItems, painTotal, painMax },
+          _medicamentos: agruparMedicamentos(filteredEntries),
         };
         setReports({ [selectedModel]: { loading: false, report: reportWithSnapshot, error: null } });
         const periodStart = new Date(Date.now() - periodo * 86400000).toISOString().slice(0, 10);
@@ -257,6 +260,9 @@ export default function RelatoriasIAScreen({ entries }) {
     const associacoes = Array.isArray(report.associacoes) ? report.associacoes
       : (Array.isArray(report.correlacoes) ? report.correlacoes : []);
     const rawSnapshot = Array.isArray(report._discutirEntries) ? report._discutirEntries : [];
+    const medicamentos = Array.isArray(report._medicamentos)
+      ? report._medicamentos
+      : agruparMedicamentos(filteredEntries);
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
     const discutirSnapshot = [...rawSnapshot].sort((a, b) => {
@@ -473,6 +479,27 @@ export default function RelatoriasIAScreen({ entries }) {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {medicamentos.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(63,126,110,0.12)' }}>
+                <Pill size={15} style={{ color: '#3F7E6E' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3F7E6E' }}>Medicamentos em uso</h4>
+            </div>
+            <div className="space-y-1.5">
+              {medicamentos.map((m, idx) => (
+                <div key={idx} className="rounded-xl p-3"
+                  style={{ background: 'rgba(63,126,110,0.06)', border: '1px solid rgba(63,126,110,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">{m.nome}</p>
+                  {m.finalidade && <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">Para {m.finalidade}</p>}
+                  {m.nota && <p className="text-xs text-[#3F7E6E] mt-1 italic leading-relaxed">{m.nota}</p>}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -725,6 +752,38 @@ export default function RelatoriasIAScreen({ entries }) {
           const nLines = doc.splitTextToSize(e.meta.note, maxW);
           nLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
           spacer(4);
+        }
+        spacer(6);
+      });
+      spacer(4);
+    }
+
+    // ── Medicamentos em uso ──
+    const medicamentosPDF = Array.isArray(r._medicamentos)
+      ? r._medicamentos
+      : agruparMedicamentos(workingEntries);
+    if (medicamentosPDF.length > 0) {
+      heading('Medicamentos em uso', [63, 126, 110]);
+      medicamentosPDF.forEach((m) => {
+        ensureSpace(30);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const mLines = doc.splitTextToSize(m.nome, maxW);
+        mLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        if (m.finalidade) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(100, 100, 95);
+          const fLines = doc.splitTextToSize(`Para ${m.finalidade}`, maxW);
+          fLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        }
+        if (m.nota) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(10);
+          doc.setTextColor(63, 126, 110);
+          const nLines = doc.splitTextToSize(m.nota, maxW);
+          nLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
         }
         spacer(6);
       });

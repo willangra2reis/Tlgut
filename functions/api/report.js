@@ -233,6 +233,7 @@ Regras rigorosas que você DEVE seguir:
 14. EVOLUÇÃO TEMPORAL: ${periodoDias >= 30 ? `Como o período é de ${periodoDias} dias (≥ 30), o campo 'resumo_executivo' DEVE incluir ao menos uma frase comparando o início e o fim do período com base nas suas anotações, e o campo 'evolucao' é OBRIGATÓRIO e não pode ser vazio.` : 'Como o período é curto (< 30 dias), OMITA o campo evolucao e não-force comparações temporais longas.'}
 15. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e o que o usuário registrou sentir fisicamente (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como coincidência nos registros: o desconforto físico aparece junto com o humor nos seus registros, e vice-versa, deixando o médico interpretar a direção.
 16. RESUMO DE CONSULTAS: Apresente os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: resumo do que você registrou dessa consulta, segundo suas anotações}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o usuário a levar um histórico conciso para a próxima consulta.
+17. MEDICAMENTOS: Registros com tipo "medicamento" (contêm tags com o nome do remédio e, opcionalmente, meta.finalidade com o motivo registrado pelo usuário). Nos campos 'resumo_executivo' e 'associacoes', mencione os medicamentos pelo nome exato que o usuário registrou, citando a finalidade APENAS se o usuário a preencheu (campo 'finalidade:'). NUNCA invente finalidades, dosagens, frequências ou efeitos para medicamentos que o usuário não registrou. Se houver repetição do mesmo medicamento, agrupe como "uso frequente" sem inventar quantidade exata.
 
 Registros para compilar:
 ${registrosTexto}`;
@@ -399,6 +400,7 @@ function formatMeta(e) {
   if (m.colica != null) partes.push(`cólica: ${m.colica}/5`);
   if (m.weight != null) partes.push(`peso: ${m.weight} kg`);
   if (m.especialidade) partes.push(`consulta: ${m.especialidade}`);
+  if (m.finalidade) partes.push(`finalidade: ${m.finalidade}`);
   if (typeof m.note === 'string' && m.note.trim()) partes.push(`observação: ${m.note.trim()}`);
 
   return partes.length > 0 ? ` (${partes.join(' · ')})` : '';
