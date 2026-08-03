@@ -44,7 +44,7 @@ import {
   syncEntryInsert, syncEntryUpdate, syncEntryDelete,
   syncProfileUpsert, syncPrefsMerge,
   syncConsultasReplace, syncReportsReplace, syncPullAll,
-  syncDeleteAccount, readPrefsSnapshot,
+  syncDeleteAccount, readPrefsSnapshot, tsParaDia,
 } from './lib/sync.js';
 import { baixarJSON, montarExportJSON, limparDadosLocais } from './lib/exportData.js';
 import { montarDadosDemo } from './lib/demoData.js';
@@ -4182,7 +4182,9 @@ export default function App() {
     const now  = new Date();
     const timeExpr = ts && ts.time ? ts.time : `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     const dayExpr  = ts && ts.day  ? ts.day  : 'hoje';
-    const timestamp = ts?.ts || now.getTime();
+    // ts do evento reflete o dia/hora escolhidos (ontem/anteontem), para o
+    // sync gravar a data absoluta correta e o reload preservar o rótulo.
+    const timestamp = ts?.ts || tsParaDia(dayExpr, timeExpr);
     idRef.current += 1;
     const entry = { id: idRef.current, ts: timestamp, day: dayExpr, time: timeExpr, type, ...data };
     setEntries((prev) => [...prev, entry]);
@@ -4284,7 +4286,7 @@ export default function App() {
       delete meta.discutir_consulta;
       delete meta.prioridade;
     }
-    const next = { ...editing, time, day, title, description };
+    const next = { ...editing, time, day, title, description, ts: tsParaDia(day, time) };
     if (Object.keys(meta).length) next.meta = meta; else delete next.meta;
     setEntries((prev) => prev.map((e) => (e.id !== editing.id ? e : next)));
     if (session) syncEntryUpdate(next).catch(() => {});

@@ -25,6 +25,18 @@ function dataDDMM(ts) {
   return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
 }
 
+// Timestamp local do evento a partir do rótulo de dia relativo + hora.
+// 'hoje'/'agora' → hoje na hora informada; 'ontem' → dia anterior;
+// 'anteontem' → dois dias antes. Usa aritmética de calendário (à prova de DST).
+export function tsParaDia(day, time) {
+  const now = new Date();
+  const offset = day === 'ontem' ? 1 : day === 'anteontem' ? 2 : 0;
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+  const [h, m] = String(time || '').split(':').map(Number);
+  d.setHours(h || 0, m || 0, 0, 0);
+  return d.getTime();
+}
+
 export function dayToAbsolute(entry) {
   const d = entry?.day;
   if (d === 'hoje' || d === 'ontem' || d === 'anteontem') {
@@ -34,21 +46,16 @@ export function dayToAbsolute(entry) {
   return d || dataDDMM(entry?.ts || Date.now());
 }
 
-export function dayToRelative(day, ts) {
-  if (day !== 'hoje' && day !== 'ontem' && day !== 'anteontem' && /^\d{2}\/\d{2}$/.test(day || '')) {
-    const t = new Date(ts).getTime();
-    if (Number.isFinite(t)) {
-      const now = new Date();
-      const a = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const b = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const d = new Date(t);
-      a.setDate(a.getDate()); // hoje
-      b.setFullYear(d.getFullYear(), d.getMonth(), d.getDate());
-      const diff = Math.round((a.getTime() - b.getTime()) / 86400000);
-      if (diff === 0) return 'hoje';
-      if (diff === 1) return 'ontem';
-      if (diff === 2) return 'anteontem';
-    }
+export function dayToRelative(day, _ts) {
+  if (day && /^\d{2}\/\d{2}$/.test(day)) {
+    const [dd, mm] = day.split('/').map(Number);
+    const now = new Date();
+    const hoje = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const ref = new Date(now.getFullYear(), mm - 1, dd);
+    const diff = Math.round((hoje.getTime() - ref.getTime()) / 86400000);
+    if (diff === 0) return 'hoje';
+    if (diff === 1) return 'ontem';
+    if (diff === 2) return 'anteontem';
   }
   return day;
 }
