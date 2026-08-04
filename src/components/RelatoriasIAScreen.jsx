@@ -2,10 +2,11 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Lightbulb, ThumbsUp, ChevronDown, CheckCircle2, X, Calendar,
   Download, Share2, FileText, Sparkles, Stethoscope, TrendingUp, AlertTriangle, Map,
-  Pill,
+  Pill, Users,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
+import { formatarHistoricoFamiliar } from '../lib/familia.js';
 import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
 import { dorPorRegiao } from '../lib/insights.js';
 import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
@@ -263,6 +264,7 @@ export default function RelatoriasIAScreen({ entries }) {
     const medicamentos = Array.isArray(report._medicamentos)
       ? report._medicamentos
       : agruparMedicamentos(filteredEntries);
+    const histFamiliar = formatarHistoricoFamiliar(loadProfile());
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
     const discutirSnapshot = [...rawSnapshot].sort((a, b) => {
@@ -498,6 +500,25 @@ export default function RelatoriasIAScreen({ entries }) {
                   <p className="text-sm font-semibold text-[#2B2A28]">{m.nome}</p>
                   {m.finalidade && <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">Para {m.finalidade}</p>}
                   {m.nota && <p className="text-xs text-[#3F7E6E] mt-1 italic leading-relaxed">{m.nota}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {histFamiliar.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(155,140,46,0.12)' }}>
+                <Users size={15} style={{ color: '#9B8C2E' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#9B8C2E' }}>Histórico familiar</h4>
+            </div>
+            <div className="space-y-1.5">
+              {histFamiliar.map((h, idx) => (
+                <div key={idx} className="rounded-xl p-3"
+                  style={{ background: 'rgba(155,140,46,0.06)', border: '1px solid rgba(155,140,46,0.2)' }}>
+                  <p className="text-sm text-[#4A443F] leading-relaxed">{h}</p>
                 </div>
               ))}
             </div>
@@ -786,6 +807,21 @@ export default function RelatoriasIAScreen({ entries }) {
           nLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
         }
         spacer(6);
+      });
+      spacer(4);
+    }
+
+    const histFamPDF = anon ? [] : formatarHistoricoFamiliar(prRaw);
+    if (histFamPDF.length > 0) {
+      heading('Hist\u00f3rico familiar', [155, 140, 46]);
+      histFamPDF.forEach((h) => {
+        ensureSpace(30);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(74, 68, 63);
+        const hLines = doc.splitTextToSize(h, maxW);
+        hLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        spacer(4);
       });
       spacer(4);
     }

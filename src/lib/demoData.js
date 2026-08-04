@@ -20,6 +20,10 @@ const PROFILE_DEMO = {
   altura: 165,
   condicoes: ['sii'],
   outros: 'Intolerância à lactose em investigação',
+  historico_familiar: [
+    { parentesco: 'mae', condicao: 'Doença de Crohn', nota: 'diagnosticada aos 40 anos' },
+    { parentesco: 'pai', condicao: 'Hipertensão', nota: '' },
+  ],
 };
 
 function relatorioDemo(tipo, titulo) {

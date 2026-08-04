@@ -410,7 +410,8 @@ function buildProfileBlock(p) {
   if (!p || typeof p !== 'object') return '';
   const has = (v) => v !== null && v !== undefined && v !== '';
   if (!has(p.nome) && !has(p.idade) && !has(p.peso) && !has(p.altura)
-      && !(Array.isArray(p.condicoes) && p.condicoes.length > 0) && !has(p.outros)) return '';
+      && !(Array.isArray(p.condicoes) && p.condicoes.length > 0) && !has(p.outros)
+      && !(Array.isArray(p.historico_familiar) && p.historico_familiar.length > 0)) return '';
   const L = {
     diabetes: 'Diabetes',
     hipertensao: 'Hipertens\u00e3o',
@@ -429,11 +430,22 @@ function buildProfileBlock(p) {
   const cond = Array.isArray(p.condicoes) ? p.condicoes.map(c => L[c] || c) : [];
   if (cond.length) linhas.push('Condi\u00e7\u00f5es pr\u00e9-existentes: ' + cond.join(', '));
   if (has(p.outros)) linhas.push('Outras: ' + p.outros);
+  if (Array.isArray(p.historico_familiar) && p.historico_familiar.length > 0) {
+    const hist = p.historico_familiar
+      .filter((r) => r && typeof r.condicao === 'string' && r.condicao.trim() !== '')
+      .map((r) => {
+        const parente = r.parentesco || 'Familiar';
+        const nota = r.nota && r.nota.trim() ? ` (${r.nota.trim()})` : '';
+        return parente + ' — ' + r.condicao.trim() + nota;
+      });
+    if (hist.length) linhas.push('Hist\u00f3rico familiar: ' + hist.join(' | '));
+  }
   const bloco = linhas.join('\n');
-  return '## Perfil do usuário\n' + bloco +
-    '\n\nUse estes dados para personalizar o resumo, chamando o usuário pelo nome em tom acolhedor no início do resumo_executivo, e adaptando o contexto de acordo com o perfil:\n' +
+  return '## Perfil do usu\u00e1rio\n' + bloco +
+    '\n\nUse estes dados para personalizar o resumo, chamando o usu\u00e1rio pelo nome em tom acolhedor no in\u00edcio do resumo_executivo, e adaptando o contexto de acordo com o perfil:\n' +
     '- Hidrata\u00e7\u00e3o: apresente a rela\u00e7\u00e3o entre hidrata\u00e7\u00e3o e consist\u00eancia das fezes sempre como coincid\u00eancia nos registros (\u201caparece coincidir\u201d, \u201cacompanha\u201d), nunca como causalidade (\u201c\u00e9 a causa\u201d, \u201cdificulta o tr\u00e2nsito\u201d). Apenas descreva o que o usu\u00e1rio registrou beber, em n\u00fameros absolutos (\u201cvoc\u00ea registrou X copos de \u00e1gua (~Y ml)\u201d). NUNCA mencione \u201cmeta\u201d, \u201cideal\u201d, \u201crecomenda\u00e7\u00e3o\u201d, \u201cfaltam\u201d, \u201cprecisa beber mais\u201d nem calcule um valor alvo baseado em peso. NUNCA use qualificadores como \u201cpouca\u201d, \u201creduzida\u201d, \u201cbaixa\u201d ou \u201cinsuficiente\u201d \u2014 apenas n\u00fameros.\n' +
     '- Considere SEMPRE as condi\u00e7\u00f5es pr\u00e9-existentes e o biotipo antes de apresentar associa\u00e7\u00f5es exclusivamente \u00e0 dieta. Condi\u00e7\u00f5es de base e medicamentos tamb\u00e9m podem coincidir com o que o usu\u00e1rio registrou.\n' +
+    '- HIST\u00d3RICO FAMILIAR: o campo \u201cHist\u00f3rico familiar\u201d registra doen\u00e7as/condi\u00e7\u00f5es de parentes que o usu\u00e1rio lembrou. Use-o APENAS como contexto de antecedentes familiares para mencionar de forma neutra no resumo (\u201cvoc\u00ea registrou que seu pai tem Doen\u00e7a de Crohn\u201d, \u201csegundo voc\u00ea, sua m\u00e3e teve colite\u201d). NUNCA conclua, diagnostique ou sugira que o usu\u00e1rio tenha a mesma condi\u00e7\u00e3o. NUNCA invente hist\u00f3rico familiar que o usu\u00e1rio n\u00e3o registrou. Se o campo n\u00e3o existir, n\u00e3o mencione hist\u00f3rico familiar.\n' +
     '- CONTEXTUALIZA\u00c7\u00c3O: N\u00e3o fa\u00e7a falsas associa\u00e7\u00f5es exclusivas com a dieta quando h\u00e1 condi\u00e7\u00f5es pr\u00e9-existentes que aparecem nos registros.\n' +
-    '- SA\u00daDA\u00c7\u00c3O PERSONALIZADA: Inicie o resumo_executivo chamando o usu\u00e1rio pelo nome (\u201cOlá, ' + (p.nome || 'paciente') + '! Para te ajudar a organizar suas percep\u00e7\u00f5es, compilamos um resumo do que voc\u00ea relatou.\u201d) em tom acolhedor.\n\n';
+    '- SA\u00daDA\u00c7\u00c3O PERSONALIZADA: Inicie o resumo_executivo chamando o usu\u00e1rio pelo nome (\u201cOl\u00e1, ' + (p.nome || 'paciente') + '! Para te ajudar a organizar suas percep\u00e7\u00f5es, compilamos um resumo do que voc\u00ea relatou.\u201d) em tom acolhedor.\n\n';
 }

@@ -18,6 +18,16 @@ describe('Anonimização de perfil (exportação)', () => {
     expect(a.outros).toBe('observação livre');
   });
 
+  it('mantém historico_familiar inalterado', () => {
+    const p = {
+      nome: 'Maria',
+      condicoes: ['celiaca'],
+      historico_familiar: [{ parentesco: 'mae', condicao: 'Doença de Crohn', nota: 'aos 40' }],
+    };
+    const a = anonimizarPerfil(p);
+    expect(a.historico_familiar).toEqual([{ parentesco: 'mae', condicao: 'Doença de Crohn', nota: 'aos 40' }]);
+  });
+
   it('não muta o objeto original', () => {
     const p = { nome: 'John', idade: 40, peso: 80 };
     const snapshot = JSON.parse(JSON.stringify(p));

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronLeft, Check, Plus, X } from 'lucide-react';
 import mascoteImage from '../assets/mascote.png';
+import { PARENTESCOS, CONDICOES_FAMILIARES } from '../lib/familia.js';
 
 const CONDICOES = [
   { id: 'diabetes',  label: 'Diabetes' },
@@ -15,8 +16,8 @@ const MESH = 'day-summary-mesh relative z-10 rounded-2xl border border-[#EDE7DD]
 const INPUT_CLASS = 'w-full px-4 py-3 rounded-xl text-base outline-none';
 const INPUT_STYLE = { background: '#FBF9F4', border: '1px solid rgba(150,140,120,0.25)', color: '#2B2A28' };
 
-export default function OnboardingModal({ initialProfile, onConcluir, onPularTudo }) {
-  const [step, setStep] = useState(0);
+export default function OnboardingModal({ initialProfile, onConcluir, onPularTudo, initialStep = 0 }) {
+  const [step, setStep] = useState(initialStep);
   const [nome, setNome] = useState('');
   const [condicoes, setCondicoes] = useState([]);
   const [outros, setOutros] = useState('');
@@ -25,6 +26,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
   const [peso, setPeso] = useState('');
   const [altura, setAltura] = useState('');
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [historico, setHistorico] = useState([]);
 
   useEffect(() => {
     if (initialProfile) {
@@ -34,8 +36,19 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
       setIdade(initialProfile.idade || '');
       setPeso(initialProfile.peso || '');
       setAltura(initialProfile.altura || '');
+      setHistorico(
+        Array.isArray(initialProfile.historico_familiar)
+          ? initialProfile.historico_familiar.map((r) => ({ parentesco: r.parentesco || '', condicao: r.condicao || '', nota: r.nota || '' }))
+          : []
+      );
     }
   }, [initialProfile]);
+
+  const atualizarHistorico = (idx, campo, valor) => {
+    setHistorico((prev) => prev.map((r, i) => (i === idx ? { ...r, [campo]: valor } : r)));
+  };
+  const adicionarRegistro = () => setHistorico((prev) => [...prev, { parentesco: '', condicao: '', nota: '' }]);
+  const removerRegistro = (idx) => setHistorico((prev) => prev.filter((_, i) => i !== idx));
 
   const toggleCond = (id) => {
     if (id === 'nenhuma') {
@@ -57,6 +70,13 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
     altura: altura ? Number(altura) : null,
     condicoes: condicoes.includes('nenhuma') ? [] : condicoes,
     outros: outros.trim() || '',
+    historico_familiar: historico
+      .filter((r) => r.condicao && r.condicao.trim() !== '')
+      .map((r) => ({
+        parentesco: r.parentesco || 'outro',
+        condicao: r.condicao.trim(),
+        nota: r.nota && r.nota.trim() ? r.nota.trim() : '',
+      })),
     aceite_lgpd: { versao: 1, aceito: true, ts: Date.now() },
   });
 
@@ -94,7 +114,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
             <div className="flex flex-col items-center pt-2">
               <img src={mascoteImage} alt="" className="w-20 h-20 animate-mascote-pulse" />
               <div className="flex gap-1.5 mt-3">
-                {[0, 1, 2, 3].map((i) => (
+                {[0, 1, 2, 3, 4].map((i) => (
                   <span key={i} className="h-1.5 rounded-full transition-all"
                     style={{ width: i === step ? 24 : 8, background: i <= step ? '#4A8A5C' : 'rgba(150,140,120,0.3)' }} />
                 ))}
@@ -212,8 +232,104 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
               </div>
             )}
 
-            {/* Tela 3 — Biometria */}
+            {/* Tela 3 — Histórico familiar */}
             {step === 3 && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-bold text-[#2B2A28]">Histórico familiar</h2>
+                  <p className="text-sm text-[#4A443F] mt-1">Algum parente tem ou teve doença/condição que você lembra? Registrar ajuda o médico na consulta. Opcional — você pode completar depois.</p>
+                </div>
+
+                {historico.length === 0 && (
+                  <div className="rounded-xl p-3 text-sm text-[#7D766A]"
+                    style={{ background: 'rgba(255,255,255,0.6)', border: '1px dashed rgba(150,140,120,0.35)' }}>
+                    Nenhum registro ainda. Toque em <span className="font-semibold">Adicionar familiar</span> para começar.
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {historico.map((reg, idx) => (
+                    <div key={idx} className="rounded-xl p-3 space-y-2"
+                      style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(150,140,120,0.25)' }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#7D766A]">Familiar {idx + 1}</p>
+                        {historico.length > 1 && (
+                          <button type="button" onClick={() => removerRegistro(idx)}
+                            className="text-[#BD5A4A] text-xs flex items-center gap-1">
+                            <X size={13} /> Remover
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {PARENTESCOS.map((p) => {
+                          const sel = reg.parentesco === p.id;
+                          return (
+                            <button key={p.id} type="button" onClick={() => atualizarHistorico(idx, 'parentesco', sel ? '' : p.id)}
+                              className="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all"
+                              style={sel
+                                ? { background: 'var(--brand)', color: '#fff', border: '1px solid var(--brand)' }
+                                : { background: 'rgba(255,255,255,0.7)', color: '#4A443F', border: '1px solid rgba(150,140,120,0.3)' }}>
+                              {sel && <Check size={12} className="inline mr-1" />}
+                              {p.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div>
+                        <label className="text-xs text-[#7D766A]">Condição / doença</label>
+                        <input type="text" value={reg.condicao} placeholder="Ex.: Doença de Crohn"
+                          onChange={(e) => atualizarHistorico(idx, 'condicao', e.target.value)} maxLength={80}
+                          className={`mt-1 ${INPUT_CLASS}`} style={INPUT_STYLE} />
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {CONDICOES_FAMILIARES.map((c) => (
+                            <button key={c} type="button"
+                              onClick={() => atualizarHistorico(idx, 'condicao', reg.condicao.trim() === c ? '' : c)}
+                              className="px-2 py-1 rounded-full text-[11px] transition-colors"
+                              style={reg.condicao.trim() === c
+                                ? { background: 'rgba(74,138,92,0.15)', color: '#4A8A5C', border: '1px solid rgba(74,138,92,0.4)' }
+                                : { background: 'rgba(255,255,255,0.6)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-[#7D766A]">Observação (opcional)</label>
+                        <input type="text" value={reg.nota} placeholder="Ex.: diagnosticado aos 40 anos"
+                          onChange={(e) => atualizarHistorico(idx, 'nota', e.target.value)} maxLength={100}
+                          className={`mt-1 ${INPUT_CLASS}`} style={INPUT_STYLE} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button type="button" onClick={adicionarRegistro}
+                  className="flex items-center justify-center gap-1 w-full py-2.5 rounded-xl text-sm font-medium transition-colors"
+                  style={{ background: 'rgba(74,138,92,0.1)', color: '#4A8A5C', border: '1px dashed rgba(74,138,92,0.5)' }}>
+                  <Plus size={15} /> Adicionar familiar
+                </button>
+
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setStep(2)}
+                    className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.5)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button type="button" onClick={() => { setTentouAvancar(false); setStep(4); }}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--brand)', color: '#fff' }}>
+                    Continuar
+                  </button>
+                </div>
+                <button type="button" onClick={() => { setTentouAvancar(false); setStep(4); }}
+                  className="w-full text-center text-xs text-[#7D766A] underline pt-1">
+                  Pular esta etapa
+                </button>
+              </div>
+            )}
+
+            {/* Tela 4 — Biometria */}
+            {step === 4 && (
               <div className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-[#2B2A28]">Dados básicos</h2>
@@ -244,7 +360,7 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
                     className="w-full accent-[#4A8A5C]" style={{ accentColor: 'var(--brand)' }} />
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setStep(2)}
+                  <button type="button" onClick={() => setStep(3)}
                     className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-sm font-medium transition-colors"
                     style={{ background: 'rgba(255,255,255,0.5)', color: '#7D766A', border: '1px solid rgba(150,140,120,0.25)' }}>
                     <ChevronLeft size={16} />

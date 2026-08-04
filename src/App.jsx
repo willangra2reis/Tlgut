@@ -50,6 +50,11 @@ import {
 import { baixarJSON, montarExportJSON, limparDadosLocais } from './lib/exportData.js';
 import { montarDadosDemo } from './lib/demoData.js';
 import DeleteDataModal from './components/DeleteDataModal';
+import HistoricoFamiliarPopup from './components/HistoricoFamiliarPopup';
+import {
+  historicoFamiliarPreenchido, formatarHistoricoFamiliar,
+  estadoPopupInicial, deveMostrarPopupHistFam, registrarConvitePopup, marcarEditadoPopup,
+} from './lib/familia.js';
 
 const ENTRY_TYPES = {
   exercise:   { label: 'Exercício',  icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
@@ -1059,6 +1064,7 @@ function AulasScreen({ selecionado, onSelecionado }) {
 // ─── Tela de Perfil (configurações — hospeda a Fonte Cursiva, RF 4) ───────────
 function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick, autenticado, onLogout, onEntrar, onBaixarDados, onCarregarDemo, onExcluirDados, demoAtivo }) {
   const condLabels = (profile?.condicoes || []).map(id => CONDICOES_LABELS[id] || id).join(', ');
+  const histFamLabels = formatarHistoricoFamiliar(profile);
   const biometria = [
     profile?.idade ? `${profile.idade} anos` : null,
     profile?.peso ? `${profile.peso} kg` : null,
@@ -1098,6 +1104,19 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
           )}
           {profile?.outros && (
             <p className="text-xs text-[#7D766A]"><span className="font-medium">Outras:</span> {profile.outros}</p>
+          )}
+          {histFamLabels.length > 0 && (
+            <div className="pt-1">
+              <p className="text-xs text-[#7D766A]"><span className="font-medium">Histórico familiar:</span></p>
+              <ul className="mt-1 space-y-1">
+                {histFamLabels.map((h, i) => (
+                  <li key={i} className="text-xs text-[#7D766A] pl-3 relative">
+                    <span className="absolute left-0 top-0.5 text-[#B6AE9F]">•</span>
+                    {h}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
         <p className="text-[11px] text-[#9A938A] mt-2 leading-snug">
@@ -3849,6 +3868,8 @@ export default function App() {
   const [onboarded,  setOnboarded]  = useState(() => isOnboarded());
   const [profile,    setProfile]    = useState(() => loadProfile());
   const [editandoProfile, setEditandoProfile] = useState(false);
+  const [editandoHistFam, setEditandoHistFam] = useState(false);
+  const [histFamPopup, setHistFamPopup] = useState(null);                          // popup de convite p/ histórico familiar
   const [mostrarInstall, setMostrarInstall] = useState(false);                          // banner de instalação PWA
   const deferredPromptRef = useRef(null);                                               // guarda o evento beforeinstallprompt
   const [installState, setInstallState] = useState(() => {                               // 'installed' | 'available' | 'unavailable'
@@ -3900,7 +3921,7 @@ export default function App() {
           if (maxId > 0) idRef.current = maxId;
         }
         if (pulled.profile) {
-          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros'].some((k) => {
+          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros', 'historico_familiar'].some((k) => {
             const v = pulled.profile[k];
             return v != null && v !== '' && !(Array.isArray(v) && v.length === 0);
           });
@@ -4310,13 +4331,62 @@ export default function App() {
     setProfile(p);
     setOnboarded(true);
     setEditandoProfile(false);
+    setEditandoHistFam(false);
+    setHistFamPopup(null);
+    try {
+      localStorage.setItem('tlgut_histfam_popup', JSON.stringify(marcarEditadoPopup(loadPopupState(), Date.now())));
+    } catch {}
     if (session) syncProfileUpsert(p).catch(() => {});
   }
+
+  function loadPopupState() {
+    try { return JSON.parse(localStorage.getItem('tlgut_histfam_popup') || 'null') || estadoPopupInicial(); }
+    catch { return estadoPopupInicial(); }
+  }
+
+  function savePopupState(s) {
+    try { localStorage.setItem('tlgut_histfam_popup', JSON.stringify(s)); } catch {}
+  }
+
+  function abrirPopupHistFam(estado, modo) {
+    const agora = Date.now();
+    savePopupState(registrarConvitePopup(estado, modo, agora));
+    setHistFamPopup(null);
+    setEditandoHistFam(true);
+    setEditandoProfile(true);
+  }
+
+  function adiarPopupHistFam(estado, modo) {
+    const agora = Date.now();
+    savePopupState(registrarConvitePopup(estado, modo, agora));
+    setHistFamPopup(null);
+  }
+
+  function dispensarPopupHistFam() {
+    const s = loadPopupState();
+    savePopupState({ ...s, dispensado: true });
+    setHistFamPopup(null);
+  }
+
+  // Convite recorrente de histórico familiar (1x por sessão): só avalia quando o
+  // onboarding terminou e a tela não está sendo editada.
+  const histFamAvaliadoRef = useRef(false);
+  useEffect(() => {
+    if (!onboarded || editandoProfile || histFamAvaliadoRef.current) return;
+    histFamAvaliadoRef.current = true;
+    const estado = loadPopupState();
+    const preenchido = historicoFamiliarPreenchido(profile);
+    const decisao = deveMostrarPopupHistFam(estado, preenchido, Date.now());
+    if (decisao.mostrar) {
+      setHistFamPopup({ ...decisao, estado });
+    }
+  }, [onboarded, editandoProfile, profile]);
 
   function pularOnboarding() {
     marcarOnboarded(session?.user?.id ?? null);
     setOnboarded(true);
     setEditandoProfile(false);
+    setEditandoHistFam(false);
   }
 
   const [showBubble, setShowBubble] = useState(false);
@@ -4435,7 +4505,7 @@ export default function App() {
         ) : abaAtiva === 'insights' ? (
           <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => setEditandoProfile(true)} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} demoAtivo={demoAtivo} />
+          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => { setEditandoHistFam(true); setEditandoProfile(true); }} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} demoAtivo={demoAtivo} />
         ) : (
           <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}
@@ -4612,8 +4682,17 @@ export default function App() {
       </div>
       {(!onboarded || editandoProfile) && (
         <OnboardingModal initialProfile={editandoProfile ? profile : undefined}
+          initialStep={editandoHistFam ? 3 : 0}
           onConcluir={concluirOnboarding}
           onPularTudo={!onboarded ? pularOnboarding : undefined} />
+      )}
+
+      {histFamPopup && (
+        <HistoricoFamiliarPopup titulo={histFamPopup.titulo} mensagem={histFamPopup.mensagem}
+          permiteDispensar={histFamPopup.modo !== 'vazio'}
+          onAbrir={() => abrirPopupHistFam(histFamPopup.estado, histFamPopup.modo)}
+          onAgoraNao={() => adiarPopupHistFam(histFamPopup.estado, histFamPopup.modo)}
+          onDispensar={dispensarPopupHistFam} />
       )}
 
       <DeleteDataModal open={deleteOpen} onClose={() => setDeleteOpen(false)}

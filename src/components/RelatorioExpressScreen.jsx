@@ -10,6 +10,7 @@ import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS
 import { syncReportsReplace, syncPrefsMerge } from '../lib/sync.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
+import { formatarHistoricoFamiliar } from '../lib/familia.js';
 import { nearestRegion } from '../lib/organs.js';
 import mascoteImage from '../assets/mascote.png';
 import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
@@ -1053,6 +1054,10 @@ function gerarPDFExpress(report, clouds = [], intensity, kinds, entries, exclude
   if (pr && pr.outros) condArr.push(pr.outros);
 
   microLine(`Paciente: ${nomeProf || '—'}${bio.length ? '  ·  ' + bio.join(' · ') : ''}${condArr.length ? '  ·  Condições: ' + condArr.join(', ') : ''}`);
+  const histFamExpress = anon ? [] : formatarHistoricoFamiliar(prRaw);
+  if (histFamExpress.length > 0) {
+    microLine(`Histórico familiar: ${histFamExpress.join(' | ')}`);
+  }
   microLine(`Gerado em ${new Date().toLocaleDateString('pt-BR')}`);
 
   y += 4;
