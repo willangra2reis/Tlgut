@@ -28,6 +28,7 @@ export async function onRequestPost({ request, env }) {
     mode = 'standard',
     narrative,
     pain_map,
+    agregados,
   } = body;
 
   const periodoDias = Number.isFinite(periodo) && periodo > 0 ? periodo : 0;
@@ -101,6 +102,7 @@ export async function onRequestPost({ request, env }) {
       periodoEvolucaoStr,
       profileBlock,
       periodoDias,
+      agregados,
     });
   }
 
@@ -187,6 +189,27 @@ export async function onRequestPost({ request, env }) {
 }
 
 // ── Prompt standard (Relatórios IA — usa entries estruturadas) ─────────────
+// Bloco de agregados do período (intervalo de evacuações + médias de sono),
+// calculados no cliente e enviados no body. Fatos neutros para a IA citar sem
+// interpretar/diagnosticar (regra 18 do prompt padrão).
+function buildAgregadosBlock(a) {
+  if (!a || typeof a !== 'object') return '';
+  const frases = [];
+  const ev = a.evacuacao;
+  if (ev && ev.status === 'ok' && Number.isFinite(ev.mediaHoras)) {
+    frases.push(`<AGREGADOS_EVACUACAO> intervalo entre evacuações: média de ${ev.mediaHoras} horas entre registros (${ev.n} registros no período, cerca de ${ev.evacPorDia} por dia) </AGREGADOS_EVACUACAO>`);
+  }
+  const s = a.sono;
+  if (s && Number.isFinite(s.mediaHoras)) {
+    const deitar = s.mediaDeitar ? `, deitando por volta das ${s.mediaDeitar}` : '';
+    const acordar = s.mediaAcordar ? ` e acordando perto das ${s.mediaAcordar}` : '';
+    frases.push(`<AGREGADOS_SONO> sono: média de ${s.mediaHoras} horas por noite${deitar}${acordar} (${s.nHoras} noites registradas) </AGREGADOS_SONO>`);
+  }
+  if (!frases.length) return '';
+  return '## Números j\u00e1 calculados dos seus registros no per\u00edodo (use como fatos neutros, sem interpretar nem julgar normalidade):\n' +
+    frases.join('\n') + '\n\n';
+}
+
 function buildStandardPrompt({
   registrosTexto,
   consultaFrase,
@@ -194,10 +217,12 @@ function buildStandardPrompt({
   periodoEvolucaoStr,
   profileBlock,
   periodoDias,
+  agregados,
 }) {
+  const agregadosBlock = buildAgregadosBlock(agregados);
   return `Você é um organizador de anotações de um diário intestinal. Sua função é compilar e apresentar, em português brasileiro, os registros que o usuário fez ao longo dos dias, em linguagem simples, para que ele leve suas anotações organizadas à consulta. Você é um diário passivo: NÃO interpreta, NÃO conclui, NÃO sugere causas, NÃO identifica quadros, NÃO rotula gravidade. Apenas organiza, resume e apresenta o que o usuário registrou.
 
-${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}FORMATO DA RESPOSTA — REGRAS ABSOLUTAS:
+${dataConsultaStr}${periodoEvolucaoStr}${profileBlock}${agregadosBlock}FORMATO DA RESPOSTA — REGRAS ABSOLUTAS:
 - Comece com "{" (abre-chaves) como PRIMEIRO caractere da sua resposta.
 - Termine com "}" (fecha-chaves) como ÚLTIMO caractere da sua resposta.
 - NÃO use \`\`\`json nem nenhum tipo de code fence.
@@ -234,6 +259,7 @@ Regras rigorosas que você DEVE seguir:
 15. EIXO INTESTINO-CÉREBRO: Quando o humor baixo/triste e o que o usuário registrou sentir fisicamente (cólicas, gases, alterações nas fezes) caminharem juntos, NUNCA afirme uma causa única. Apresente como coincidência nos registros: o desconforto físico aparece junto com o humor nos seus registros, e vice-versa, deixando o médico interpretar a direção.
 16. RESUMO DE CONSULTAS: Apresente os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: resumo do que você registrou dessa consulta, segundo suas anotações}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o usuário a levar um histórico conciso para a próxima consulta.
 17. MEDICAMENTOS: Registros com tipo "medicamento" (contêm tags com o nome do remédio e, opcionalmente, meta.finalidade com o motivo registrado pelo usuário). Nos campos 'resumo_executivo' e 'associacoes', mencione os medicamentos pelo nome exato que o usuário registrou, citando a finalidade APENAS se o usuário a preencheu (campo 'finalidade:'). NUNCA invente finalidades, dosagens, frequências ou efeitos para medicamentos que o usuário não registrou. Se houver repetição do mesmo medicamento, agrupe como "uso frequente" sem inventar quantidade exata.
+18. AGREGADOS DO PERÍODO: os números entre <AGREGADOS_...> foram calculados dos próprios registros — use-os para contextualizar o resumo e as associações SEM interpretar, SEM diagnosticar e SEM sugerir causa. Frequência/intervalo de evacuações e médias de sono devem aparecer como fatos neutros na perspectiva do usuário (ex.: 'segundo seus registros, o intervalo entre as evacuações ficou em torno de X horas'; 'em suas anotações, a média de sono foi de X horas, deitando por volta das HH:MM e acordando perto das HH:MM'). NUNCA diga que um intervalo ou horário é normal, anormal, melhor ou pior — apenas reporte o número.
 
 Registros para compilar:
 ${registrosTexto}`;

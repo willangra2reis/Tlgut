@@ -8,7 +8,7 @@ import { jsPDF } from 'jspdf';
 import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
 import { formatarHistoricoFamiliar } from '../lib/familia.js';
 import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
-import { dorPorRegiao } from '../lib/insights.js';
+import { dorPorRegiao, intervaloEntreEvacuacoes, metricasSono } from '../lib/insights.js';
 import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
 import { extractReportFromRaw, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
@@ -132,8 +132,23 @@ export default function RelatoriasIAScreen({ entries }) {
 
   const hasResults = Object.keys(reports).some(k => k !== '_empty');
 
+  const calcularAgregados = useCallback((entriesFor) => {
+    const ev = intervaloEntreEvacuacoes(entriesFor);
+    const sono = metricasSono(entriesFor);
+    const agregados = {};
+    if (ev.status === 'ok') {
+      agregados.evacuacao = { status: 'ok', mediaHoras: ev.mediaHoras, medianaHoras: ev.medianaHoras, evacPorDia: ev.evacPorDia, n: ev.n };
+    }
+    if (sono.mediaHoras !== null) {
+      agregados.sono = { mediaHoras: Math.round(sono.mediaHoras * 10) / 10, mediaDeitar: sono.mediaDeitar, mediaAcordar: sono.mediaAcordar, nHoras: sono.nHoras };
+    }
+    return agregados;
+  }, []);
+
   const gerarRelatorio = useCallback(async (entriesFor, model) => {
     const body = { entries: entriesFor, model, periodo };
+    const ag = calcularAgregados(entriesFor);
+    if (Object.keys(ag).length) body.agregados = ag;
     const c = proximaConsulta();
     const cd = c && c.data ? c.data.trim() : null;
     if (cd) body.consulta_date = cd;
@@ -151,7 +166,7 @@ export default function RelatoriasIAScreen({ entries }) {
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return await res.json();
-  }, [periodo, entries]);
+  }, [periodo, entries, calcularAgregados]);
 
   async function handleGerar() {
     if (filteredEntries.length === 0) {
@@ -195,6 +210,7 @@ export default function RelatoriasIAScreen({ entries }) {
           _discutirEntries: discutirEntries,
           _painData: { painCounts, painItems, painTotal, painMax },
           _medicamentos: agruparMedicamentos(filteredEntries),
+          _agregados: calcularAgregados(filteredEntries),
         };
         setReports({ [selectedModel]: { loading: false, report: reportWithSnapshot, error: null } });
         const periodStart = new Date(Date.now() - periodo * 86400000).toISOString().slice(0, 10);
@@ -264,6 +280,11 @@ export default function RelatoriasIAScreen({ entries }) {
     const medicamentos = Array.isArray(report._medicamentos)
       ? report._medicamentos
       : agruparMedicamentos(filteredEntries);
+    const agregados = report._agregados && typeof report._agregados === 'object' && Object.keys(report._agregados).length
+      ? report._agregados
+      : calcularAgregados(filteredEntries);
+    const agregEv = agregados.evacuacao || null;
+    const agregSono = agregados.sono || null;
     const histFamiliar = formatarHistoricoFamiliar(loadProfile());
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
@@ -502,6 +523,40 @@ export default function RelatoriasIAScreen({ entries }) {
                   {m.nota && <p className="text-xs text-[#3F7E6E] mt-1 italic leading-relaxed">{m.nota}</p>}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {(agregEv || agregSono) && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(62,110,160,0.12)' }}>
+                <TrendingUp size={15} style={{ color: '#3E6EA0' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3E6EA0' }}>Números do período</h4>
+            </div>
+            <div className="space-y-1.5">
+              {agregEv && (
+                <div className="rounded-xl p-3"
+                  style={{ background: 'rgba(62,110,160,0.06)', border: '1px solid rgba(62,110,160,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">Frequência e intervalo de evacuações</p>
+                  <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">
+                    {agregEv.n} registros no período · intervalo médio de {agregEv.mediaHoras} horas entre evacuações · cerca de {agregEv.evacPorDia} por dia.
+                  </p>
+                </div>
+              )}
+              {agregSono && (
+                <div className="rounded-xl p-3"
+                  style={{ background: 'rgba(62,110,160,0.06)', border: '1px solid rgba(62,110,160,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">Médias de sono</p>
+                  <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">
+                    Média de {agregSono.mediaHoras} horas por noite
+                    {agregSono.mediaDeitar ? ` · deitando por volta das ${agregSono.mediaDeitar}` : ''}
+                    {agregSono.mediaAcordar ? ` · acordando perto das ${agregSono.mediaAcordar}` : ''}
+                    {agregSono.nHoras ? ` · ${agregSono.nHoras} noite${agregSono.nHoras !== 1 ? 's' : ''} registrada${agregSono.nHoras !== 1 ? 's' : ''}` : ''}.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -808,6 +863,50 @@ export default function RelatoriasIAScreen({ entries }) {
         }
         spacer(6);
       });
+      spacer(4);
+    }
+
+    // ── Números do período (intervalo de evacuações + médias de sono) ──
+    const agregPDF = r._agregados && typeof r._agregados === 'object' && Object.keys(r._agregados).length
+      ? r._agregados
+      : calcularAgregados(workingEntries);
+    const agregEvPDF = agregPDF.evacuacao || null;
+    const agregSonoPDF = agregPDF.sono || null;
+    if (agregEvPDF || agregSonoPDF) {
+      heading('Números do período', [62, 110, 160]);
+      if (agregEvPDF) {
+        ensureSpace(26);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const t1 = doc.splitTextToSize('Frequência e intervalo de evacuações', maxW);
+        t1.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 95);
+        const b1 = `${agregEvPDF.n} registros no período · intervalo médio de ${agregEvPDF.mediaHoras} horas entre evacuações · cerca de ${agregEvPDF.evacPorDia} por dia.`;
+        const b1Lines = doc.splitTextToSize(b1, maxW);
+        b1Lines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        spacer(4);
+      }
+      if (agregSonoPDF) {
+        ensureSpace(26);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const t2 = doc.splitTextToSize('Médias de sono', maxW);
+        t2.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 95);
+        const b2 = `Média de ${agregSonoPDF.mediaHoras} horas por noite` +
+          (agregSonoPDF.mediaDeitar ? ` · deitando por volta das ${agregSonoPDF.mediaDeitar}` : '') +
+          (agregSonoPDF.mediaAcordar ? ` · acordando perto das ${agregSonoPDF.mediaAcordar}` : '') +
+          (agregSonoPDF.nHoras ? ` · ${agregSonoPDF.nHoras} noite${agregSonoPDF.nHoras !== 1 ? 's' : ''} registrada${agregSonoPDF.nHoras !== 1 ? 's' : ''}` : '') + '.';
+        const b2Lines = doc.splitTextToSize(b2, maxW);
+        b2Lines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        spacer(4);
+      }
       spacer(4);
     }
 

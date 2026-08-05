@@ -57,7 +57,17 @@ export function gerarHistoricoMock(dias = 75, seed = 20260618, fim = Date.UTC(20
     const poucaAgua = copos <= 4;
 
     const qualidade = ri(1, 5);
-    push(at(7, 30), 'sleep', { quality: qualidade });
+    const fmtH = (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const deitouH = ri(21, 23), deitouM = ri(0, 59);
+    const acordouH = ri(5, 8), acordouM = ri(0, 59);
+    let horasSono = acordouH + acordouM / 60 - (deitouH + deitouM / 60);
+    if (horasSono < 0) horasSono += 24;
+    push(at(7, 30), 'sleep', {
+      quality: qualidade,
+      deitou: fmtH(deitouH, deitouM),
+      acordou: fmtH(acordouH, acordouM),
+      horas: Math.round(horasSono * 10) / 10,
+    });
     const sonoRuim = qualidade <= 2;
 
     push(at(7, 45), 'meal', { heavy: false, tags: ['Café', 'Pão/Trigo'] });
@@ -90,7 +100,8 @@ export function gerarHistoricoMock(dias = 75, seed = 20260618, fim = Date.UTC(20
     push(at(21, 0), 'mood', { score: Math.max(1, ri(2, 5) - (poucaAgua || sonoRuim ? 1 : 0)) });
 
     const bristol = poucaAgua ? ri(1, 3) : ri(3, 6); // planta água ↔ Bristol
-    push(at(8, ri(0, 59)), 'evacuation', { bristol });
+    push(at(6 + ri(0, 4), ri(0, 59)), 'evacuation', { bristol });
+    if (rnd() < 0.45) push(at(15 + ri(0, 6), ri(0, 59)), 'evacuation', { bristol: ri(2, 5) });
 
     // Medicamento (RF 15.5): registro ocasional de manhã. Gatilho plantado para
     // visualização do cruzamento medicamento→sintoma — em dias com 'Antibiótico'
@@ -419,4 +430,147 @@ export function faseDoCiclo(inicioTs, agoraTs, duracaoCiclo = 28) {
   else fase = 'lutea';
 
   return { fase, diaDoCiclo };
+}
+
+// Converte "HH:MM" em minutos desde a meia-noite (null se inválido).
+export function hhmmParaMinutos(t) {
+  if (typeof t !== 'string') return null;
+  const [h, m] = t.split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+// Formata minutos desde a meia-noite em "HH:MM" (mod 24h, para médias circulares).
+export function minutosParaHHMM(min) {
+  const t = ((Math.round(min) % 1440) + 1440) % 1440;
+  const h = Math.floor(t / 60);
+  const m = Math.floor(t % 60);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// Média circular de horários (mod 24h) — evita o salto artificial 23:50 → 00:10.
+// Retorna { media, n } em minutos; `media` é null quando n === 0.
+export function mediaCircularHorarios(minutosList) {
+  const pts = minutosList.filter(Number.isFinite);
+  if (!pts.length) return { media: null, n: 0 };
+  let sx = 0; let sy = 0;
+  pts.forEach((m) => {
+    const ang = (m / 1440) * 2 * Math.PI;
+    sx += Math.cos(ang); sy += Math.sin(ang);
+  });
+  let ang = Math.atan2(sy / pts.length, sx / pts.length);
+  if (ang < 0) ang += 2 * Math.PI;
+  return { media: (ang / (2 * Math.PI)) * 1440, n: pts.length };
+}
+
+// Série diária de horários (campo "HH:MM", ex.: meta.deitou) → minutos desde a
+// meia-noite, com média circular por dia e forward-fill nos dias sem registro
+// (mantém o último horário conhecido). Observação factual (RF 6).
+export function seriePorDiaHorario(history, type, campo) {
+  const evs = history.filter((e) => e.type === type);
+  if (!evs.length) return [];
+  let min = Infinity; let max = -Infinity;
+  evs.forEach((e) => { const k = diaChave(e.ts); if (k < min) min = k; if (k > max) max = k; });
+  const buckets = new Map();
+  let found = false;
+  evs.forEach((e) => {
+    const v = hhmmParaMinutos((e.meta || {})[campo] ?? e[campo]);
+    if (v === null) return;
+    const k = diaChave(e.ts);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(v);
+    found = true;
+  });
+  if (!found) return [];
+  const serie = [];
+  let ultimo = null;
+  for (let k = min; k <= max; k += DIA) {
+    const vals = buckets.get(k);
+    if (vals && vals.length) {
+      const m = mediaCircularHorarios(vals);
+      if (m.media !== null) ultimo = m.media;
+    }
+    serie.push({ dia: k, valor: ultimo });
+  }
+  return serie;
+}
+
+// Série diária do intervalo entre evacuações (horas), atribuído ao dia do
+// segundo evento de cada par. Dias sem evacuação mantêm o último intervalo
+// conhecido (forward-fill); sem pares → série vazia (dados insuficientes).
+export function serieIntervaloEvacuacoes(history) {
+  const evs = history
+    .filter((e) => e.type === 'evacuation' && Number.isFinite(e.ts))
+    .sort((a, b) => a.ts - b.ts);
+  if (evs.length < 2) return [];
+  let min = Infinity; let max = -Infinity;
+  evs.forEach((e) => { const k = diaChave(e.ts); if (k < min) min = k; if (k > max) max = k; });
+  const porDia = new Map();
+  for (let i = 1; i < evs.length; i += 1) {
+    const k = diaChave(evs[i].ts);
+    if (!porDia.has(k)) porDia.set(k, []);
+    porDia.get(k).push((evs[i].ts - evs[i - 1].ts) / HORA);
+  }
+  const serie = [];
+  let ultimo = null;
+  for (let k = min; k <= max; k += DIA) {
+    const vals = porDia.get(k);
+    if (vals && vals.length) ultimo = vals.reduce((s, x) => s + x, 0) / vals.length;
+    serie.push({ dia: k, valor: ultimo ?? 0 });
+  }
+  return serie;
+}
+
+// Métricas de sono dos registros: média de horas dormidas e média circular das
+// horas de deitar/acordar. Registros sem `meta.deitou`/`meta.acordou` (versões
+// antigas) são ignorados para os horários, mas contam para horas quando houver.
+// Observação dos dados — sem juízo de normalidade (RF 6).
+export function metricasSono(history) {
+  const deitouList = []; const acordouList = []; const horasList = [];
+  history.forEach((e) => {
+    if (e.type !== 'sleep') return;
+    const meta = e.meta || {};
+    const horas = Number(e.horas) || Number(meta.horas);
+    if (Number.isFinite(horas) && horas > 0) horasList.push(horas);
+    const deitou = hhmmParaMinutos(meta.deitou ?? e.deitou);
+    const acordou = hhmmParaMinutos(meta.acordou ?? e.acordou);
+    if (deitou !== null) deitouList.push(deitou);
+    if (acordou !== null) acordouList.push(acordou);
+  });
+  const mDeitou = mediaCircularHorarios(deitouList);
+  const mAcordou = mediaCircularHorarios(acordouList);
+  return {
+    mediaHoras: horasList.length ? horasList.reduce((s, x) => s + x, 0) / horasList.length : null,
+    nHoras: horasList.length,
+    mediaDeitar: mDeitou.media !== null ? minutosParaHHMM(mDeitou.media) : null,
+    mediaAcordar: mAcordou.media !== null ? minutosParaHHMM(mAcordou.media) : null,
+    nHorarios: Math.min(mDeitou.n, mAcordou.n),
+  };
+}
+
+// Intervalo entre evacuações: deltas entre eventos consecutivos ordenados por ts.
+// Retorna média/mediana em horas, evacuações/dia e nº de pares; `< 2` eventos →
+// estado 'insuficiente'. Observação factual, sem diagnóstico (RF 6).
+export function intervaloEntreEvacuacoes(history) {
+  const evs = history
+    .filter((e) => e.type === 'evacuation' && Number.isFinite(e.ts))
+    .sort((a, b) => a.ts - b.ts);
+  if (evs.length < 2) {
+    return { status: 'insuficiente', n: evs.length, mediaHoras: null, medianaHoras: null, evacPorDia: null };
+  }
+  const deltas = [];
+  for (let i = 1; i < evs.length; i += 1) deltas.push((evs[i].ts - evs[i - 1].ts) / HORA);
+  deltas.sort((a, b) => a - b);
+  const media = deltas.reduce((s, x) => s + x, 0) / deltas.length;
+  const mediana = deltas[Math.floor(deltas.length / 2)];
+  const dias = (evs[evs.length - 1].ts - evs[0].ts) / DIA;
+  return {
+    status: 'ok',
+    n: deltas.length + 1,
+    pares: deltas.length,
+    mediaHoras: Math.round(media * 10) / 10,
+    medianaHoras: Math.round(mediana * 10) / 10,
+    evacPorDia: dias > 0 ? Math.round((evs.length / dias) * 100) / 100 : evs.length,
+  };
 }

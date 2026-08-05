@@ -21,6 +21,7 @@ import {
   correlacaoAguaBristol, intervalosRefeicaoDor, correlacaoDefasada, gatilhoAlimentar, gatilhoPorTag,
   faseDoCiclo,
   DIA,
+  minutosParaHHMM, seriePorDiaHorario, serieIntervaloEvacuacoes, intervaloEntreEvacuacoes,
 } from './lib/insights.js';
 import RelatoriasIAScreen from './components/RelatoriasIAScreen';
 import RelatorioExpressScreen from './components/RelatorioExpressScreen';
@@ -1375,6 +1376,99 @@ function MetricCard({ titulo, color, serie, unidade, casas = 0, hover, onHover }
   );
 }
 
+// ─── Insights: gráfico com múltiplas séries no mesmo eixo (ex.: sono) ─────────
+// `series` é [{ serie, color, area }]; todas devem ter o mesmo comprimento.
+function MultiSeriesChart({ series, hover, onHover }) {
+  const base = series && series[0] && series[0].serie;
+  if (!base || base.length < 2 || series.some((s) => s.serie.length !== base.length)) {
+    return <p className="text-xs text-[#9A938A] mt-2">Dados insuficientes para o gráfico.</p>;
+  }
+  const n = base.length;
+  const maxV = Math.max(1, ...series.flatMap((s) => s.serie.map((p) => p.valor)));
+
+  const mover = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const i = Math.round(((e.clientX - rect.left) / rect.width) * (n - 1));
+    onHover(Math.max(0, Math.min(n - 1, i)));
+  };
+
+  const ptsOf = (serie) => serie.map((p, i) => `${(i / (n - 1)) * 100},${100 - (p.valor / maxV) * 100}`).join(' ');
+  const x = hover != null && hover >= 0 && hover < n ? (hover / (n - 1)) * 100 : null;
+
+  return (
+    <div data-noswipe className="relative w-full h-20 mt-2" style={{ touchAction: 'none' }}
+      onPointerMove={mover} onPointerDown={mover} onPointerLeave={() => onHover(null)}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full" aria-hidden="true">
+        {series.map((s, idx) => (
+          <g key={idx}>
+            {s.area && <polygon points={`0,100 ${ptsOf(s.serie)} 100,100`} fill={s.color} opacity="0.12" />}
+            <polyline points={ptsOf(s.serie)} fill="none" stroke={s.color} strokeWidth="1.5"
+              vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+          </g>
+        ))}
+      </svg>
+      {x != null && <div className="absolute top-0 bottom-0 w-px" style={{ left: `${x}%`, background: 'rgba(80,70,60,0.35)' }} />}
+    </div>
+  );
+}
+
+// Card de sono: 1 gráfico só com 3 séries (horas em área + deitar/acordar).
+function SleepMetricCard({ serieHoras, serieDeitar, serieAcordar, hover, onHover }) {
+  const cor = ENTRY_TYPES.sleep.color;
+  const corDeitar = '#8A6F3A';
+  const corAcordar = '#C9A94E';
+  const val = (s) => (hover != null && s[hover] ? s[hover].valor : null);
+  const mediaH = serieHoras.length
+    ? serieHoras.reduce((s, x) => s + x.valor, 0) / serieHoras.length : 0;
+  const fmtH = (v) => (v != null && Number.isFinite(v) ? `${v.toFixed(1)}h` : '–');
+  const fmtT = (min) => (min != null && Number.isFinite(min) ? minutosParaHHMM(min) : '–');
+  return (
+    <div className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="entry-text text-sm font-medium text-[#2B2A28]">Sono</p>
+        <span className="text-sm font-semibold" style={{ color: cor }}>
+          {val(serieHoras) != null ? fmtH(val(serieHoras)) : `${mediaH.toFixed(1)}h`}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[#9A938A] mt-1">
+        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: cor }} />horas</span>
+        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: corDeitar }} />deitar {fmtT(val(serieDeitar))}</span>
+        <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: corAcordar }} />acordar {fmtT(val(serieAcordar))}</span>
+      </div>
+      <MultiSeriesChart hover={hover} onHover={onHover} series={[
+        { serie: serieHoras, color: cor, area: true },
+        { serie: serieDeitar, color: corDeitar },
+        { serie: serieAcordar, color: corAcordar },
+      ]} />
+    </div>
+  );
+}
+
+// Card de evacuações: 1 gráfico com o intervalo entre evacuações (horas).
+function EvacuationMetricCard({ serieIntervalo, hover, onHover, info }) {
+  const cor = ENTRY_TYPES.evacuation.color;
+  const val = hover != null && serieIntervalo[hover] ? serieIntervalo[hover].valor : null;
+  const media = serieIntervalo.length
+    ? serieIntervalo.reduce((s, x) => s + x.valor, 0) / serieIntervalo.length : 0;
+  const exibe = val != null && val > 0 ? val : media;
+  return (
+    <div className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="entry-text text-sm font-medium text-[#2B2A28]">Intervalo entre evacuações</p>
+        <span className="text-sm font-semibold" style={{ color: cor }}>
+          {(exibe || 0).toFixed(1)}h
+        </span>
+      </div>
+      <p className="text-[11px] text-[#9A938A]">
+        {info && info.status === 'ok'
+          ? `${info.n} registros · média ${info.mediaHoras}h · ${info.evacPorDia}/dia`
+          : 'Dados insuficientes — continue registrando.'}
+      </p>
+      <MultiSeriesChart hover={hover} onHover={onHover} series={[{ serie: serieIntervalo, color: cor, area: true }]} />
+    </div>
+  );
+}
+
 // ─── Tela de Insights (usa Historico_Mock; Diário usa os registros do dia) ────
 function forcaTexto(r) {
   const a = Math.abs(r);
@@ -1776,7 +1870,10 @@ function ConsultaCard() {
 }
 
 function InsightsScreen({ calAberto, onCalAberto, entries }) {
-  const history = useMemo(() => gerarHistoricoMock(), []);
+  const history = useMemo(() => {
+    const comTs = (Array.isArray(entries) ? entries : []).filter((e) => e && Number.isFinite(e.ts));
+    return comTs.length ? comTs : gerarHistoricoMock();
+  }, [entries]);
   const bounds = useMemo(() => {
     const ts = history.map((e) => e.ts);
     return { min: Math.min(...ts), max: Math.max(...ts) };
@@ -1808,10 +1905,18 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
   };
   const agua = prep('water', 'glasses', 'soma');
   const dor = prep('pain', 'intensity', 'media');
-  const sono = prep('sleep', 'quality', 'media');
   const humor = prep('mood', 'score', 'media');
   const exercicio = prep('exercise', 'minutes', 'soma');
   const peso = prep('weight', 'weight', 'estado');
+
+  const sonoHoras = prep('sleep', 'horas', 'media');
+  const sonoDeitarRaw = seriePorDiaHorario(hist, 'sleep', 'deitou');
+  const sonoAcordarRaw = seriePorDiaHorario(hist, 'sleep', 'acordou');
+  const suavizar = (s) => (janela > 0 ? mediaMovel(s, janela) : s);
+  const sonoDeitar = suavizar(sonoDeitarRaw);
+  const sonoAcordar = suavizar(sonoAcordarRaw);
+  const evacIntervalo = suavizar(serieIntervaloEvacuacoes(hist));
+  const evacInfo = intervaloEntreEvacuacoes(hist);
 
   const umDia = inicioDiaUTC(range.ini) === inicioDiaUTC(range.fim);
   const rangeLabel = umDia ? fmtData(range.ini, true) : `${fmtData(range.ini)} – ${fmtData(range.fim)}`;
@@ -1862,14 +1967,19 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
         {/* ConsultaCard: próxima consulta + countdown (só IA/Express) */}
         {aba !== 'insights' && <ConsultaCard />}
 
-        {/* Seletores de período (só na aba Insights) */}
+        {/* Seletores de período + badge de data (só na aba Insights) */}
         {aba === 'insights' && (
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {periodos.map((p) => (
-              <button key={p} type="button" onClick={() => aplicaPreset(p)}
-                className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
-                style={btn(presetAtivo === p)}>{p}d</button>
-            ))}
+            <button type="button" onClick={() => {
+              if (presetAtivo === null) { aplicaPreset(30); return; }
+              const idx = periodos.indexOf(presetAtivo);
+              aplicaPreset(periodos[(idx + 1) % periodos.length]);
+            }}
+              aria-pressed={presetAtivo !== null}
+              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+              style={btn(presetAtivo !== null)}>
+              {presetAtivo === null ? 'Período' : `${presetAtivo}d`}
+            </button>
             <button type="button" aria-label="Escolher no calendário" onClick={() => onCalAberto(!calAberto)}
               className="px-2.5 py-1 rounded-full border flex items-center" style={btn(calAberto || presetAtivo === null)}>
               <Calendar size={14} />
@@ -1883,17 +1993,11 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
                 return next;
               })}
               aria-pressed={janela > 0}
-              className="ml-auto px-3 py-1 rounded-full text-xs font-medium border transition-colors" style={btn(janela > 0)}>
+              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors" style={btn(janela > 0)}>
               {janela === 0 ? 'Sem média' : `Média ${janela}d`}
             </button>
-          </div>
-        )}
-
-        {/* ── Badge central fixado no painel superior ──────── */}
-        {aba === 'insights' && (
-          <div className="flex justify-center mt-3">
             <span
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold tabular-nums transition-all duration-200"
+              className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold tabular-nums transition-all duration-200"
               style={isScrubbing
                 ? {
                     background: 'var(--brand)',
@@ -1925,10 +2029,11 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
           <div className="space-y-3 mt-2">
             <MetricCard titulo="Hidratação" color={ENTRY_TYPES.water.color} serie={agua} unidade=" copos/dia" casas={janela > 0 ? 1 : 0} hover={hover} onHover={setHover} />
             <MetricCard titulo="Intensidade da dor" color={ENTRY_TYPES.pain.color} serie={dor} unidade="/10" casas={1} hover={hover} onHover={setHover} />
-            <MetricCard titulo="Qualidade do sono" color={ENTRY_TYPES.sleep.color} serie={sono} unidade="/5" casas={1} hover={hover} onHover={setHover} />
+            <SleepMetricCard serieHoras={sonoHoras} serieDeitar={sonoDeitar} serieAcordar={sonoAcordar} hover={hover} onHover={setHover} />
             <MetricCard titulo="Humor" color={ENTRY_TYPES.mood.color} serie={humor} unidade="/5" casas={1} hover={hover} onHover={setHover} />
             <MetricCard titulo="Exercício" color={ENTRY_TYPES.exercise.color} serie={exercicio} unidade=" min/dia" casas={0} hover={hover} onHover={setHover} />
             <MetricCard titulo="Peso" color={ENTRY_TYPES.weight.color} serie={peso} unidade=" kg" casas={1} hover={hover} onHover={setHover} />
+            <EvacuationMetricCard serieIntervalo={evacIntervalo} hover={hover} onHover={setHover} info={evacInfo} />
           </div>
 
           <p className="titulo-cursivo text-lg font-sans mt-5 mb-2" style={{ color: 'var(--amb-text)' }}>Onde dói</p>
@@ -1939,7 +2044,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
           <CrossingsSection history={hist} />
 
           <p className="text-[11px] mt-4 leading-snug" style={{ color: 'var(--amb-text)', opacity: 0.6 }}>
-            Use os botões 7/30/60/90 ou o calendário (dia ou intervalo) — todas as seções seguem o mesmo período. Observações dos seus próprios registros; não substituem avaliação profissional.
+            Use o botão de período (7/30/60/90d) ou o calendário (dia ou intervalo) — todas as seções seguem o mesmo período. Observações dos seus próprios registros; não substituem avaliação profissional.
           </p>
         </>
       ) : aba === 'relatorios' ? (
@@ -2382,15 +2487,28 @@ function WaterForm({ onSave }) {
         </button>
       </div>
       <SaveButton color={color}
-        onClick={() => onSave({ title: 'Hidratação', description: `${glasses} copo${glasses > 1 ? 's' : ''} de água (~${glasses * 250} ml)` })} />
+        onClick={() => onSave({ title: 'Hidratação', description: `${glasses} copo${glasses > 1 ? 's' : ''} de água (~${glasses * 250} ml)`, meta: { glasses } })} />
     </div>
   );
 }
 
 function SleepForm({ onSave }) {
   const [quality, setQuality] = useState(3);
+  const [deitou, setDeitou] = useState('');
+  const [acordou, setAcordou] = useState('');
   const [checks, setChecks] = useState({ banheiro: false, acordou: false, dificuldade: false, desconforto: false });
   const color = ENTRY_TYPES.sleep.color;
+  const calcularHoras = (d, a) => {
+    if (!d || !a) return null;
+    const [dh, dm] = d.split(':').map(Number);
+    const [ah, am] = a.split(':').map(Number);
+    if (Number.isFinite(dh) && Number.isFinite(dm) && Number.isFinite(ah) && Number.isFinite(am)) {
+      let horas = (ah * 60 + am - (dh * 60 + dm)) / 60;
+      if (horas < 0) horas += 24;
+      return horas === 0 ? 24 : horas;
+    }
+    return null;
+  };
   const subOptions = [
     { key: 'banheiro',    label: 'Levantou para ir ao banheiro' },
     { key: 'acordou',     label: 'Acordou durante a noite' },
@@ -2424,9 +2542,26 @@ function SleepForm({ onSave }) {
           ))}
         </div>
       </div>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Horários (opcional)</p>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-xs text-[#5C5650]">Deitou</span>
+            <input type="time" value={deitou} onChange={(e) => setDeitou(e.target.value)} className="w-full h-10 rounded-xl border border-[#EDE7DD] px-2 text-sm text-[#5C5650]" />
+          </label>
+          <label className="block">
+            <span className="text-xs text-[#5C5650]">Acordou</span>
+            <input type="time" value={acordou} onChange={(e) => setAcordou(e.target.value)} className="w-full h-10 rounded-xl border border-[#EDE7DD] px-2 text-sm text-[#5C5650]" />
+          </label>
+        </div>
+        {calcularHoras(deitou, acordou) !== null && (
+          <p className="text-xs text-[#5C5650] mt-1">Duração estimada: {calcularHoras(deitou, acordou).toFixed(1)} h</p>
+        )}
+      </div>
       <SaveButton color={color} onClick={() => {
         const extras = subOptions.filter((o) => checks[o.key]).map((o) => o.label);
-        onSave({ title: 'Sono', description: extras.length ? extras.join(' · ') : `Qualidade ${quality}/5`, meta: { quality } });
+        const horas = calcularHoras(deitou, acordou);
+        onSave({ title: 'Sono', description: extras.length ? extras.join(' · ') : `Qualidade ${quality}/5`, meta: { quality, ...(deitou ? { deitou } : {}), ...(acordou ? { acordou } : {}), ...(horas !== null ? { horas: Math.round(horas * 10) / 10 } : {}) } });
       }} />
     </div>
   );
@@ -2459,7 +2594,7 @@ function ExerciseForm({ onSave }) {
         </div>
       </div>
       <SaveButton color={color}
-        onClick={() => onSave({ title: 'Exercício', description: `${kind} · ${duration} min · Intensidade ${intensity.toLowerCase()}` })} />
+        onClick={() => onSave({ title: 'Exercício', description: `${kind} · ${duration} min · Intensidade ${intensity.toLowerCase()}`, meta: { minutes: duration } })} />
     </div>
   );
 }
@@ -2489,7 +2624,7 @@ function MoodForm({ onSave }) {
       </div>
       <SaveButton color={color} onClick={() => {
         const sel = options.find((o) => o.v === mood) || options[2];
-        onSave({ title: 'Humor', description: `${sel.emoji} ${sel.label}` });
+        onSave({ title: 'Humor', description: `${sel.emoji} ${sel.label}`, meta: { score: sel.v } });
       }} />
     </div>
   );

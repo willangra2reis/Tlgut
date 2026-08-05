@@ -151,7 +151,8 @@ describe('Aba Análises (RF 9)', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Análises' }));
     expect(screen.getByText('Hidratação')).toBeInTheDocument();
-    expect(screen.getByText('Qualidade do sono')).toBeInTheDocument();
+    expect(screen.getAllByText('Sono').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Intervalo entre evacuações')).toBeInTheDocument();
     expect(screen.getAllByText('média no período').length).toBeGreaterThanOrEqual(3);
   });
 
