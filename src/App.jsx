@@ -22,6 +22,7 @@ import {
   faseDoCiclo,
   DIA,
   minutosParaHHMM, seriePorDiaHorario, serieIntervaloEvacuacoes, intervaloEntreEvacuacoes,
+  diasComDados, poucosDados,
 } from './lib/insights.js';
 import RelatoriasIAScreen from './components/RelatoriasIAScreen';
 import RelatorioExpressScreen from './components/RelatorioExpressScreen';
@@ -1362,6 +1363,7 @@ function MetricCard({ titulo, color, serie, unidade, casas = 0, hover, onHover }
   const vals = serie.map((p) => p.valor);
   const media = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;
   const focado = hover != null && serie[hover] ? serie[hover].valor : null;
+  const poucos = poucosDados(serie);
   return (
     <div className="rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_8px_22px_-12px_rgba(31,42,40,0.35)]">
       <div className="flex items-baseline justify-between gap-2">
@@ -1371,6 +1373,7 @@ function MetricCard({ titulo, color, serie, unidade, casas = 0, hover, onHover }
         </span>
       </div>
       <p className="text-[11px] text-[#9A938A]">{focado != null ? 'no dia em foco' : 'média no período'}</p>
+      {poucos && <p className="text-[11px] text-[#B08A3A]">Poucos registros no período ({diasComDados(serie)} dia(s))</p>}
       <TrendChart serie={serie} color={color} hover={hover} onHover={onHover} />
     </div>
   );
@@ -1435,6 +1438,9 @@ function SleepMetricCard({ serieHoras, serieDeitar, serieAcordar, hover, onHover
         <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: corDeitar }} />deitar {fmtT(val(serieDeitar))}</span>
         <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: corAcordar }} />acordar {fmtT(val(serieAcordar))}</span>
       </div>
+      {poucosDados(serieHoras) && (
+        <p className="text-[11px] text-[#B08A3A]">Poucos registros de sono no período ({diasComDados(serieHoras)} dia(s))</p>
+      )}
       <MultiSeriesChart hover={hover} onHover={onHover} series={[
         { serie: serieHoras, color: cor, area: true },
         { serie: serieDeitar, color: corDeitar },
@@ -1464,6 +1470,9 @@ function EvacuationMetricCard({ serieIntervalo, hover, onHover, info }) {
           ? `${info.n} registros · média ${info.mediaHoras}h · ${info.evacPorDia}/dia`
           : 'Dados insuficientes — continue registrando.'}
       </p>
+      {poucosDados(serieIntervalo) && (
+        <p className="text-[11px] text-[#B08A3A]">Poucos registros de evacuação no período ({diasComDados(serieIntervalo)} dia(s))</p>
+      )}
       <MultiSeriesChart hover={hover} onHover={onHover} series={[{ serie: serieIntervalo, color: cor, area: true }]} />
     </div>
   );
@@ -2492,10 +2501,54 @@ function WaterForm({ onSave }) {
   );
 }
 
+// Seletor de horário estilo bottom sheet (F2): botões "Agora"/"Outro horário"
+// com input HH:MM mascarado. `modo`: 'agora' | 'hora'.
+function TimeField({ label, color, modo, setModo, hora, setHora, horaRef }) {
+  const opcoes = [
+    { key: 'agora', label: 'Agora', sub: 'Usar horário atual' },
+    { key: 'hora',  label: 'Outro horário', sub: 'Digitar HH:MM' },
+  ];
+  return (
+    <div className="rounded-xl border border-[#EDE7DD] p-3">
+      <p className="text-xs font-medium text-[#5C5650] mb-2">{label}</p>
+      <div className="flex flex-col gap-2">
+        {opcoes.map(({ key, label: l, sub }) => (
+          <button key={key} type="button" onClick={() => setModo(key)}
+            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${modo === key ? 'ring-2' : 'border border-[#EDE7DD]'}`}
+            style={{ background: modo === key ? '#F5F0E8' : '#FFFBF6', ringColor: modo === key ? color : 'transparent' }}>
+            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${modo === key ? 'border-[var(--brand)]' : 'border-[#D4CBB8]'}`}>
+              {modo === key && <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--brand)' }} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-[#2B2A28]">{l}</p>
+              <p className="text-xs text-[#B6AE9F]">{sub}</p>
+            </div>
+          </button>
+        ))}
+        {modo === 'hora' && (
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <Clock size={18} className="text-[#B6AE9F]" />
+            <TimeMaskInput value={hora} onChange={setHora} inputRef={horaRef} />
+            {hora.length === 5 && !isHoraValida(hora) && (
+              <p className="text-xs text-red-500 ml-1">Horário inválido</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SleepForm({ onSave }) {
   const [quality, setQuality] = useState(3);
-  const [deitou, setDeitou] = useState('');
-  const [acordou, setAcordou] = useState('');
+  const [deitouModo, setDeitouModo] = useState('agora');
+  const [acordouModo, setAcordouModo] = useState('agora');
+  const [deitouHora, setDeitouHora] = useState('');
+  const [acordouHora, setAcordouHora] = useState('');
+  const deitouRef = useRef(null);
+  const acordouRef = useRef(null);
+  useEffect(() => { if (deitouModo === 'hora' && deitouRef.current) deitouRef.current.focus(); }, [deitouModo]);
+  useEffect(() => { if (acordouModo === 'hora' && acordouRef.current) acordouRef.current.focus(); }, [acordouModo]);
   const [checks, setChecks] = useState({ banheiro: false, acordou: false, dificuldade: false, desconforto: false });
   const color = ENTRY_TYPES.sleep.color;
   const calcularHoras = (d, a) => {
@@ -2516,6 +2569,13 @@ function SleepForm({ onSave }) {
     { key: 'desconforto', label: 'Acordou com desconforto abdominal' },
   ];
   const toggle = (k) => setChecks((c) => ({ ...c, [k]: !c[k] }));
+  const resolveTempo = (modo, hora) => (modo === 'agora' ? agoraHHMM() : (isHoraValida(hora) ? hora : ''));
+  const deitouFinal = resolveTempo(deitouModo, deitouHora);
+  const acordouFinal = resolveTempo(acordouModo, acordouHora);
+  const ambosAgora = deitouModo === 'agora' && acordouModo === 'agora';
+  const duracao = (!ambosAgora && deitouFinal && acordouFinal && deitouFinal !== acordouFinal)
+    ? calcularHoras(deitouFinal, acordouFinal)
+    : null;
   return (
     <div className="space-y-5">
       <div>
@@ -2544,24 +2604,22 @@ function SleepForm({ onSave }) {
       </div>
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Horários (opcional)</p>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="block">
-            <span className="text-xs text-[#5C5650]">Deitou</span>
-            <input type="time" value={deitou} onChange={(e) => setDeitou(e.target.value)} className="w-full h-10 rounded-xl border border-[#EDE7DD] px-2 text-sm text-[#5C5650]" />
-          </label>
-          <label className="block">
-            <span className="text-xs text-[#5C5650]">Acordou</span>
-            <input type="time" value={acordou} onChange={(e) => setAcordou(e.target.value)} className="w-full h-10 rounded-xl border border-[#EDE7DD] px-2 text-sm text-[#5C5650]" />
-          </label>
+        <div className="grid grid-cols-1 gap-2">
+          <TimeField label="Deitou" color={color} modo={deitouModo} setModo={setDeitouModo} hora={deitouHora} setHora={setDeitouHora} horaRef={deitouRef} />
+          <TimeField label="Acordou" color={color} modo={acordouModo} setModo={setAcordouModo} hora={acordouHora} setHora={setAcordouHora} horaRef={acordouRef} />
         </div>
-        {calcularHoras(deitou, acordou) !== null && (
-          <p className="text-xs text-[#5C5650] mt-1">Duração estimada: {calcularHoras(deitou, acordou).toFixed(1)} h</p>
+        {duracao !== null && (
+          <p className="text-xs text-[#5C5650] mt-1">Duração estimada: {duracao.toFixed(1)} h</p>
         )}
       </div>
       <SaveButton color={color} onClick={() => {
         const extras = subOptions.filter((o) => checks[o.key]).map((o) => o.label);
-        const horas = calcularHoras(deitou, acordou);
-        onSave({ title: 'Sono', description: extras.length ? extras.join(' · ') : `Qualidade ${quality}/5`, meta: { quality, ...(deitou ? { deitou } : {}), ...(acordou ? { acordou } : {}), ...(horas !== null ? { horas: Math.round(horas * 10) / 10 } : {}) } });
+        onSave({ title: 'Sono', description: extras.length ? extras.join(' · ') : `Qualidade ${quality}/5`, meta: {
+          quality,
+          ...(!ambosAgora && deitouFinal ? { deitou: deitouFinal } : {}),
+          ...(!ambosAgora && acordouFinal ? { acordou: acordouFinal } : {}),
+          ...(duracao !== null ? { horas: Math.round(duracao * 10) / 10 } : {}),
+        } });
       }} />
     </div>
   );
@@ -2789,6 +2847,49 @@ function EvacuationForm({ onSave }) {
   );
 }
 
+// Input HH:MM com máscara automática (teclado numérico, cursor preservado) —
+// padrão da etapa "Isso aconteceu agora?" (F2), reutilizado nos horários do sono.
+function TimeMaskInput({ value, onChange, inputRef }) {
+  return (
+    <input type="text" inputMode="numeric" placeholder="HH:MM" maxLength={5}
+      ref={inputRef}
+      value={value}
+      onChange={(e) => {
+        const input = e.target;
+        const cursor = input.selectionStart;
+        const val = input.value;
+        const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
+        const digits = val.replace(/\D/g, '').slice(0, 4);
+        const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
+        onChange(formatted);
+        requestAnimationFrame(() => {
+          try {
+            let pos = 0, count = 0;
+            while (pos < formatted.length && count < beforeDigits) {
+              if (formatted[pos] !== ':') count++;
+              pos++;
+            }
+            input.setSelectionRange(pos, pos);
+          } catch {}
+        });
+      }}
+      className="text-xl font-semibold text-[#2B2A28] bg-transparent border-b-2 border-[#EDE7DD] outline-none px-3 py-2 w-24 text-center tabular-nums" />
+  );
+}
+
+function isHoraValida(t) {
+  if (typeof t !== 'string') return false;
+  const [hStr, mStr] = t.split(':');
+  const hNum = parseInt(hStr, 10);
+  const mNum = parseInt(mStr, 10);
+  return !isNaN(hNum) && !isNaN(mNum) && hNum >= 0 && hNum <= 23 && mNum >= 0 && mNum <= 59 && hStr?.length === 2 && mStr?.length === 2;
+}
+
+function agoraHHMM() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // ─── Etapa "Isso aconteceu agora?" (F2) ─────────────────────────────────────
 // Pergunta se o registro foi agora, hoje mais cedo ou ontem, antes de
 // prosseguir para a observação por voz.
@@ -2857,29 +2958,7 @@ function TimestampStep({ onTimestamp }) {
       {precisaHora && (
         <div className="flex items-center justify-center gap-2">
           <Clock size={18} className="text-[#B6AE9F]" />
-          <input type="text" inputMode="numeric" placeholder="HH:MM" maxLength={5}
-            ref={timeInputRef}
-            value={hora}
-            onChange={(e) => {
-              const input = e.target;
-              const cursor = input.selectionStart;
-              const val = input.value;
-              const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
-              const digits = val.replace(/\D/g, '').slice(0, 4);
-              const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
-              setHora(formatted);
-              requestAnimationFrame(() => {
-                try {
-                  let pos = 0, count = 0;
-                  while (pos < formatted.length && count < beforeDigits) {
-                    if (formatted[pos] !== ':') count++;
-                    pos++;
-                  }
-                  input.setSelectionRange(pos, pos);
-                } catch {}
-              });
-            }}
-            className="text-xl font-semibold text-[#2B2A28] bg-transparent border-b-2 border-[#EDE7DD] outline-none px-3 py-2 w-24 text-center tabular-nums" />
+          <TimeMaskInput value={hora} onChange={setHora} inputRef={timeInputRef} />
           {precisaHora && horaValida && horaFutura && (
             <p className="text-xs text-red-500 ml-1">Horário não pode ser no futuro</p>
           )}

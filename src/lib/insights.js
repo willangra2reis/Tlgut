@@ -282,6 +282,20 @@ export function mediaMovel(serie, janela = 7) {
   });
 }
 
+// Dias com valor > 0 numa série diária (ignora trechos sem registro, que ficam
+// zerados nos gráficos). Serve para distinguir "série quase vazia" de tendência real.
+export function diasComDados(serie) {
+  if (!Array.isArray(serie)) return 0;
+  return serie.reduce((s, p) => s + (p && p.valor > 0 ? 1 : 0), 0);
+}
+
+// Série real com poucos dias de dados (0 < dias < min) → aviso discreto nos cards,
+// evitando que uma linha reta de zeros pareça uma tendência. Serie vazia → false.
+export function poucosDados(serie, min = 3) {
+  const n = diasComDados(serie);
+  return n > 0 && n < min;
+}
+
 // Correlação defasada (lagged): testa defasagens de 0..maxLag dias entre duas
 // séries diárias (B ocorre `lag` dias após A) e retorna a defasagem com maior
 // |correlação|. Exige um mínimo de pares sobrepostos (guarda anti-coincidência).
@@ -307,21 +321,21 @@ export function correlacaoDefasada(aVals, bVals, maxLag = 4, minPares = 14) {
 export function contextoRegiao(history, organId) {
   const dorReg = history.filter((e) => {
     if (e.type !== 'pain') return false;
-    if (e.organ === organId) return true;
-    if (e.meta?.organ === organId) return true;
-    return (e.meta?.clouds || []).some(c => c.organ === organId);
+    if (e.region === organId || e.organ === organId) return true;
+    if (e.meta?.region === organId || e.meta?.organ === organId) return true;
+    return (e.meta?.clouds || []).some((c) => c.region === organId || c.organ === organId);
   });
   const totalDor = history.filter((e) => e.type === 'pain').length;
   const n = dorReg.length;
-  const intensidadeMedia = n ? dorReg.reduce((s, e) => s + (e.intensity || 0), 0) / n : 0;
+  const intensidadeMedia = n ? dorReg.reduce((s, e) => s + (e.meta?.intensity ?? e.intensity ?? 0), 0) / n : 0;
   const diasReg = new Set(dorReg.map((e) => diaChave(e.ts)));
 
   const aguaDia = new Map();
   const sonoAcc = new Map();
   history.forEach((e) => {
     const k = diaChave(e.ts);
-    if (e.type === 'water') aguaDia.set(k, (aguaDia.get(k) || 0) + (e.glasses || 1));
-    if (e.type === 'sleep') { if (!sonoAcc.has(k)) sonoAcc.set(k, []); sonoAcc.get(k).push(e.quality || 0); }
+    if (e.type === 'water') aguaDia.set(k, (aguaDia.get(k) || 0) + (e.meta?.glasses ?? e.glasses ?? 1));
+    if (e.type === 'sleep') { if (!sonoAcc.has(k)) sonoAcc.set(k, []); sonoAcc.get(k).push(e.meta?.quality ?? e.quality ?? 0); }
   });
   const sonoDia = new Map();
   sonoAcc.forEach((arr, k) => sonoDia.set(k, arr.reduce((s, x) => s + x, 0) / arr.length));
@@ -337,7 +351,7 @@ export function contextoRegiao(history, organId) {
   const tagCount = new Map();
   history.forEach((e) => {
     if (e.type !== 'meal' || !diasReg.has(diaChave(e.ts))) return;
-    (e.tags || []).forEach((t) => tagCount.set(t, (tagCount.get(t) || 0) + 1));
+    (e.meta?.tags ?? e.tags ?? []).forEach((t) => tagCount.set(t, (tagCount.get(t) || 0) + 1));
   });
   const alimentosFrequentes = [...tagCount.entries()]
     .map(([tag, c]) => ({ tag, n: c }))
@@ -350,8 +364,10 @@ export function contextoRegiao(history, organId) {
   const bristois = [];
   history.forEach((e) => {
     if (!diasReg.has(diaChave(e.ts))) return;
-    if (e.type === 'mood' && e.score != null) humores.push(e.score);
-    if (e.type === 'evacuation' && Number.isInteger(e.bristol)) bristois.push(e.bristol);
+    const humor = e.meta?.score ?? e.score;
+    const bristol = e.meta?.bristol ?? e.bristol;
+    if (e.type === 'mood' && humor != null) humores.push(humor);
+    if (e.type === 'evacuation' && Number.isInteger(bristol)) bristois.push(bristol);
   });
   const media = (arr) => (arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : null);
 
