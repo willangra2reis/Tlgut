@@ -483,11 +483,12 @@ export function mediaCircularHorarios(minutosList) {
 // Série diária de horários (campo "HH:MM", ex.: meta.deitou) → minutos desde a
 // meia-noite, com média circular por dia e forward-fill nos dias sem registro
 // (mantém o último horário conhecido). Observação factual (RF 6).
-export function seriePorDiaHorario(history, type, campo) {
+// `base` (opcional) é um array de pontos { dia } usado como esqueleto dos dias —
+// alinha a série a um período mais amplo (ex.: o da série de horas de sono),
+// evitando comprimentos divergentes entre séries de um mesmo gráfico.
+export function seriePorDiaHorario(history, type, campo, base) {
   const evs = history.filter((e) => e.type === type);
   if (!evs.length) return [];
-  let min = Infinity; let max = -Infinity;
-  evs.forEach((e) => { const k = diaChave(e.ts); if (k < min) min = k; if (k > max) max = k; });
   const buckets = new Map();
   let found = false;
   evs.forEach((e) => {
@@ -499,16 +500,25 @@ export function seriePorDiaHorario(history, type, campo) {
     found = true;
   });
   if (!found) return [];
+  let dias;
+  if (Array.isArray(base) && base.length) {
+    dias = base.map((p) => p.dia);
+  } else {
+    let min = Infinity; let max = -Infinity;
+    evs.forEach((e) => { const k = diaChave(e.ts); if (k < min) min = k; if (k > max) max = k; });
+    dias = [];
+    for (let k = min; k <= max; k += DIA) dias.push(k);
+  }
   const serie = [];
   let ultimo = null;
-  for (let k = min; k <= max; k += DIA) {
+  dias.forEach((k) => {
     const vals = buckets.get(k);
     if (vals && vals.length) {
       const m = mediaCircularHorarios(vals);
       if (m.media !== null) ultimo = m.media;
     }
     serie.push({ dia: k, valor: ultimo });
-  }
+  });
   return serie;
 }
 

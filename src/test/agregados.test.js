@@ -9,6 +9,7 @@ import {
   seriePorDiaHorario,
   serieIntervaloEvacuacoes,
   DIA,
+  HORA,
 } from '../lib/insights.js';
 
 describe('Horários (HH:MM → minutos e circular)', () => {
@@ -154,6 +155,28 @@ describe('Séries novas (horários e intervalo)', () => {
       { ts: base + DIA, type: 'sleep', meta: { quality: 4 } },
     ];
     expect(seriePorDiaHorario(hist, 'sleep', 'deitou')).toEqual([]);
+  });
+
+  it('seriePorDiaHorario com base alinha a série a um período mais amplo', () => {
+    const base = Date.UTC(2026, 5, 1);
+    const hist = [
+      { ts: base + 9 * HORA, type: 'water', glasses: 5 },
+      { ts: base + DIA + 9 * HORA, type: 'water', glasses: 6 },
+      { ts: base + 4 * DIA + 9 * HORA, type: 'water', glasses: 7 },
+      { ts: base + 5 * DIA + 9 * HORA, type: 'water', glasses: 8 },
+      { ts: base + 4 * DIA + (7 * 60 + 45) * 60000, type: 'sleep', meta: { horas: 6, deitou: '23:30', acordou: '05:30' } },
+      { ts: base + 5 * DIA + (7 * 60 + 45) * 60000, type: 'sleep', meta: { horas: 6.4, deitou: '01:20', acordou: '07:45' } },
+    ];
+    // Esqueleto de 6 dias (o mesmo que a série de horas/água produz), embora os
+    // horários só existam nos dias 5 e 6 → mesmo comprimento, null no início e
+    // forward-fill depois do primeiro registro.
+    const skel = [0, 1, 2, 3, 4, 5].map((i) => ({ dia: base + i * DIA }));
+    const s = seriePorDiaHorario(hist, 'sleep', 'deitou', skel);
+    expect(s.length).toBe(6);
+    expect(s[0].valor).toBeNull();
+    expect(s[3].valor).toBeNull();
+    expect(s[4].valor).toBe(23 * 60 + 30);
+    expect(s[5].valor).toBe(1 * 60 + 20);
   });
 
   it('serieIntervaloEvacuacoes atribui o delta ao dia do 2º evento e carrega', () => {

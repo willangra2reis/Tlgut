@@ -1919,8 +1919,8 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const peso = prep('weight', 'weight', 'estado');
 
   const sonoHoras = prep('sleep', 'horas', 'media');
-  const sonoDeitarRaw = seriePorDiaHorario(hist, 'sleep', 'deitou');
-  const sonoAcordarRaw = seriePorDiaHorario(hist, 'sleep', 'acordou');
+  const sonoDeitarRaw = seriePorDiaHorario(hist, 'sleep', 'deitou', sonoHoras);
+  const sonoAcordarRaw = seriePorDiaHorario(hist, 'sleep', 'acordou', sonoHoras);
   const suavizar = (s) => (janela > 0 ? mediaMovel(s, janela) : s);
   const sonoDeitar = suavizar(sonoDeitarRaw);
   const sonoAcordar = suavizar(sonoAcordarRaw);
@@ -2560,7 +2560,6 @@ function SleepForm({ onSave }) {
           </div>
           <span className="text-[11px] text-[#9A938A] w-8 shrink-0 text-right">Ótimo</span>
         </div>
-        <p className="text-xs text-[#9A938A] mt-1.5">Toque nas barras para indicar a qualidade — quanto mais barras preenchidas, melhor foi o sono.</p>
       </div>
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Detalhes da noite</p>
