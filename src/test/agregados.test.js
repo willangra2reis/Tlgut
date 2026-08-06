@@ -5,6 +5,7 @@ import {
   minutosParaHHMM,
   mediaCircularHorarios,
   metricasSono,
+  metricasAgua,
   intervaloEntreEvacuacoes,
   seriePorDiaHorario,
   serieIntervaloEvacuacoes,
@@ -89,6 +90,47 @@ describe('metricasSono', () => {
     expect(m.mediaDeitar).toBeNull();
     expect(m.mediaAcordar).toBeNull();
     expect(m.nHoras).toBe(0);
+  });
+});
+
+describe('metricasAgua', () => {
+  it('soma copos por dia, conta dias e calcula média/dia', () => {
+    const base = Date.UTC(2026, 5, 1);
+    const hist = [
+      { ts: base + 8 * HORA, type: 'water', glasses: 1 },
+      { ts: base + 10 * HORA, type: 'water', glasses: 1 },
+      { ts: base + DIA + 9 * HORA, type: 'water', glasses: 1 },
+      { ts: base + DIA + 12 * HORA, type: 'water', glasses: 1 },
+      { ts: base + DIA + 20 * HORA, type: 'water', glasses: 1 },
+      { ts: base + 3 * DIA + 9 * HORA, type: 'water', meta: { glasses: 3 } },
+    ];
+    const m = metricasAgua(hist);
+    expect(m.totalCopos).toBe(8); // 2 + 3 + 3
+    expect(m.diasRegistrados).toBe(3);
+    expect(m.mediaPorDia).toBe(2.7); // 8 / 3 = 2.67 → 2.7
+  });
+
+  it('ignora tipos não-água e sem registros retorna zeros', () => {
+    const hist = [
+      { ts: Date.UTC(2026, 5, 1), type: 'sleep', meta: { quality: 3 } },
+      { ts: Date.UTC(2026, 5, 1), type: 'evacuation', bristol: 4 },
+    ];
+    expect(metricasAgua(hist).totalCopos).toBe(0);
+    expect(metricasAgua(hist).diasRegistrados).toBe(0);
+    expect(metricasAgua(hist).mediaPorDia).toBe(0);
+    expect(metricasAgua([]).totalCopos).toBe(0);
+  });
+
+  it('sem campo glasses conta 1 copo por registro', () => {
+    const base = Date.UTC(2026, 5, 1);
+    const hist = [
+      { ts: base + 8 * HORA, type: 'water' },
+      { ts: base + DIA + 8 * HORA, type: 'water' },
+    ];
+    const m = metricasAgua(hist);
+    expect(m.totalCopos).toBe(2);
+    expect(m.diasRegistrados).toBe(2);
+    expect(m.mediaPorDia).toBe(1);
   });
 });
 

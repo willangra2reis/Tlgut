@@ -8,7 +8,7 @@ import { jsPDF } from 'jspdf';
 import { loadProfile, CONDICOES_LABELS, anonimizarPerfil, anonimizarTextoIA } from '../lib/profile.js';
 import { formatarHistoricoFamiliar } from '../lib/familia.js';
 import { calcularEstatisticas, gerarDadosRelatorioMock } from '../lib/diary.js';
-import { dorPorRegiao, intervaloEntreEvacuacoes, metricasSono } from '../lib/insights.js';
+import { dorPorRegiao, intervaloEntreEvacuacoes, metricasSono, metricasAgua } from '../lib/insights.js';
 import { REGION_CENTROIDES, REGION_LABELS } from '../lib/organs.js';
 import { extractReportFromRaw, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
@@ -45,6 +45,10 @@ const CARDS_BG = 'rgba(255,255,255,1)';
 const CARDS_BORDER = 'rgba(150,140,120,0.25)';
 const CARDS_BG_DARK = 'rgba(255,255,255,1)';
 
+// Conversão de copos → litros (250 ml por copo) para o bloco "Números do período".
+const COPO_LITROS = 0.25;
+const litrosDe = (copos) => (Number(copos || 0) * COPO_LITROS).toFixed(1);
+
 export default function RelatoriasIAScreen({ entries }) {
   const [reports, setReports] = useState({});
   const [compareMode, setCompareMode] = useState(false);
@@ -80,9 +84,10 @@ export default function RelatoriasIAScreen({ entries }) {
 
   function loadSavedReport(r) {
     if (!r.report) return;
-    setReports({
-      [r.modelo || '@google/gemini-2.5-flash']: { loading: false, report: r.report, error: null }
-    });
+    const modelo = r.modelo || MODELO_PADRAO;
+    setReports({ [modelo]: { loading: false, report: r.report, error: null } });
+    setSelectedModel(modelo);
+    setCompareMode(false);
     setShowSavedReports(false);
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }
@@ -135,12 +140,16 @@ export default function RelatoriasIAScreen({ entries }) {
   const calcularAgregados = useCallback((entriesFor) => {
     const ev = intervaloEntreEvacuacoes(entriesFor);
     const sono = metricasSono(entriesFor);
+    const agua = metricasAgua(entriesFor);
     const agregados = {};
     if (ev.status === 'ok') {
       agregados.evacuacao = { status: 'ok', mediaHoras: ev.mediaHoras, medianaHoras: ev.medianaHoras, evacPorDia: ev.evacPorDia, n: ev.n };
     }
     if (sono.mediaHoras !== null) {
       agregados.sono = { mediaHoras: Math.round(sono.mediaHoras * 10) / 10, mediaDeitar: sono.mediaDeitar, mediaAcordar: sono.mediaAcordar, nHoras: sono.nHoras };
+    }
+    if (agua.totalCopos > 0) {
+      agregados.agua = { totalCopos: agua.totalCopos, diasRegistrados: agua.diasRegistrados, mediaPorDia: agua.mediaPorDia };
     }
     return agregados;
   }, []);
@@ -285,6 +294,7 @@ export default function RelatoriasIAScreen({ entries }) {
       : calcularAgregados(filteredEntries);
     const agregEv = agregados.evacuacao || null;
     const agregSono = agregados.sono || null;
+    const agregAgua = agregados.agua || null;
     const histFamiliar = formatarHistoricoFamiliar(loadProfile());
     const paragrafos = resumo_executivo ? resumo_executivo.split(/\n\n+/).filter(p => p.trim()) : [];
     const temEvolucao = typeof evolucao === 'string' && evolucao.trim().length > 0;
@@ -299,6 +309,89 @@ export default function RelatoriasIAScreen({ entries }) {
     });
     return (
       <div className="space-y-5">
+        {histFamiliar.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(155,140,46,0.12)' }}>
+                <Users size={15} style={{ color: '#9B8C2E' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#9B8C2E' }}>Histórico familiar</h4>
+            </div>
+            <div className="space-y-1.5">
+              {histFamiliar.map((h, idx) => (
+                <div key={idx} className="rounded-xl p-3"
+                  style={{ background: 'rgba(155,140,46,0.06)', border: '1px solid rgba(155,140,46,0.2)' }}>
+                  <p className="text-sm text-[#4A443F] leading-relaxed">{h}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {medicamentos.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(63,126,110,0.12)' }}>
+                <Pill size={15} style={{ color: '#3F7E6E' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3F7E6E' }}>Medicamentos em uso</h4>
+            </div>
+            <div className="space-y-1.5">
+              {medicamentos.map((m, idx) => (
+                <div key={idx} className="rounded-xl p-3"
+                  style={{ background: 'rgba(63,126,110,0.06)', border: '1px solid rgba(63,126,110,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">{m.nome}</p>
+                  {m.finalidade && <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">Para {m.finalidade}</p>}
+                  {m.nota && <p className="text-xs text-[#3F7E6E] mt-1 italic leading-relaxed">{m.nota}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(agregEv || agregSono || agregAgua) && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(62,110,160,0.12)' }}>
+                <TrendingUp size={15} style={{ color: '#3E6EA0' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3E6EA0' }}>Números do período</h4>
+            </div>
+            <div className="space-y-1.5">
+              {agregEv && (
+                <div className="rounded-xl p-3"
+                  style={{ background: 'rgba(62,110,160,0.06)', border: '1px solid rgba(62,110,160,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">Frequência e intervalo de evacuações</p>
+                  <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">
+                    {agregEv.n} registros no período · intervalo médio de {agregEv.mediaHoras} horas entre evacuações · cerca de {agregEv.evacPorDia} por dia.
+                  </p>
+                </div>
+              )}
+              {agregSono && (
+                <div className="rounded-xl p-3"
+                  style={{ background: 'rgba(62,110,160,0.06)', border: '1px solid rgba(62,110,160,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">Médias de sono</p>
+                  <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">
+                    Média de {agregSono.mediaHoras} horas por noite
+                    {agregSono.mediaDeitar ? ` · deitando por volta das ${agregSono.mediaDeitar}` : ''}
+                    {agregSono.mediaAcordar ? ` · acordando perto das ${agregSono.mediaAcordar}` : ''}
+                    {agregSono.nHoras ? ` · ${agregSono.nHoras} noite${agregSono.nHoras !== 1 ? 's' : ''} registrada${agregSono.nHoras !== 1 ? 's' : ''}` : ''}.
+                  </p>
+                </div>
+              )}
+              {agregAgua && agregAgua.totalCopos > 0 && (
+                <div className="rounded-xl p-3"
+                  style={{ background: 'rgba(62,110,160,0.06)', border: '1px solid rgba(62,110,160,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">Consumo de água</p>
+                  <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">
+                    Total de {agregAgua.totalCopos} copos (~{litrosDe(agregAgua.totalCopos)} L) no período · média de {agregAgua.mediaPorDia} copos/dia (~{litrosDe(agregAgua.mediaPorDia)} L) · {agregAgua.diasRegistrados} dia{agregAgua.diasRegistrados !== 1 ? 's' : ''} registrado{agregAgua.diasRegistrados !== 1 ? 's' : ''}.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {paragrafos.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -506,80 +599,6 @@ export default function RelatoriasIAScreen({ entries }) {
           </div>
         )}
 
-        {medicamentos.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(63,126,110,0.12)' }}>
-                <Pill size={15} style={{ color: '#3F7E6E' }} />
-              </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3F7E6E' }}>Medicamentos em uso</h4>
-            </div>
-            <div className="space-y-1.5">
-              {medicamentos.map((m, idx) => (
-                <div key={idx} className="rounded-xl p-3"
-                  style={{ background: 'rgba(63,126,110,0.06)', border: '1px solid rgba(63,126,110,0.2)' }}>
-                  <p className="text-sm font-semibold text-[#2B2A28]">{m.nome}</p>
-                  {m.finalidade && <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">Para {m.finalidade}</p>}
-                  {m.nota && <p className="text-xs text-[#3F7E6E] mt-1 italic leading-relaxed">{m.nota}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {(agregEv || agregSono) && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(62,110,160,0.12)' }}>
-                <TrendingUp size={15} style={{ color: '#3E6EA0' }} />
-              </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#3E6EA0' }}>Números do período</h4>
-            </div>
-            <div className="space-y-1.5">
-              {agregEv && (
-                <div className="rounded-xl p-3"
-                  style={{ background: 'rgba(62,110,160,0.06)', border: '1px solid rgba(62,110,160,0.2)' }}>
-                  <p className="text-sm font-semibold text-[#2B2A28]">Frequência e intervalo de evacuações</p>
-                  <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">
-                    {agregEv.n} registros no período · intervalo médio de {agregEv.mediaHoras} horas entre evacuações · cerca de {agregEv.evacPorDia} por dia.
-                  </p>
-                </div>
-              )}
-              {agregSono && (
-                <div className="rounded-xl p-3"
-                  style={{ background: 'rgba(62,110,160,0.06)', border: '1px solid rgba(62,110,160,0.2)' }}>
-                  <p className="text-sm font-semibold text-[#2B2A28]">Médias de sono</p>
-                  <p className="text-xs text-[#4A443F] mt-1 leading-relaxed">
-                    Média de {agregSono.mediaHoras} horas por noite
-                    {agregSono.mediaDeitar ? ` · deitando por volta das ${agregSono.mediaDeitar}` : ''}
-                    {agregSono.mediaAcordar ? ` · acordando perto das ${agregSono.mediaAcordar}` : ''}
-                    {agregSono.nHoras ? ` · ${agregSono.nHoras} noite${agregSono.nHoras !== 1 ? 's' : ''} registrada${agregSono.nHoras !== 1 ? 's' : ''}` : ''}.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {histFamiliar.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(155,140,46,0.12)' }}>
-                <Users size={15} style={{ color: '#9B8C2E' }} />
-              </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#9B8C2E' }}>Histórico familiar</h4>
-            </div>
-            <div className="space-y-1.5">
-              {histFamiliar.map((h, idx) => (
-                <div key={idx} className="rounded-xl p-3"
-                  style={{ background: 'rgba(155,140,46,0.06)', border: '1px solid rgba(155,140,46,0.2)' }}>
-                  <p className="text-sm text-[#4A443F] leading-relaxed">{h}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {Array.isArray(consultas) && consultas.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -711,6 +730,114 @@ export default function RelatoriasIAScreen({ entries }) {
     const texRef = anon ? (t) => anonimizarTextoIA(t, nomeOrig) : (t) => t;
     const paragrafos = r.resumo_executivo ? texRef(r.resumo_executivo).split(/\n\n+/).filter(p => p.trim()) : [];
 
+    // ── Histórico familiar ──
+    const histFamPDF = anon ? [] : formatarHistoricoFamiliar(prRaw);
+    if (histFamPDF.length > 0) {
+      heading('Hist\u00f3rico familiar', [155, 140, 46]);
+      histFamPDF.forEach((h) => {
+        ensureSpace(30);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(74, 68, 63);
+        const hLines = doc.splitTextToSize(h, maxW);
+        hLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        spacer(4);
+      });
+      spacer(4);
+    }
+
+    // ── Medicamentos em uso ──
+    const medicamentosPDF = Array.isArray(r._medicamentos)
+      ? r._medicamentos
+      : agruparMedicamentos(workingEntries);
+    if (medicamentosPDF.length > 0) {
+      heading('Medicamentos em uso', [63, 126, 110]);
+      medicamentosPDF.forEach((m) => {
+        ensureSpace(30);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const mLines = doc.splitTextToSize(m.nome, maxW);
+        mLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        if (m.finalidade) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(100, 100, 95);
+          const fLines = doc.splitTextToSize(`Para ${m.finalidade}`, maxW);
+          fLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        }
+        if (m.nota) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(10);
+          doc.setTextColor(63, 126, 110);
+          const nLines = doc.splitTextToSize(m.nota, maxW);
+          nLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        }
+        spacer(6);
+      });
+      spacer(4);
+    }
+
+    // ── Números do período (evacuações + sono + consumo de água) ──
+    const agregPDF = r._agregados && typeof r._agregados === 'object' && Object.keys(r._agregados).length
+      ? r._agregados
+      : calcularAgregados(workingEntries);
+    const agregEvPDF = agregPDF.evacuacao || null;
+    const agregSonoPDF = agregPDF.sono || null;
+    const agregAguaPDF = agregPDF.agua || null;
+    if (agregEvPDF || agregSonoPDF || agregAguaPDF) {
+      heading('Números do período', [62, 110, 160]);
+      if (agregEvPDF) {
+        ensureSpace(26);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const t1 = doc.splitTextToSize('Frequência e intervalo de evacuações', maxW);
+        t1.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 95);
+        const b1 = `${agregEvPDF.n} registros no período · intervalo médio de ${agregEvPDF.mediaHoras} horas entre evacuações · cerca de ${agregEvPDF.evacPorDia} por dia.`;
+        const b1Lines = doc.splitTextToSize(b1, maxW);
+        b1Lines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        spacer(4);
+      }
+      if (agregSonoPDF) {
+        ensureSpace(26);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const t2 = doc.splitTextToSize('Médias de sono', maxW);
+        t2.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 95);
+        const b2 = `Média de ${agregSonoPDF.mediaHoras} horas por noite` +
+          (agregSonoPDF.mediaDeitar ? ` · deitando por volta das ${agregSonoPDF.mediaDeitar}` : '') +
+          (agregSonoPDF.mediaAcordar ? ` · acordando perto das ${agregSonoPDF.mediaAcordar}` : '') +
+          (agregSonoPDF.nHoras ? ` · ${agregSonoPDF.nHoras} noite${agregSonoPDF.nHoras !== 1 ? 's' : ''} registrada${agregSonoPDF.nHoras !== 1 ? 's' : ''}` : '') + '.';
+        const b2Lines = doc.splitTextToSize(b2, maxW);
+        b2Lines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        spacer(4);
+      }
+      if (agregAguaPDF && agregAguaPDF.totalCopos > 0) {
+        ensureSpace(26);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const t3 = doc.splitTextToSize('Consumo de água', maxW);
+        t3.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 95);
+        const b3 = `Total de ${agregAguaPDF.totalCopos} copos (~${litrosDe(agregAguaPDF.totalCopos)} L) no período · média de ${agregAguaPDF.mediaPorDia} copos/dia (~${litrosDe(agregAguaPDF.mediaPorDia)} L) · ${agregAguaPDF.diasRegistrados} dia${agregAguaPDF.diasRegistrados !== 1 ? 's' : ''} registrado${agregAguaPDF.diasRegistrados !== 1 ? 's' : ''}.`;
+        const b3Lines = doc.splitTextToSize(b3, maxW);
+        b3Lines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        spacer(4);
+      }
+      spacer(4);
+    }
+
     if (paragrafos.length > 0) {
       heading('Resumo Executivo', [93, 95, 160]);
       paragrafos.forEach(p => { paragraph(p.trim()); spacer(6); });
@@ -830,97 +957,6 @@ export default function RelatoriasIAScreen({ entries }) {
           spacer(4);
         }
         spacer(6);
-      });
-      spacer(4);
-    }
-
-    // ── Medicamentos em uso ──
-    const medicamentosPDF = Array.isArray(r._medicamentos)
-      ? r._medicamentos
-      : agruparMedicamentos(workingEntries);
-    if (medicamentosPDF.length > 0) {
-      heading('Medicamentos em uso', [63, 126, 110]);
-      medicamentosPDF.forEach((m) => {
-        ensureSpace(30);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(43, 42, 40);
-        const mLines = doc.splitTextToSize(m.nome, maxW);
-        mLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
-        if (m.finalidade) {
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(10);
-          doc.setTextColor(100, 100, 95);
-          const fLines = doc.splitTextToSize(`Para ${m.finalidade}`, maxW);
-          fLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
-        }
-        if (m.nota) {
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(10);
-          doc.setTextColor(63, 126, 110);
-          const nLines = doc.splitTextToSize(m.nota, maxW);
-          nLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
-        }
-        spacer(6);
-      });
-      spacer(4);
-    }
-
-    // ── Números do período (intervalo de evacuações + médias de sono) ──
-    const agregPDF = r._agregados && typeof r._agregados === 'object' && Object.keys(r._agregados).length
-      ? r._agregados
-      : calcularAgregados(workingEntries);
-    const agregEvPDF = agregPDF.evacuacao || null;
-    const agregSonoPDF = agregPDF.sono || null;
-    if (agregEvPDF || agregSonoPDF) {
-      heading('Números do período', [62, 110, 160]);
-      if (agregEvPDF) {
-        ensureSpace(26);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(43, 42, 40);
-        const t1 = doc.splitTextToSize('Frequência e intervalo de evacuações', maxW);
-        t1.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 95);
-        const b1 = `${agregEvPDF.n} registros no período · intervalo médio de ${agregEvPDF.mediaHoras} horas entre evacuações · cerca de ${agregEvPDF.evacPorDia} por dia.`;
-        const b1Lines = doc.splitTextToSize(b1, maxW);
-        b1Lines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
-        spacer(4);
-      }
-      if (agregSonoPDF) {
-        ensureSpace(26);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(43, 42, 40);
-        const t2 = doc.splitTextToSize('Médias de sono', maxW);
-        t2.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 95);
-        const b2 = `Média de ${agregSonoPDF.mediaHoras} horas por noite` +
-          (agregSonoPDF.mediaDeitar ? ` · deitando por volta das ${agregSonoPDF.mediaDeitar}` : '') +
-          (agregSonoPDF.mediaAcordar ? ` · acordando perto das ${agregSonoPDF.mediaAcordar}` : '') +
-          (agregSonoPDF.nHoras ? ` · ${agregSonoPDF.nHoras} noite${agregSonoPDF.nHoras !== 1 ? 's' : ''} registrada${agregSonoPDF.nHoras !== 1 ? 's' : ''}` : '') + '.';
-        const b2Lines = doc.splitTextToSize(b2, maxW);
-        b2Lines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
-        spacer(4);
-      }
-      spacer(4);
-    }
-
-    const histFamPDF = anon ? [] : formatarHistoricoFamiliar(prRaw);
-    if (histFamPDF.length > 0) {
-      heading('Hist\u00f3rico familiar', [155, 140, 46]);
-      histFamPDF.forEach((h) => {
-        ensureSpace(30);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        doc.setTextColor(74, 68, 63);
-        const hLines = doc.splitTextToSize(h, maxW);
-        hLines.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
-        spacer(4);
       });
       spacer(4);
     }

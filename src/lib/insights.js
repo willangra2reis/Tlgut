@@ -575,6 +575,26 @@ export function metricasSono(history) {
   };
 }
 
+// Consumo de água no período: total de copos, dias com registro e média por dia.
+// Cada evento `water` conta `meta.glasses ?? glasses ?? 1` copo. Observação dos
+// dados — sem juízo de normalidade (RF 6).
+export function metricasAgua(history) {
+  const porDia = new Map();
+  history.forEach((e) => {
+    if (e.type !== 'water') return;
+    const k = diaChave(e.ts);
+    const copos = e.meta?.glasses ?? e.glasses ?? 1;
+    porDia.set(k, (porDia.get(k) || 0) + copos);
+  });
+  const totalCopos = [...porDia.values()].reduce((s, x) => s + x, 0);
+  const diasRegistrados = porDia.size;
+  return {
+    totalCopos,
+    diasRegistrados,
+    mediaPorDia: diasRegistrados ? Math.round((totalCopos / diasRegistrados) * 10) / 10 : 0,
+  };
+}
+
 // Intervalo entre evacuações: deltas entre eventos consecutivos ordenados por ts.
 // Retorna média/mediana em horas, evacuações/dia e nº de pares; `< 2` eventos →
 // estado 'insuficiente'. Observação factual, sem diagnóstico (RF 6).
