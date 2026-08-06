@@ -2501,38 +2501,16 @@ function WaterForm({ onSave }) {
   );
 }
 
-// Seletor de horário estilo bottom sheet (F2): botões "Agora"/"Outro horário"
-// com input HH:MM mascarado. `modo`: 'agora' | 'hora'.
-function TimeField({ label, color, modo, setModo, hora, setHora, horaRef }) {
-  const opcoes = [
-    { key: 'agora', label: 'Agora', sub: 'Usar horário atual' },
-    { key: 'hora',  label: 'Outro horário', sub: 'Digitar HH:MM' },
-  ];
+// Campo de horário com o input HH:MM mascarado (mesmo padrão do bottom sheet F2).
+function TimeField({ label, hora, setHora }) {
   return (
     <div className="rounded-xl border border-[#EDE7DD] p-3">
-      <p className="text-xs font-medium text-[#5C5650] mb-2">{label}</p>
-      <div className="flex flex-col gap-2">
-        {opcoes.map(({ key, label: l, sub }) => (
-          <button key={key} type="button" onClick={() => setModo(key)}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${modo === key ? 'ring-2' : 'border border-[#EDE7DD]'}`}
-            style={{ background: modo === key ? '#F5F0E8' : '#FFFBF6', ringColor: modo === key ? color : 'transparent' }}>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${modo === key ? 'border-[var(--brand)]' : 'border-[#D4CBB8]'}`}>
-              {modo === key && <div className="w-2.5 h-2.5 rounded-full" style={{ background: 'var(--brand)' }} />}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-[#2B2A28]">{l}</p>
-              <p className="text-xs text-[#B6AE9F]">{sub}</p>
-            </div>
-          </button>
-        ))}
-        {modo === 'hora' && (
-          <div className="flex items-center justify-center gap-2 pt-1">
-            <Clock size={18} className="text-[#B6AE9F]" />
-            <TimeMaskInput value={hora} onChange={setHora} inputRef={horaRef} />
-            {hora.length === 5 && !isHoraValida(hora) && (
-              <p className="text-xs text-red-500 ml-1">Horário inválido</p>
-            )}
-          </div>
+      <p className="text-sm font-bold text-[#5C5650] mb-2">{label}</p>
+      <div className="flex items-center justify-center gap-2">
+        <Clock size={18} className="text-[#B6AE9F]" />
+        <TimeMaskInput value={hora} onChange={setHora} />
+        {hora.length === 5 && !isHoraValida(hora) && (
+          <p className="text-xs text-red-500 ml-1">Horário inválido</p>
         )}
       </div>
     </div>
@@ -2541,14 +2519,8 @@ function TimeField({ label, color, modo, setModo, hora, setHora, horaRef }) {
 
 function SleepForm({ onSave }) {
   const [quality, setQuality] = useState(3);
-  const [deitouModo, setDeitouModo] = useState('agora');
-  const [acordouModo, setAcordouModo] = useState('agora');
-  const [deitouHora, setDeitouHora] = useState('');
-  const [acordouHora, setAcordouHora] = useState('');
-  const deitouRef = useRef(null);
-  const acordouRef = useRef(null);
-  useEffect(() => { if (deitouModo === 'hora' && deitouRef.current) deitouRef.current.focus(); }, [deitouModo]);
-  useEffect(() => { if (acordouModo === 'hora' && acordouRef.current) acordouRef.current.focus(); }, [acordouModo]);
+  const [deitou, setDeitou] = useState('');
+  const [acordou, setAcordou] = useState('');
   const [checks, setChecks] = useState({ banheiro: false, acordou: false, dificuldade: false, desconforto: false });
   const color = ENTRY_TYPES.sleep.color;
   const calcularHoras = (d, a) => {
@@ -2569,23 +2541,26 @@ function SleepForm({ onSave }) {
     { key: 'desconforto', label: 'Acordou com desconforto abdominal' },
   ];
   const toggle = (k) => setChecks((c) => ({ ...c, [k]: !c[k] }));
-  const resolveTempo = (modo, hora) => (modo === 'agora' ? agoraHHMM() : (isHoraValida(hora) ? hora : ''));
-  const deitouFinal = resolveTempo(deitouModo, deitouHora);
-  const acordouFinal = resolveTempo(acordouModo, acordouHora);
-  const ambosAgora = deitouModo === 'agora' && acordouModo === 'agora';
-  const duracao = (!ambosAgora && deitouFinal && acordouFinal && deitouFinal !== acordouFinal)
-    ? calcularHoras(deitouFinal, acordouFinal)
+  const deitouOk = isHoraValida(deitou);
+  const acordouOk = isHoraValida(acordou);
+  const duracao = (deitouOk && acordouOk && deitou !== acordou)
+    ? calcularHoras(deitou, acordou)
     : null;
   return (
     <div className="space-y-5">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Qualidade do sono</p>
-        <div className="flex gap-2">
-          {[1,2,3,4,5].map((i) => (
-            <button key={i} onClick={() => setQuality(i)} className="flex-1 h-10 rounded-xl border"
-              style={i <= quality ? { background: color, borderColor: color } : { borderColor: '#EDE7DD' }} />
-          ))}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-[#9A938A] w-8 shrink-0 text-left">Ruim</span>
+          <div className="flex flex-1 gap-2">
+            {[1,2,3,4,5].map((i) => (
+              <button key={i} onClick={() => setQuality(i)} className="flex-1 h-10 rounded-xl border"
+                style={i <= quality ? { background: color, borderColor: color } : { borderColor: '#EDE7DD' }} />
+            ))}
+          </div>
+          <span className="text-[11px] text-[#9A938A] w-8 shrink-0 text-right">Ótimo</span>
         </div>
+        <p className="text-xs text-[#9A938A] mt-1.5">Toque nas barras para indicar a qualidade — quanto mais barras preenchidas, melhor foi o sono.</p>
       </div>
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Detalhes da noite</p>
@@ -2605,8 +2580,8 @@ function SleepForm({ onSave }) {
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Horários (opcional)</p>
         <div className="grid grid-cols-1 gap-2">
-          <TimeField label="Deitou" color={color} modo={deitouModo} setModo={setDeitouModo} hora={deitouHora} setHora={setDeitouHora} horaRef={deitouRef} />
-          <TimeField label="Acordou" color={color} modo={acordouModo} setModo={setAcordouModo} hora={acordouHora} setHora={setAcordouHora} horaRef={acordouRef} />
+          <TimeField label="Deitou" hora={deitou} setHora={setDeitou} />
+          <TimeField label="Acordou" hora={acordou} setHora={setAcordou} />
         </div>
         {duracao !== null && (
           <p className="text-xs text-[#5C5650] mt-1">Duração estimada: {duracao.toFixed(1)} h</p>
@@ -2616,8 +2591,8 @@ function SleepForm({ onSave }) {
         const extras = subOptions.filter((o) => checks[o.key]).map((o) => o.label);
         onSave({ title: 'Sono', description: extras.length ? extras.join(' · ') : `Qualidade ${quality}/5`, meta: {
           quality,
-          ...(!ambosAgora && deitouFinal ? { deitou: deitouFinal } : {}),
-          ...(!ambosAgora && acordouFinal ? { acordou: acordouFinal } : {}),
+          ...(deitouOk ? { deitou } : {}),
+          ...(acordouOk ? { acordou } : {}),
           ...(duracao !== null ? { horas: Math.round(duracao * 10) / 10 } : {}),
         } });
       }} />
@@ -2883,11 +2858,6 @@ function isHoraValida(t) {
   const hNum = parseInt(hStr, 10);
   const mNum = parseInt(mStr, 10);
   return !isNaN(hNum) && !isNaN(mNum) && hNum >= 0 && hNum <= 23 && mNum >= 0 && mNum <= 59 && hStr?.length === 2 && mStr?.length === 2;
-}
-
-function agoraHHMM() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 // ─── Etapa "Isso aconteceu agora?" (F2) ─────────────────────────────────────
