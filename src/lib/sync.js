@@ -217,7 +217,10 @@ export function readPrefsSnapshot() {
       if (parsed && typeof parsed === 'object') p = { ...parsed };
     }
   } catch {}
-  try { p.suavizar_janela = Number(localStorage.getItem('tlgut_suavizar_janela')) || 7; } catch {}
+  try {
+    const v = Number(localStorage.getItem('tlgut_suavizar_janela'));
+    p.suavizar_janela = Number.isFinite(v) ? v : 7;
+  } catch {}
   try { p.anonimo = localStorage.getItem('tlgut_anonimo') === '1'; } catch {}
   return p;
 }

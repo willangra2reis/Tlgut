@@ -1878,7 +1878,7 @@ function ConsultaCard() {
   );
 }
 
-function InsightsScreen({ calAberto, onCalAberto, entries }) {
+function InsightsScreen({ calAberto, onCalAberto, menuInsights, onMenuInsights, entries }) {
   const history = useMemo(() => {
     const comTs = (Array.isArray(entries) ? entries : []).filter((e) => e && Number.isFinite(e.ts));
     return comTs.length ? comTs : gerarHistoricoMock();
@@ -1898,13 +1898,19 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const [janela, setJanela] = useState(() => {
     try {
       const v = Number(localStorage.getItem('tlgut_suavizar_janela'));
-      return JANELAS_SUAVIZAR.includes(v) ? v : 7;
-    } catch { return 7; }
+      return JANELAS_SUAVIZAR.includes(v) ? v : 0;
+    } catch { return 0; }
   });
   const [aba, setAba] = useState('insights');
 
   const aplicaPreset = (nn) => { setRange(preset(nn)); setPresetAtivo(nn); setHover(null); };
   const aplicaRange = (r) => { setRange(r); setPresetAtivo(null); setHover(null); };
+  const aplicaJanelaMenu = (j) => {
+    setJanela(j);
+    try { localStorage.setItem('tlgut_suavizar_janela', String(j)); } catch {}
+    syncPrefsMerge({ suavizar_janela: j }).catch(() => {});
+    onMenuInsights(null);
+  };
 
   const hist = useMemo(() => history.filter((e) => e.ts >= range.ini && e.ts <= range.fim), [history, range]);
 
@@ -1924,7 +1930,7 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
   const suavizar = (s) => (janela > 0 ? mediaMovel(s, janela) : s);
   const sonoDeitar = suavizar(sonoDeitarRaw);
   const sonoAcordar = suavizar(sonoAcordarRaw);
-  const evacIntervalo = suavizar(serieIntervaloEvacuacoes(hist));
+  const evacIntervalo = suavizar(serieIntervaloEvacuacoes(hist, agua));
   const evacInfo = intervaloEntreEvacuacoes(hist);
 
   const umDia = inicioDiaUTC(range.ini) === inicioDiaUTC(range.fim);
@@ -1979,31 +1985,27 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
         {/* Seletores de período + badge de data (só na aba Insights) */}
         {aba === 'insights' && (
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <button type="button" onClick={() => {
-              if (presetAtivo === null) { aplicaPreset(30); return; }
-              const idx = periodos.indexOf(presetAtivo);
-              aplicaPreset(periodos[(idx + 1) % periodos.length]);
-            }}
+            <button type="button"
+              onClick={() => { onMenuInsights((v) => (v === 'periodo' ? null : 'periodo')); onCalAberto(false); }}
               aria-pressed={presetAtivo !== null}
-              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors"
+              aria-expanded={menuInsights === 'periodo'}
+              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors inline-flex items-center gap-1"
               style={btn(presetAtivo !== null)}>
               {presetAtivo === null ? 'Período' : `${presetAtivo}d`}
+              <ChevronDown size={12} className={`transition-transform duration-200 ${menuInsights === 'periodo' ? 'rotate-180' : ''}`} />
             </button>
-            <button type="button" aria-label="Escolher no calendário" onClick={() => onCalAberto(!calAberto)}
+            <button type="button" aria-label="Escolher no calendário"
+              onClick={() => { onCalAberto(!calAberto); onMenuInsights(null); }}
               className="px-2.5 py-1 rounded-full border flex items-center" style={btn(calAberto || presetAtivo === null)}>
               <Calendar size={14} />
             </button>
             <button type="button"
-              onClick={() => setJanela((v) => {
-                const idx = JANELAS_SUAVIZAR.indexOf(v);
-                const next = JANELAS_SUAVIZAR[(idx + 1) % JANELAS_SUAVIZAR.length];
-                try { localStorage.setItem('tlgut_suavizar_janela', String(next)); } catch {}
-                syncPrefsMerge({ suavizar_janela: next }).catch(() => {});
-                return next;
-              })}
+              onClick={() => { onMenuInsights((v) => (v === 'media' ? null : 'media')); onCalAberto(false); }}
               aria-pressed={janela > 0}
-              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors" style={btn(janela > 0)}>
+              aria-expanded={menuInsights === 'media'}
+              className="px-3 py-1 rounded-full text-xs font-medium border transition-colors inline-flex items-center gap-1" style={btn(janela > 0)}>
               {janela === 0 ? 'Sem média' : `Média ${janela}d`}
+              <ChevronDown size={12} className={`transition-transform duration-200 ${menuInsights === 'media' ? 'rotate-180' : ''}`} />
             </button>
             <span
               className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold tabular-nums transition-all duration-200"
@@ -2024,13 +2026,43 @@ function InsightsScreen({ calAberto, onCalAberto, entries }) {
           </div>
         )}
 
+        {menuInsights === 'periodo' && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {periodos.map((nn) => (
+              <button key={nn} type="button"
+                onClick={() => { aplicaPreset(nn); onMenuInsights(null); }}
+                aria-pressed={presetAtivo === nn}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                style={btn(presetAtivo === nn)}>
+                {nn} dias
+              </button>
+            ))}
+          </div>
+        )}
+
+        {menuInsights === 'media' && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {JANELAS_SUAVIZAR.map((j) => (
+              <button key={j} type="button"
+                onClick={() => aplicaJanelaMenu(j)}
+                aria-pressed={janela === j}
+                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                style={btn(janela === j)}>
+                {j === 0 ? 'Sem média' : `${j}d`}
+              </button>
+            ))}
+          </div>
+        )}
+
         {calAberto && (
           <CalendarPicker minTs={bounds.min} maxTs={bounds.max} range={range} onRange={aplicaRange} />
         )}
       </div>
 
-      {/* Backdrop transparente: fecha o calendário ao clicar fora */}
-      {calAberto && <div className="fixed inset-0 z-10" onClick={() => onCalAberto(false)} />}
+      {/* Backdrop transparente: fecha calendário e menus de opções ao clicar fora */}
+      {(menuInsights !== null || calAberto) && (
+        <div className="fixed inset-0 z-10" onClick={() => { onCalAberto(false); onMenuInsights(null); }} />
+      )}
 
       {/* ── Conteúdo principal ──────────────────────────────────────────── */}
       {aba === 'insights' ? (
@@ -4048,6 +4080,7 @@ export default function App() {
   const [editing,    setEditing]    = useState(null);                                   // registro em edição (bottom-sheet)
   const [aulaSelecionada, setAulaSelecionada] = useState(null);                          // detalhe da aula (elevado de AulasScreen)
   const [calAberto,  setCalAberto]  = useState(false);                                   // calendário dos Insights (elevado de InsightsScreen)
+  const [menuInsights, setMenuInsights] = useState(null);                               // menu de opções ('periodo' | 'media' | null) dos Insights
   const [onboarded,  setOnboarded]  = useState(() => isOnboarded());
   const [profile,    setProfile]    = useState(() => loadProfile());
   const [editandoProfile, setEditandoProfile] = useState(false);
@@ -4379,6 +4412,7 @@ export default function App() {
     setAbaAtiva(aba);
     setAulaSelecionada(null);
     setCalAberto(false);
+    setMenuInsights(null);
   }, []);
 
   useEffect(() => {
@@ -4390,10 +4424,11 @@ export default function App() {
       if (zoom)             { setZoom(null); return true; }
       if (aulaSelecionada)  { setAulaSelecionada(null); return true; }
       if (calAberto)        { setCalAberto(false); return true; }
+      if (menuInsights)     { setMenuInsights(null); return true; }
       if (abaAtiva !== 'diario') { mudarAba('diario'); return true; }
       return false;
     };
-  }, [pending, activeForm, sheetOpen, editing, zoom, aulaSelecionada, calAberto, abaAtiva, mudarAba]);
+  }, [pending, activeForm, sheetOpen, editing, zoom, aulaSelecionada, calAberto, menuInsights, abaAtiva, mudarAba]);
 
   const lastDepthRef = useRef(0);
   const isPopStateRef = useRef(false);
@@ -4401,6 +4436,7 @@ export default function App() {
 
   const depth = (abaAtiva !== 'diario' ? 1 : 0) +
                 (calAberto ? 1 : 0) +
+                (menuInsights ? 1 : 0) +
                 (aulaSelecionada ? 1 : 0) +
                 (zoom ? 1 : 0) +
                 (editing ? 1 : 0) +
@@ -4686,7 +4722,7 @@ export default function App() {
             </main>
           </>
         ) : abaAtiva === 'insights' ? (
-          <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} entries={entries} />
+          <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} menuInsights={menuInsights} onMenuInsights={setMenuInsights} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
           <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => { setEditandoHistFam(true); setEditandoProfile(true); }} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} demoAtivo={demoAtivo} />
         ) : (

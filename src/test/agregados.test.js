@@ -234,6 +234,25 @@ describe('Séries novas (horários e intervalo)', () => {
     expect(s[2].valor).toBe(24); // forward-fill
     expect(s[3].valor).toBe(48); // delta entre dia2 e dia4
   });
+
+  it('serieIntervaloEvacuacoes com base alinha ao período mais amplo', () => {
+    // Dias da base usam meia-noite (chaves de diaChave), como as séries de série.
+    const dia = Date.UTC(2026, 5, 1);
+    const hist = [
+      { ts: dia + 8 * HORA, type: 'evacuation' },
+      { ts: dia + DIA + 8 * HORA, type: 'evacuation' },
+      { ts: dia + 3 * DIA + 8 * HORA, type: 'evacuation' },
+    ];
+    // Esqueleto de 6 dias (grade completa das outras métricas), embora as
+    // evacuações só cubram os dias 1..4 → mesmo comprimento, zeros no início.
+    const skel = [0, 1, 2, 3, 4, 5].map((i) => ({ dia: dia + i * DIA }));
+    const s = serieIntervaloEvacuacoes(hist, skel);
+    expect(s.length).toBe(6);
+    expect(s[0].valor).toBe(0); // sem par anterior
+    expect(s[3].valor).toBe(48); // delta entre dia2 e dia4, no dia do 2º evento
+    expect(s[4].valor).toBe(48); // forward-fill
+    expect(s[5].valor).toBe(48);
+  });
 });
 
 describe('Mock atualizado (sono e evacuações)', () => {

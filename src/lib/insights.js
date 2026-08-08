@@ -525,13 +525,23 @@ export function seriePorDiaHorario(history, type, campo, base) {
 // Série diária do intervalo entre evacuações (horas), atribuído ao dia do
 // segundo evento de cada par. Dias sem evacuação mantêm o último intervalo
 // conhecido (forward-fill); sem pares → série vazia (dados insuficientes).
-export function serieIntervaloEvacuacoes(history) {
+// `base` (opcional) é um array de pontos { dia } usado como esqueleto dos dias —
+// alinha a série ao período das demais métricas, evitando comprimentos
+// divergentes quando os registros de evacuação cobrem menos dias que o resto.
+export function serieIntervaloEvacuacoes(history, base) {
   const evs = history
     .filter((e) => e.type === 'evacuation' && Number.isFinite(e.ts))
     .sort((a, b) => a.ts - b.ts);
   if (evs.length < 2) return [];
-  let min = Infinity; let max = -Infinity;
-  evs.forEach((e) => { const k = diaChave(e.ts); if (k < min) min = k; if (k > max) max = k; });
+  let dias;
+  if (Array.isArray(base) && base.length) {
+    dias = base.map((p) => p.dia);
+  } else {
+    let min = Infinity; let max = -Infinity;
+    evs.forEach((e) => { const k = diaChave(e.ts); if (k < min) min = k; if (k > max) max = k; });
+    dias = [];
+    for (let k = min; k <= max; k += DIA) dias.push(k);
+  }
   const porDia = new Map();
   for (let i = 1; i < evs.length; i += 1) {
     const k = diaChave(evs[i].ts);
@@ -540,11 +550,11 @@ export function serieIntervaloEvacuacoes(history) {
   }
   const serie = [];
   let ultimo = null;
-  for (let k = min; k <= max; k += DIA) {
+  dias.forEach((k) => {
     const vals = porDia.get(k);
     if (vals && vals.length) ultimo = vals.reduce((s, x) => s + x, 0) / vals.length;
     serie.push({ dia: k, valor: ultimo ?? 0 });
-  }
+  });
   return serie;
 }
 
