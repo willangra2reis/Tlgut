@@ -4186,26 +4186,28 @@ function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus, onRegistra
         )}
 
         {entry.type === 'pain' && obterIntervencoes(entry).length > 0 && (
-          <div className="mt-2 rounded-xl border border-[#EDE7DD] p-2.5">
-            <div className="space-y-1.5">
+          <div className="mt-2 rounded-xl border border-[#EDE7DD] px-2 py-1.5">
+            <div>
               {obterIntervencoes(entry).map((it, idx) => (
-                <div key={idx} className="flex items-center gap-2 group">
-                  <span className="text-[10px] tabular-nums text-[#B6AE9F] w-9 shrink-0">
-                    {it.ts ? new Date(it.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0"
-                    style={{ background: it.nivel === 'total' ? '#4A8A5C' : it.nivel ? '#C9763A' : '#B6AE9F' }} />
-                  <span className="entry-text text-xs text-[#4A443F]" style={{ lineHeight: 1.35 }}>
-                    {it.acao}
-                    {it.nivel && <span className="text-[#7D766A]"> · {labelNivel(it.nivel)}</span>}
-                  </span>
-                  {onEditarIntervencao && (
-                    <button type="button" onClick={() => onEditarIntervencao(entry, idx)}
-                      aria-label={`Editar ${it.acao}`}
-                      className="ml-auto shrink-0 p-1 rounded-full text-[#C9C1B4] hover:text-[#2B2A28] hover:bg-[#F1ECE3] transition-colors">
-                      <Pencil size={11} />
-                    </button>
-                  )}
+                <div key={idx}>
+                  {idx > 0 && <div className="h-px bg-[#F1ECE3] mx-1" />}
+                  <button type="button"
+                    onClick={() => onEditarIntervencao && onEditarIntervencao(entry, idx)}
+                    aria-label={`Ver ou editar: ${it.acao}`}
+                    className="w-full text-left flex items-center gap-2 py-2 px-1 rounded-lg hover:bg-[#F7F3EC] active:bg-[#F1ECE3] transition-colors">
+                    <span className="text-[10px] tabular-nums text-[#B6AE9F] w-9 shrink-0">
+                      {it.ts ? new Date(it.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: it.nivel === 'total' ? '#4A8A5C' : it.nivel ? '#C9763A' : '#B6AE9F' }} />
+                    <span className="entry-text text-xs text-[#4A443F] min-w-0" style={{ lineHeight: 1.35 }}>
+                      <span className="line-clamp-2">{it.acao}</span>
+                      {it.nivel && <span className="text-[#7D766A]"> · {labelNivel(it.nivel)}</span>}
+                    </span>
+                    {it.nota && (
+                      <span className="ml-auto shrink-0 text-[10px] text-[#B6AE9F]" title="Observação registrada">…</span>
+                    )}
+                  </button>
                 </div>
               ))}
             </div>
