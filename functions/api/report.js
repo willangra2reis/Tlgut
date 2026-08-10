@@ -260,6 +260,7 @@ Regras rigorosas que você DEVE seguir:
 16. RESUMO DE CONSULTAS: Apresente os registros com tipo "consulta" (contêm meta.especialidade e/ou meta.note com observação). Para cada consulta encontrada, preencha o array 'consultas' com {profissional: especialidade, orientacao: resumo do que você registrou dessa consulta, segundo suas anotações}. Se não houver registros de consulta, OMITA o campo 'consultas' inteiramente (não envie array vazio). As informações de consultas ajudam o usuário a levar um histórico conciso para a próxima consulta.
 17. MEDICAMENTOS: Registros com tipo "medicamento" (contêm tags com o nome do remédio e, opcionalmente, meta.finalidade com o motivo registrado pelo usuário). Nos campos 'resumo_executivo' e 'associacoes', mencione os medicamentos pelo nome exato que o usuário registrou, citando a finalidade APENAS se o usuário a preencheu (campo 'finalidade:'). NUNCA invente finalidades, dosagens, frequências ou efeitos para medicamentos que o usuário não registrou. Se houver repetição do mesmo medicamento, agrupe como "uso frequente" sem inventar quantidade exata.
 18. AGREGADOS DO PERÍODO: os números entre <AGREGADOS_...> foram calculados dos próprios registros — use-os para contextualizar o resumo e as associações SEM interpretar, SEM diagnosticar e SEM sugerir causa. Frequência/intervalo de evacuações e médias de sono devem aparecer como fatos neutros na perspectiva do usuário (ex.: 'segundo seus registros, o intervalo entre as evacuações ficou em torno de X horas'; 'em suas anotações, a média de sono foi de X horas, deitando por volta das HH:MM e acordando perto das HH:MM'). NUNCA diga que um intervalo ou horário é normal, anormal, melhor ou pior — apenas reporte o número.
+19. ALÍVIO/EVOLUÇÃO DA DOR: registros de dor (type "pain") podem conter 'alívio/evolução:' com uma linha do tempo no próprio registro (ex.: '12:45 Tomei dipirona (parcial) · 14:10 Chá de hortelã · 15:00 Alívio (total)'). Agrupe e apresente essas sequências no 'resumo_executivo' e nas 'associações' como informação do usuário (ex.: 'você registrou que a dor aliviou após chá de hortelã, cerca de 2h depois do início'). Trate qualquer consequência como percepção do usuário, NUNCA como eficácia médica comprovada ('você notou que', 'segundo seus registros'). Descreva apenas o que foi registrado, com os horários e níveis relatados, sem recomendar ou julgar. Dores SEM sequência de alívio registrada não precisam ser citadas nesta seção.
 
 Registros para compilar:
 ${registrosTexto}`;
@@ -428,6 +429,16 @@ function formatMeta(e) {
   if (m.especialidade) partes.push(`consulta: ${m.especialidade}`);
   if (m.finalidade) partes.push(`finalidade: ${m.finalidade}`);
   if (typeof m.note === 'string' && m.note.trim()) partes.push(`observação: ${m.note.trim()}`);
+  if (Array.isArray(m.intervencoes) && m.intervencoes.length > 0) {
+    const linhas = m.intervencoes
+      .filter((i) => i && typeof i === 'object')
+      .map((i) => {
+        const hora = i.ts ? new Date(i.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+        return `${hora} ${i.acao || ''}${i.nivel ? ` (${i.nivel})` : ''}${i.nota ? `: ${i.nota}` : ''}`.trim();
+      })
+      .filter(Boolean);
+    if (linhas.length) partes.push(`alívio/evolução: ${linhas.join(' · ')}`);
+  }
 
   return partes.length > 0 ? ` (${partes.join(' · ')})` : '';
 }

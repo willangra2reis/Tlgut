@@ -14,6 +14,7 @@ import { extractReportFromRaw, LOADING_FRASES } from '../lib/ai-report.js';
 import { proximaConsulta } from '../lib/consulta.js';
 import { loadReports, saveReport, removeReport, migrarExpressLegado, MAX_REPORTS } from '../lib/reports.js';
 import { agruparMedicamentos } from '../lib/meds.js';
+import { agruparAliviosDor, formatarDuracao } from '../lib/dorAlivio.js';
 import { syncReportsReplace, syncPrefsMerge } from '../lib/sync.js';
 import PainHeatmap from './PainHeatmap.jsx';
 import digestiveClosedImage from '../assets/sisdiges_fechado.jpg';
@@ -219,6 +220,7 @@ export default function RelatoriasIAScreen({ entries }) {
           _discutirEntries: discutirEntries,
           _painData: { painCounts, painItems, painTotal, painMax },
           _medicamentos: agruparMedicamentos(filteredEntries),
+          _aliviosDor: agruparAliviosDor(filteredEntries),
           _agregados: calcularAgregados(filteredEntries),
         };
         setReports({ [selectedModel]: { loading: false, report: reportWithSnapshot, error: null } });
@@ -289,6 +291,9 @@ export default function RelatoriasIAScreen({ entries }) {
     const medicamentos = Array.isArray(report._medicamentos)
       ? report._medicamentos
       : agruparMedicamentos(filteredEntries);
+    const aliviosDor = report._aliviosDor && typeof report._aliviosDor === 'object' && Array.isArray(report._aliviosDor.episodios)
+      ? report._aliviosDor
+      : agruparAliviosDor(filteredEntries);
     const agregados = report._agregados && typeof report._agregados === 'object' && Object.keys(report._agregados).length
       ? report._agregados
       : calcularAgregados(filteredEntries);
@@ -345,6 +350,51 @@ export default function RelatoriasIAScreen({ entries }) {
                   {m.nota && <p className="text-xs text-[#3F7E6E] mt-1 italic leading-relaxed">{m.nota}</p>}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {aliviosDor.episodios.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(189,90,74,0.12)' }}>
+                <Sparkles size={15} style={{ color: '#BD5A4A' }} />
+              </span>
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#BD5A4A' }}>O que você registrou que alivia</h4>
+            </div>
+            <div className="space-y-1.5">
+              {aliviosDor.episodios.slice(0, 5).map((ep, idx) => (
+                <div key={idx} className="rounded-xl p-3"
+                  style={{ background: 'rgba(189,90,74,0.06)', border: '1px solid rgba(189,90,74,0.2)' }}>
+                  <p className="text-sm font-semibold text-[#2B2A28]">
+                    {ep.regioes.length ? ep.regioes.join(', ') : 'Dor'} · intensidade {ep.intensity}/10
+                  </p>
+                  <div className="mt-1.5 space-y-1">
+                    {ep.intervencoes.filter((i) => i.acao).map((i, j) => (
+                      <p key={j} className="text-xs text-[#4A443F] leading-relaxed">
+                        <span className="text-[#B6AE9F] tabular-nums">
+                          {i.ts ? new Date(i.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                        </span>
+                        {' · '}{i.acao}
+                        {i.nivel && <span className="italic" style={{ color: '#BD5A4A' }}> ({i.nivel})</span>}
+                      </p>
+                    ))}
+                  </div>
+                  {ep.duracaoMin !== null && (
+                    <p className="text-[11px] text-[#7D766A] mt-1.5">Até aliviar: {formatarDuracao(ep.duracaoMin)}</p>
+                  )}
+                </div>
+              ))}
+              {aliviosDor.maisFrequentes.length > 0 && (
+                <p className="text-xs text-[#7D766A] leading-relaxed">
+                  Mais recorrentes nos seus registros: {aliviosDor.maisFrequentes.slice(0, 3).map(m => m.acao).join(' · ')}.
+                </p>
+              )}
+              {aliviosDor.alivioMedioMin !== null && (
+                <p className="text-xs text-[#7D766A] leading-relaxed">
+                  Duração média até o alívio: {formatarDuracao(aliviosDor.alivioMedioMin)}.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -775,6 +825,46 @@ export default function RelatoriasIAScreen({ entries }) {
         }
         spacer(6);
       });
+      spacer(4);
+    }
+
+    // ── O que você registrou que alivia a dor ──
+    const aliviosPDF = r._aliviosDor && typeof r._aliviosDor === 'object' && Array.isArray(r._aliviosDor.episodios)
+      ? r._aliviosDor
+      : agruparAliviosDor(workingEntries);
+    if (aliviosPDF.episodios.length > 0) {
+      heading('O que alivia a dor', [189, 90, 74]);
+      aliviosPDF.episodios.slice(0, 5).forEach((ep) => {
+        ensureSpace(34);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(43, 42, 40);
+        const tL = doc.splitTextToSize(`${ep.regioes.length ? ep.regioes.join(', ') : 'Dor'} — intensidade ${ep.intensity}/10`, maxW);
+        tL.forEach(l => { ensureSpace(14); doc.text(l, margin, y); y += 14; });
+        ep.intervencoes.filter((i) => i.acao).forEach((i) => {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(74, 68, 63);
+          const hora = i.ts ? new Date(i.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+          const linha = `${hora} — ${i.acao}${i.nivel ? ` (${i.nivel})` : ''}`;
+          const lLines = doc.splitTextToSize(linha, maxW);
+          lLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        });
+        if (ep.duracaoMin !== null) {
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(125, 118, 106);
+          const dLines = doc.splitTextToSize(`Até aliviar: ${formatarDuracao(ep.duracaoMin)}`, maxW);
+          dLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+        }
+        spacer(4);
+      });
+      if (aliviosPDF.alivioMedioMin !== null) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(10);
+        doc.setTextColor(125, 118, 106);
+        const mLines = doc.splitTextToSize(`Duração média até o alívio: ${formatarDuracao(aliviosPDF.alivioMedioMin)}.`, maxW);
+        mLines.forEach(l => { ensureSpace(13); doc.text(l, margin, y); y += 13; });
+      }
       spacer(4);
     }
 
