@@ -4195,18 +4195,15 @@ function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus, onRegistra
                     onClick={() => onEditarIntervencao && onEditarIntervencao(entry, idx)}
                     aria-label={`Ver ou editar: ${it.acao}`}
                     className="w-full text-left flex items-center gap-2 py-2 px-1 rounded-lg hover:bg-[#F7F3EC] active:bg-[#F1ECE3] transition-colors">
-                    <span className="text-[10px] tabular-nums text-[#B6AE9F] w-9 shrink-0">
+                    <span className="text-[10px] tabular-nums text-[#B6AE9F] w-7 shrink-0">
                       {it.ts ? new Date(it.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full shrink-0"
                       style={{ background: it.nivel === 'total' ? '#4A8A5C' : it.nivel ? '#C9763A' : '#B6AE9F' }} />
                     <span className="entry-text text-xs text-[#4A443F] min-w-0" style={{ lineHeight: 1.35 }}>
                       <span className="line-clamp-2">{it.acao}</span>
-                      {it.nivel && <span className="text-[#7D766A]"> · {labelNivel(it.nivel)}</span>}
+                      {it.nivel && <span className="text-[#7D766A]"> {labelNivel(it.nivel)}</span>}
                     </span>
-                    {it.nota && (
-                      <span className="ml-auto shrink-0 text-[10px] text-[#B6AE9F]" title="Observação registrada">…</span>
-                    )}
                   </button>
                 </div>
               ))}
@@ -4229,7 +4226,13 @@ function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus, onRegistra
                 {duracaoDorMin(entry) !== null && <> após {formatarDuracao(duracaoDorMin(entry))}</>}
               </>
             ) : (
-              <><Flame size={11} /> Dor ativa — tocar para registrar</>
+              <span className="flex items-center gap-1.5">
+                <Flame size={11} className="shrink-0" />
+                <span className="flex flex-col items-start leading-tight">
+                  <span className="font-bold">Dor ativa</span>
+                  <span className="font-normal opacity-80">toque para alterar</span>
+                </span>
+              </span>
             )}
           </button>
         )}
