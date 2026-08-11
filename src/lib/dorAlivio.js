@@ -6,10 +6,12 @@
 // Tudo é função pura sobre o array de entries (mesmo padrão de meds.js).
 
 export const NIVEIS_ALIVIO = [
+  { id: 'piorou', label: 'Piorou' },
+  { id: 'piorouMuito', label: 'Piorou muito' },
   { id: 'nenhum', label: 'Sem mudança' },
-  { id: 'pouco',  label: 'Pouco alívio' },
+  { id: 'pouco', label: 'Pouco alívio' },
   { id: 'parcial', label: 'Alívio parcial' },
-  { id: 'total',  label: 'Alívio total' },
+  { id: 'total', label: 'Alívio total' },
 ];
 
 export const ACOES_ALIVIO = [
@@ -21,6 +23,7 @@ export const ACOES_ALIVIO = [
   'Evacuar',
   'Massagem',
   'Posição/deitar',
+  'Nada',
 ];
 
 export function labelNivel(id) {

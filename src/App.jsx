@@ -2868,8 +2868,12 @@ function TimeMaskInput({ value, onChange, inputRef }) {
         const input = e.target;
         const cursor = input.selectionStart;
         const val = input.value;
+        const deleting = e.nativeEvent?.inputType === 'deleteContentBackward';
         const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
-        const digits = val.replace(/\D/g, '').slice(0, 4);
+        let digits = val.replace(/\D/g, '').slice(0, 4);
+        if (deleting && !val.includes(':') && digits.length > 0) {
+          digits = digits.slice(0, -1);
+        }
         const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
         onChange(formatted);
         requestAnimationFrame(() => {
@@ -3615,12 +3619,18 @@ function DorIntervencaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, 
               onChange={(e) => {
                 const input = e.target;
                 const cursor = input.selectionStart;
-                const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                const val = input.value;
+                const deleting = e.nativeEvent?.inputType === 'deleteContentBackward';
+                const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
+                let digits = val.replace(/\D/g, '').slice(0, 4);
+                if (deleting && !val.includes(':') && digits.length > 0) {
+                  digits = digits.slice(0, -1);
+                }
                 const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
                 setHora(formatted);
                 requestAnimationFrame(() => {
                   let pos = 0, count = 0;
-                  while (pos < formatted.length && count < cursor.replace(/\D/g, '').length) {
+                  while (pos < formatted.length && count < beforeDigits) {
                     if (formatted[pos] !== ':') count++;
                     pos++;
                   }
@@ -4199,7 +4209,7 @@ function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus, onRegistra
                       {it.ts ? new Date(it.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ background: it.nivel === 'total' ? '#4A8A5C' : it.nivel ? '#C9763A' : '#B6AE9F' }} />
+                      style={{ background: it.nivel === 'total' ? '#4A8A5C' : it.nivel === 'piorou' || it.nivel === 'piorouMuito' ? '#C1503E' : it.nivel ? '#C9763A' : '#B6AE9F' }} />
                     <span className="entry-text text-xs text-[#4A443F] min-w-0" style={{ lineHeight: 1.35 }}>
                       <span className="line-clamp-2">{it.acao}</span>
                       {it.nivel && <span className="text-[#7D766A]"> {labelNivel(it.nivel)}</span>}
@@ -4360,8 +4370,12 @@ function EditEntryForm({ entry, onSave, onCancel }) {
               const input = e.target;
               const cursor = input.selectionStart;
               const val = input.value;
+              const deleting = e.nativeEvent?.inputType === 'deleteContentBackward';
               const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
-              const digits = val.replace(/\D/g, '').slice(0, 4);
+              let digits = val.replace(/\D/g, '').slice(0, 4);
+              if (deleting && !val.includes(':') && digits.length > 0) {
+                digits = digits.slice(0, -1);
+              }
               const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
               setTime(formatted);
               requestAnimationFrame(() => {
@@ -4556,13 +4570,20 @@ export default function App() {
           if (maxId > 0) idRef.current = maxId;
         }
         if (pulled.profile) {
-          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros', 'historico_familiar'].some((k) => {
+          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros', 'historico_familiar', 'acoes_alivio_custom'].some((k) => {
             const v = pulled.profile[k];
             return v != null && v !== '' && !(Array.isArray(v) && v.length === 0);
           });
           if (filled) {
-            saveProfile(pulled.profile);
-            setProfile(pulled.profile);
+            // Mescla as ações personalizadas de alívio para não perder as locais
+            // que ainda não foram sincronizadas (ex.: adicionadas em outro momento).
+            const locais = Array.isArray(acoesAlivioCustom) ? acoesAlivioCustom : [];
+            const remotas = Array.isArray(pulled.profile?.acoes_alivio_custom) ? pulled.profile.acoes_alivio_custom : [];
+            const merged = [...new Set([...remotas, ...locais])];
+            const perfilFinal = { ...pulled.profile, acoes_alivio_custom: merged };
+            saveProfile(perfilFinal);
+            setProfile(perfilFinal);
+            setAcoesAlivioCustom(merged);
             if (uid) marcarOnboarded(uid);
             setOnboarded(true);
           } else if (uid) {

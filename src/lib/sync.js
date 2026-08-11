@@ -154,6 +154,7 @@ export async function syncProfileUpsert(p) {
       condicoes: Array.isArray(p?.condicoes) ? p.condicoes : [],
       outros: p?.outros ?? null,
       historico_familiar: Array.isArray(p?.historico_familiar) ? p.historico_familiar : [],
+      acoes_alivio_custom: Array.isArray(p?.acoes_alivio_custom) ? p.acoes_alivio_custom : [],
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'id' }
@@ -166,7 +167,7 @@ export async function syncProfilePull() {
   if (!uid) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('nome, idade, peso, altura, condicoes, outros, historico_familiar')
+    .select('nome, idade, peso, altura, condicoes, outros, historico_familiar, acoes_alivio_custom')
     .eq('id', uid)
     .maybeSingle();
   if (error) throw error;

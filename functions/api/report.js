@@ -398,6 +398,15 @@ function valido(obj) {
     (obj.evolucao === undefined || typeof obj.evolucao === 'string');
 }
 
+const NIVEL_ALIVIO_LABEL = {
+  piorou: 'piorou',
+  piorouMuito: 'piorou muito',
+  nenhum: 'sem mudança',
+  pouco: 'pouco alívio',
+  parcial: 'alívio parcial',
+  total: 'alívio total',
+};
+
 function formatEntry(e) {
   const dia = e.day || '';
   const horario = e.time || '';
@@ -434,7 +443,7 @@ function formatMeta(e) {
       .filter((i) => i && typeof i === 'object')
       .map((i) => {
         const hora = i.ts ? new Date(i.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-        return `${hora} ${i.acao || ''}${i.nivel ? ` (${i.nivel})` : ''}${i.nota ? `: ${i.nota}` : ''}`.trim();
+        return `${hora} ${i.acao || ''}${i.nivel ? ` (${NIVEL_ALIVIO_LABEL[i.nivel] || i.nivel})` : ''}${i.nota ? `: ${i.nota}` : ''}`.trim();
       })
       .filter(Boolean);
     if (linhas.length) partes.push(`alívio/evolução: ${linhas.join(' · ')}`);
