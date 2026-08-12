@@ -23,11 +23,18 @@ export const ACOES_DIGESTAO = [
 export { NIVEIS_ALIVIO, labelNivel, formatarDuracao };
 
 // Sintomas gástricos reaproveitados do formulário avulso de Digestão.
+// 'Digestão boa' é a opção positiva (sem desconforto); é mutuamente exclusiva
+// com os sintomas de desconforto no fluxo do sub-registro.
 export const DIA_SINTOMAS = [
-  'Estômago cheio', 'Empachamento', 'Azia', 'Queimação', 'Enjoo/Náusea',
+  'Digestão boa', 'Estômago cheio', 'Empachamento', 'Azia', 'Queimação', 'Enjoo/Náusea',
   'Refluxo', 'Arrotos', 'Peso no estômago', 'Digestão lenta', 'Estufamento',
   'Cólica gástrica', 'Apetite reduzido',
 ];
+
+// True quando o usuário marcou o desconforto como ausente ('Digestão boa').
+export function digestaoBoa(sintomas) {
+  return Array.isArray(sintomas) && sintomas.includes('Digestão boa');
+}
 
 // Registros de digestão válidos da refeição (ordem cronológica, ts numérico).
 export function obterDigestoes(entry) {

@@ -62,7 +62,7 @@ import {
   dorAliviada, duracaoDorMin, formatarDuracao,
 } from './lib/dorAlivio.js';
 import {
-  ACOES_DIGESTAO, DIA_SINTOMAS, obterDigestoes,
+  ACOES_DIGESTAO, DIA_SINTOMAS, obterDigestoes, digestaoBoa,
   digestaoAliviada, duracaoDigestaoMin,
 } from './lib/digestao.js';
 
@@ -3757,6 +3757,18 @@ function DigestaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, onCanc
   const [nivel, setNivel] = useState(() => editando?.nivel || null);
   const [nota, setNota] = useState(() => editando?.nota || '');
   const todasAcoes = [...new Set([...ACOES_DIGESTAO, ...(acoesCustom || [])])];
+  // 'Digestão boa' é mutuamente exclusiva com os sintomas de desconforto e,
+  // quando marcada, já conta como digestão resolvida (nível total).
+  const toggleSintoma = (s) => setSintomas((prev) => {
+    const n = new Set(prev);
+    if (n.has(s)) { n.delete(s); return n; }
+    if (s === 'Digestão boa') { return new Set(['Digestão boa']); }
+    n.delete('Digestão boa');
+    n.add(s);
+    return n;
+  });
+  const sintomasFinais = [...sintomas];
+  const nivelFinal = digestaoBoa(sintomasFinais) ? 'total' : nivel;
 
   // ── Microfone (push-to-talk, mesmo padrão do DorIntervencaoSheet) ─────
   const [recState, setRecState] = useState('idle');
@@ -3904,27 +3916,39 @@ function DigestaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, onCanc
   const mNum = parseInt(mStr, 10);
   const horaValida = !isNaN(hNum) && !isNaN(mNum) && hNum >= 0 && hNum <= 23 && mNum >= 0 && mNum <= 59 && hStr?.length === 2 && mStr?.length === 2;
   const acaoFinal = acao || outro.trim();
-  const podeSalvar = sintomas.size > 0 && (agora || horaValida);
-
-  function confirmar() {
-    if (!podeSalvar) return;
-    const ts = agora ? Date.now() : tsParaDia(dia, hora);
-    onSave({
-      ts,
-      sintomas: [...sintomas],
-      acao: acaoFinal || undefined,
-      nota: nota.trim() || undefined,
-      nivel: nivel || undefined,
-    });
-  }
-
   const entradaMin = hNum * 60 + mNum;
   const agoraMin = new Date().getHours() * 60 + new Date().getMinutes();
   const horaFutura = !agora && dia === 'hoje' && horaValida && entradaMin > agoraMin;
   const outroFinal = outro.trim();
   const novoNaoIncluso = outroFinal && !todasAcoes.includes(outroFinal);
 
-  const toggleSintoma = (s) => setSintomas((prev) => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
+  // Sub-registro não pode acontecer antes da refeição. Se a refeição foi hoje,
+  // impossível ser 'ontem'; no mesmo dia, a hora precisa ser >= à da refeição.
+  const refTs = Number(entry?.ts ?? entry?.timestamp);
+  const refHoraMin = Number.isFinite(refTs) ? new Date(refTs).getHours() * 60 + new Date(refTs).getMinutes() : null;
+  const refDiaHoje = entry?.day === 'hoje'
+    || (Number.isFinite(refTs) && new Date(refTs).toDateString() === new Date().toDateString());
+  const refDiaOntem = entry?.day === 'ontem'
+    || (Number.isFinite(refTs) && new Date(refTs).toDateString() === new Date(Date.now() - 86400000).toDateString());
+  const antesDaRefeicao = Number.isFinite(refTs)
+    ? (dia === 'ontem' && refDiaHoje)
+      || (dia === 'ontem' && refDiaOntem && horaValida && !agora && entradaMin < refHoraMin)
+      || (dia === 'hoje' && refDiaHoje && horaValida && !agora && entradaMin < refHoraMin)
+    : false;
+
+  const podeSalvar = sintomasFinais.length > 0 && (agora || horaValida) && !antesDaRefeicao;
+
+  function confirmar() {
+    if (!podeSalvar) return;
+    const ts = agora ? Date.now() : tsParaDia(dia, hora);
+    onSave({
+      ts,
+      sintomas: sintomasFinais,
+      acao: acaoFinal || undefined,
+      nota: nota.trim() || undefined,
+      nivel: nivelFinal || undefined,
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -3989,9 +4013,13 @@ function DigestaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, onCanc
         {!agora && (
           <div className="flex gap-2 mt-2">
             <div className="flex gap-1.5">
-              {[{ k: 'hoje', l: 'Hoje' }, { k: 'ontem', l: 'Ontem' }].map(({ k, l }) => (
-                <button key={k} type="button" onClick={() => setDia(k)}
-                  className="px-3 py-2.5 rounded-2xl text-sm border transition-colors"
+              {[
+                { k: 'hoje', l: 'Hoje', on: false },
+                { k: 'ontem', l: 'Ontem', on: refDiaHoje },
+              ].map(({ k, l, on }) => (
+                <button key={k} type="button" disabled={on}
+                  onClick={() => setDia(k)}
+                  className="px-3 py-2.5 rounded-2xl text-sm border transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
                   style={dia === k
                     ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
                     : { borderColor: '#EDE7DD', color: '#7D766A' }}>
@@ -4026,6 +4054,9 @@ function DigestaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, onCanc
           </div>
         )}
         {horaValida && horaFutura && <p className="text-xs text-red-500 mt-1">Hora no futuro — use "Agora" ou um horário já passado.</p>}
+        {antesDaRefeicao && (
+          <p className="text-xs text-red-500 mt-1">A digestão não pode ter ocorrido antes dessa refeição — escolha um horário posterior.</p>
+        )}
       </div>
 
       {/* Métrica de alívio */}
@@ -4839,15 +4870,15 @@ function EditEntryForm({ entry, onSave, onCancel }) {
         <div>
           <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Dia</label>
           <div className="flex gap-2">
-            {[{ k: 'hoje', l: 'Hoje' }, { k: 'ontem', l: 'Ontem' }].map(({ k, l }) => (
-              <button key={k} type="button" onClick={() => setDay(k)}
-                className="flex-1 px-3 py-2.5 rounded-2xl text-sm border transition-colors"
-                style={day === k
-                  ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
-                  : { borderColor: '#EDE7DD', color: '#7D766A' }}>
-                {l}
-              </button>
-            ))}
+              {[{ k: 'hoje', l: 'Hoje' }, { k: 'ontem', l: 'Ontem' }].map(({ k, l }) => (
+                <button key={k} type="button" onClick={() => setDia(k)}
+                  className="px-3 py-2.5 rounded-2xl text-sm border transition-colors"
+                  style={dia === k
+                    ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
+                    : { borderColor: '#EDE7DD', color: '#7D766A' }}>
+                  {l}
+                </button>
+              ))}
           </div>
         </div>
       </div>
