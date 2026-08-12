@@ -4871,9 +4871,9 @@ function EditEntryForm({ entry, onSave, onCancel }) {
           <label className="block text-xs font-medium text-[#7D766A] mb-1.5">Dia</label>
           <div className="flex gap-2">
               {[{ k: 'hoje', l: 'Hoje' }, { k: 'ontem', l: 'Ontem' }].map(({ k, l }) => (
-                <button key={k} type="button" onClick={() => setDia(k)}
-                  className="px-3 py-2.5 rounded-2xl text-sm border transition-colors"
-                  style={dia === k
+                <button key={k} type="button" onClick={() => setDay(k)}
+                  className="flex-1 px-3 py-2.5 rounded-2xl text-sm border transition-colors"
+                  style={day === k
                     ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
                     : { borderColor: '#EDE7DD', color: '#7D766A' }}>
                   {l}
