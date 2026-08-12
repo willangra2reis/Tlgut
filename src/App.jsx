@@ -61,6 +61,10 @@ import {
   NIVEIS_ALIVIO, ACOES_ALIVIO, labelNivel, obterIntervencoes,
   dorAliviada, duracaoDorMin, formatarDuracao,
 } from './lib/dorAlivio.js';
+import {
+  ACOES_DIGESTAO, DIA_SINTOMAS, obterDigestoes,
+  digestaoAliviada, duracaoDigestaoMin,
+} from './lib/digestao.js';
 
 const ENTRY_TYPES = {
   exercise:   { label: 'Exercício',  icon: Activity, color: '#5E8A4E', soft: '#E4EEDF' },
@@ -71,7 +75,7 @@ const ENTRY_TYPES = {
   weight:     { label: 'Peso',       icon: Scale,    color: '#7C6F5A', soft: '#EFE9DE' },
   sleep:      { label: 'Sono',       icon: Moon,     color: '#5D5FA0', soft: '#E6E5F4' },
   gas:        { label: 'Gases',      icon: Wind,     color: '#7C8CA6', soft: '#E6EAF1' },
-  digestion:  { label: 'Digestão',   icon: CookingPot, color: '#9B8C2E', soft: '#F0EDD6' },
+  digestion:  { label: 'Digestão',   icon: CookingPot, color: '#9B8C2E', soft: '#F0EDD6', hidden: true },
   evacuation: { label: 'Evacuação',  icon: Leaf,     color: '#8A6D3B', soft: '#EFE7D6' },
   pain:       { label: 'Dor',        icon: Flame,    color: '#BD5A4A', soft: '#F5E1DD' },
   water:      { label: 'Água',       icon: Droplet,  color: '#3E8E96', soft: '#DEEFEF' },
@@ -3716,6 +3720,387 @@ function DorIntervencaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, 
   );
 }
 
+// ─── Sheet: registro de digestão de uma refeição ─────────────────────────────
+// Sub-registro da Refeição (espelha o fluxo de alívio da dor): o usuário
+// registra como se sentiu após comer (sintomas gástricos), o que fez para
+// melhorar, quando e quanto aliviou. Resultado anexado em meta.digestoes.
+function DigestaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, onCancel, onDelete }) {
+  const color = ENTRY_TYPES.digestion.color;
+  const editando = index != null ? obterDigestoes(entry)[index] : null;
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const camposTs = (ts) => {
+    const agora = new Date();
+    const d = new Date(ts);
+    const ontem = new Date(agora.getTime() - 86400000);
+    const diaK = d.toDateString() === agora.toDateString() ? 'hoje'
+      : d.toDateString() === ontem.toDateString() ? 'ontem'
+      : 'hoje';
+    return { dia: diaK, hora: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`, agora: Math.abs(ts - Date.now()) < 120000 };
+  };
+  const [sintomas, setSintomas] = useState(() => new Set(editando && Array.isArray(editando.sintomas) ? editando.sintomas : []));
+  const [acao, setAcao] = useState(() => editando && ACOES_DIGESTAO.includes(editando.acao) ? editando.acao : '');
+  const [outro, setOutro] = useState(() => editando && !ACOES_DIGESTAO.includes(editando.acao) ? editando.acao : '');
+  const [agora, setAgora] = useState(() => {
+    const initTs = editando?.ts != null ? camposTs(editando.ts) : null;
+    return initTs ? initTs.agora : true;
+  });
+  const [dia, setDia] = useState(() => {
+    const initTs = editando?.ts != null ? camposTs(editando.ts) : null;
+    return initTs ? initTs.dia : 'hoje';
+  });
+  const [hora, setHora] = useState(() => {
+    const initTs = editando?.ts != null ? camposTs(editando.ts) : null;
+    if (initTs && !initTs.agora) return initTs.hora;
+    const d = new Date();
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  });
+  const [nivel, setNivel] = useState(() => editando?.nivel || null);
+  const [nota, setNota] = useState(() => editando?.nota || '');
+  const todasAcoes = [...new Set([...ACOES_DIGESTAO, ...(acoesCustom || [])])];
+
+  // ── Microfone (push-to-talk, mesmo padrão do DorIntervencaoSheet) ─────
+  const [recState, setRecState] = useState('idle');
+  const [recError, setRecError] = useState('');
+  const [timeLeft, setTimeLeft] = useState(30);
+  const MAX_REC_SECONDS = 30;
+  const mediaRecRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
+  const timerRef = useRef(null);
+  const shouldRecordRef = useRef(false);
+
+  const WebSpeech = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
+
+  useEffect(() => () => {
+    clearInterval(timerRef.current);
+    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    clearInterval(timerRef.current);
+    timerRef.current = null;
+    setTimeLeft(MAX_REC_SECONDS);
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+      mediaRecRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const transcribeBlob = useCallback(async (blob) => {
+    setRecState('transcribing');
+    setRecError('');
+    try {
+      const res = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type || 'audio/webm' },
+        body: blob,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const { text } = await res.json();
+      if (text) setNota((prev) => (prev ? `${prev} ${text}` : text));
+      setRecState('idle');
+    } catch (err) {
+      console.error('[DigestaoSheet] Whisper error:', err);
+      const msg = err.message || '';
+      setRecError(/fetch|NetworkError|Failed to fetch|HTTP 5/.test(msg)
+        ? 'Sem conexão com o servidor. Escreva manualmente por gentileza.'
+        : 'Não foi possível transcrever. Tente digitar manualmente.');
+      setRecState('error');
+    }
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    setRecError('');
+    chunksRef.current = [];
+    setTimeLeft(MAX_REC_SECONDS);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!shouldRecordRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecState('idle');
+        return;
+      }
+      streamRef.current = stream;
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+        .find((m) => MediaRecorder.isTypeSupported(m)) || '';
+      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecRef.current = rec;
+      rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      rec.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
+        if (blob.size > 0) transcribeBlob(blob);
+        else setRecState('idle');
+      };
+      rec.start();
+      setRecState('recording');
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) { stopRecording(); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error('[DigestaoSheet] Microfone negado:', err);
+      setRecError('Permissão de microfone negada. Verifique as configurações do navegador.');
+      setRecState('error');
+    }
+  }, [transcribeBlob, stopRecording]);
+
+  const webSpeechRef = useRef(null);
+  const toggleWebSpeech = useCallback(() => {
+    if (!WebSpeech) return;
+    if (recState === 'recording') { webSpeechRef.current?.stop(); return; }
+    setRecError('');
+    try {
+      const r = new WebSpeech();
+      r.lang = 'pt-BR';
+      r.interimResults = false;
+      r.continuous = false;
+      r.onresult = (e) => {
+        const t = Array.from(e.results).map((x) => x[0].transcript).join(' ');
+        setNota((prev) => (prev ? `${prev} ${t}` : t));
+      };
+      r.onend = () => setRecState('idle');
+      r.onerror = () => { setRecState('error'); setRecError('Falha no reconhecimento de voz.'); };
+      webSpeechRef.current = r;
+      r.start();
+      setRecState('recording');
+    } catch { setRecState('error'); setRecError('Reconhecimento de voz não suportado.'); }
+  }, [recState, WebSpeech]);
+
+  const hasMicApi = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
+  const micSupported = hasMicApi || !!WebSpeech;
+
+  const handleMicDown = useCallback((e) => {
+    if (recState !== 'idle' || !hasMicApi) return;
+    e.preventDefault();
+    shouldRecordRef.current = true;
+    startRecording();
+  }, [recState, hasMicApi, startRecording]);
+
+  const handleMicUp = useCallback((e) => {
+    shouldRecordRef.current = false;
+    if (recState !== 'recording') return;
+    e.preventDefault();
+    stopRecording();
+  }, [recState, stopRecording]);
+
+  const handleMicClickFallback = useCallback(() => {
+    if (hasMicApi) return;
+    toggleWebSpeech();
+  }, [hasMicApi, toggleWebSpeech]);
+
+  // ── Validação ─────────────────────────────────────────────────────────
+  const [hStr, mStr] = hora.split(':');
+  const hNum = parseInt(hStr, 10);
+  const mNum = parseInt(mStr, 10);
+  const horaValida = !isNaN(hNum) && !isNaN(mNum) && hNum >= 0 && hNum <= 23 && mNum >= 0 && mNum <= 59 && hStr?.length === 2 && mStr?.length === 2;
+  const acaoFinal = acao || outro.trim();
+  const podeSalvar = sintomas.size > 0 && (agora || horaValida);
+
+  function confirmar() {
+    if (!podeSalvar) return;
+    const ts = agora ? Date.now() : tsParaDia(dia, hora);
+    onSave({
+      ts,
+      sintomas: [...sintomas],
+      acao: acaoFinal || undefined,
+      nota: nota.trim() || undefined,
+      nivel: nivel || undefined,
+    });
+  }
+
+  const entradaMin = hNum * 60 + mNum;
+  const agoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const horaFutura = !agora && dia === 'hoje' && horaValida && entradaMin > agoraMin;
+  const outroFinal = outro.trim();
+  const novoNaoIncluso = outroFinal && !todasAcoes.includes(outroFinal);
+
+  const toggleSintoma = (s) => setSintomas((prev) => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="titulo-cursivo font-sans text-xl text-[#2B2A28]">{editando ? 'Editar digestão' : 'Como foi sua digestão?'}</p>
+        <p className="text-sm text-[#7D766A] mt-1">Relacione o que sentiu após essa refeição — o app usa isso para descobrir quais alimentos causam desconforto e usa no Relatório IA.</p>
+      </div>
+
+      {/* Sintomas */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Como você se sentiu?</p>
+        <div className="flex flex-wrap gap-2">
+          {DIA_SINTOMAS.map((s) => (
+            <Chip key={s} active={sintomas.has(s)} color={color} onClick={() => toggleSintoma(s)}>{s}</Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Ações */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">O que você fez?</p>
+        <div className="flex flex-wrap gap-2">
+          {todasAcoes.map((a) => (
+            <Chip key={a} active={acao === a} color={color} onClick={() => setAcao(acao === a ? '' : a)}>{a}</Chip>
+          ))}
+          <Chip active={!acao && !!outroFinal} color={color} onClick={() => { setAcao(''); setOutro(''); }}>Outro…</Chip>
+        </div>
+        <input
+          type="text"
+          value={outro}
+          onChange={(e) => { setOutro(e.target.value); setAcao(''); }}
+          placeholder="Escreva o que fez (ex: água morna, bicarbonato…)…"
+          className="w-full mt-3 px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white" />
+        {novoNaoIncluso && (
+          <button type="button" onClick={() => onSalvarAcao(outroFinal)}
+            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+            style={{ background: 'rgba(74,138,92,0.12)', color: '#4A8A5C' }}>
+            <Plus size={13} /> Salvar "como opção" para próximas vezes
+          </button>
+        )}
+      </div>
+
+      {/* Hora */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Quando?</p>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setAgora(true)}
+            className="flex-1 px-3 py-2.5 rounded-2xl text-sm border transition-colors"
+            style={agora
+              ? { background: color, borderColor: color, color: '#fff' }
+              : { borderColor: '#EDE7DD', color: '#7D766A' }}>
+            Agora
+          </button>
+          <button type="button" onClick={() => setAgora(false)}
+            className="flex-1 px-3 py-2.5 rounded-2xl text-sm border transition-colors"
+            style={!agora
+              ? { background: color, borderColor: color, color: '#fff' }
+              : { borderColor: '#EDE7DD', color: '#7D766A' }}>
+            Outro horário
+          </button>
+        </div>
+        {!agora && (
+          <div className="flex gap-2 mt-2">
+            <div className="flex gap-1.5">
+              {[{ k: 'hoje', l: 'Hoje' }, { k: 'ontem', l: 'Ontem' }].map(({ k, l }) => (
+                <button key={k} type="button" onClick={() => setDia(k)}
+                  className="px-3 py-2.5 rounded-2xl text-sm border transition-colors"
+                  style={dia === k
+                    ? { background: 'var(--brand)', borderColor: 'var(--brand)', color: '#fff' }
+                    : { borderColor: '#EDE7DD', color: '#7D766A' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            <input type="text" inputMode="numeric" placeholder="HH:MM" maxLength={5}
+              value={hora}
+              onChange={(e) => {
+                const input = e.target;
+                const cursor = input.selectionStart;
+                const val = input.value;
+                const deleting = e.nativeEvent?.inputType === 'deleteContentBackward';
+                const beforeDigits = val.slice(0, cursor).replace(/\D/g, '').length;
+                let digits = val.replace(/\D/g, '').slice(0, 4);
+                if (deleting && !val.includes(':') && digits.length > 0) {
+                  digits = digits.slice(0, -1);
+                }
+                const formatted = digits.length >= 2 ? digits.slice(0, 2) + ':' + digits.slice(2) : digits;
+                setHora(formatted);
+                requestAnimationFrame(() => {
+                  let pos = 0, count = 0;
+                  while (pos < formatted.length && count < beforeDigits) {
+                    if (formatted[pos] !== ':') count++;
+                    pos++;
+                  }
+                  if (input.setSelectionRange) input.setSelectionRange(pos, pos);
+                });
+              }}
+              className="flex-1 px-3 py-2.5 rounded-2xl border border-[#EDE7DD] text-sm text-[#2B2A28] bg-white tabular-nums" />
+          </div>
+        )}
+        {horaValida && horaFutura && <p className="text-xs text-red-500 mt-1">Hora no futuro — use "Agora" ou um horário já passado.</p>}
+      </div>
+
+      {/* Métrica de alívio */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Quanto aliviou?</p>
+        <div className="flex flex-wrap gap-2">
+          {NIVEIS_ALIVIO.map((n) => (
+            <Chip key={n.id} active={nivel === n.id} color={color} onClick={() => setNivel(nivel === n.id ? null : n.id)}>{n.label}</Chip>
+          ))}
+        </div>
+      </div>
+
+      {/* Nota livre com microfone */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F] mb-2">Observação (opcional)</p>
+        <div className="relative">
+          <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={3}
+            disabled={recState === 'transcribing' || recState === 'recording'}
+            placeholder="Ex: piorei com feijão, senti azia por 1h… (ou use o microfone)"
+            className="w-full rounded-xl border border-[#EDE7DD] p-3 pr-12 text-sm resize-none focus:outline-none disabled:opacity-60" />
+          {hasMicApi ? (
+            <button type="button" onPointerDown={handleMicDown} onPointerUp={handleMicUp}
+              disabled={recState === 'transcribing'}
+              aria-label="Pressione e segure para gravar"
+              title={recState === 'recording' ? 'Solte para enviar' : 'Pressione e segure para gravar'}
+              className={`absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40 active:scale-95 select-none ${recState === 'idle' ? 'animate-mic-pulse' : ''}`}
+              style={recState === 'recording' ? { background: '#E53935', color: '#fff' } : { background: 'var(--brand-soft)', color: 'var(--brand)' }}>
+              <Mic size={18} />
+            </button>
+          ) : (
+            <button type="button" onClick={handleMicClickFallback}
+              disabled={!micSupported || recState === 'transcribing'}
+              aria-label="Ditar observação por voz"
+              className="absolute right-2 bottom-2 w-9 h-9 rounded-full flex items-center justify-center transition-colors disabled:opacity-40"
+              style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}>
+              <Mic size={18} />
+            </button>
+          )}
+        </div>
+        {recState === 'recording' && (
+          <p className="text-[11px] text-[#7D766A] mt-1">Gravando… solte para enviar ({timeLeft}s).</p>
+        )}
+        {recState === 'transcribing' && (
+          <p className="text-[11px] text-[#9A7A00] mt-1">Transcrevendo…</p>
+        )}
+        {recState === 'error' && recError && (
+          <p className="text-[11px] text-[#BD5A4A] mt-1">{recError}</p>
+        )}
+      </div>
+
+      {recState !== 'recording' && (
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel}
+            className="px-4 py-3 rounded-2xl border text-sm font-medium shrink-0"
+            style={{ borderColor: '#E4DDD2', color: '#7D766A', background: '#FAF7F2' }}>
+            Cancelar
+          </button>
+          {editando && onDelete && (
+            <button type="button" onClick={onDelete} aria-label="Excluir registro de digestão"
+              className="px-4 py-3 rounded-2xl border text-sm font-medium shrink-0"
+              style={{ borderColor: '#EDD5D0', color: '#BD5A4A', background: '#FBF3F1' }}>
+              <Trash2 size={15} />
+            </button>
+          )}
+          <button type="button" onClick={confirmar} disabled={!podeSalvar}
+            className="flex-1 py-3 rounded-2xl text-white font-medium text-sm disabled:opacity-40 transition-opacity"
+            style={{ background: color }}>
+            {editando ? 'Salvar alterações' : 'Registrar digestão'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Form: Gases ──────────────────────────────────────────────────────────────
 function GasForm({ onSave }) {
   const [intensidade, setIntensidade] = useState(null);
@@ -3749,11 +4134,6 @@ function GasForm({ onSave }) {
 // ─── Form: Digestão (RF novo) — sintomas gástricos ───────────────────────────
 // Registra sensações relacionadas ao estômago/digestão (estômago cheio, azia,
 // queimação, enjoo, etc.) via chips + intensidade opcional. Texto factual.
-const DIA_SINTOMAS = [
-  'Estômago cheio', 'Empachamento', 'Azia', 'Queimação', 'Enjoo/Náusea',
-  'Refluxo', 'Arrotos', 'Peso no estômago', 'Digestão lenta', 'Estufamento',
-  'Cólica gástrica', 'Apetite reduzido',
-];
 const DIA_INTENSIDADES = ['1', '2', '3', '4', '5'];
 
 function DigestaoForm({ onSave }) {
@@ -4112,7 +4492,7 @@ function SilhouetteZoom({ entry, onClose }) {
   );
 }
 
-function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus, onRegistrarIntervencao, onEditarIntervencao }) {
+function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus, onRegistrarIntervencao, onEditarIntervencao, onRegistrarDigestao, onEditarDigestao }) {
   const meta = ENTRY_TYPES[entry.type];
   const Icon = meta.icon;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -4242,6 +4622,68 @@ function EntryCard({ entry, onDelete, onZoom, onEdit, onToggleStatus, onRegistra
                   <span className="font-bold">Dor ativa</span>
                   <span className="font-normal opacity-80">toque para alterar</span>
                 </span>
+              </span>
+            )}
+          </button>
+        )}
+
+        {entry.type === 'meal' && obterDigestoes(entry).length > 0 && (
+          <div className="mt-2 rounded-xl border border-[#EDE7DD] px-2 py-1.5">
+            <div>
+              {obterDigestoes(entry).map((it, idx) => (
+                <div key={idx}>
+                  {idx > 0 && <div className="h-px bg-[#F1ECE3] mx-1" />}
+                  <button type="button"
+                    onClick={() => onEditarDigestao && onEditarDigestao(entry, idx)}
+                    aria-label={`Ver ou editar: ${(it.sintomas || []).join(', ') || it.acao}`}
+                    className="w-full text-left flex items-center gap-2 py-2 px-1 rounded-lg hover:bg-[#F7F3EC] active:bg-[#F1ECE3] transition-colors">
+                    <span className="text-[10px] tabular-nums text-[#B6AE9F] w-7 shrink-0">
+                      {it.ts ? new Date(it.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ background: it.nivel === 'total' ? '#4A8A5C' : it.nivel === 'piorou' || it.nivel === 'piorouMuito' ? '#C1503E' : it.nivel ? '#C9763A' : '#B6AE9F' }} />
+                    <span className="entry-text text-xs text-[#4A443F] min-w-0" style={{ lineHeight: 1.35 }}>
+                      <span className="line-clamp-2">
+                        {(it.sintomas || []).join(' · ')}
+                        {it.acao ? <span className="text-[#7D766A]"> — {it.acao}</span> : null}
+                      </span>
+                      {it.nivel && <span className="text-[#7D766A]"> {labelNivel(it.nivel)}</span>}
+                    </span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {entry.type === 'meal' && (
+          <button type="button"
+            onClick={() => onRegistrarDigestao && onRegistrarDigestao(entry)}
+            className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors"
+            style={
+              !digestaoAliviada(entry) && obterDigestoes(entry).length > 0
+                ? { background: 'rgba(189,90,74,0.10)', color: '#BD5A4A' }
+                : digestaoAliviada(entry)
+                  ? { background: 'rgba(74,138,92,0.12)', color: '#4A8A5C' }
+                  : { background: 'rgba(155,140,46,0.10)', color: '#9B8C2E' }
+            }>
+            {digestaoAliviada(entry) ? (
+              <>
+                <CheckCircle2 size={11} /> Aliviou
+                {duracaoDigestaoMin(entry) !== null && <> após {formatarDuracao(duracaoDigestaoMin(entry))}</>}
+              </>
+            ) : obterDigestoes(entry).length > 0 ? (
+              <span className="flex items-center gap-1.5">
+                <CookingPot size={11} className="shrink-0" />
+                <span className="flex flex-col items-start leading-tight">
+                  <span className="font-bold">Digestão ativa</span>
+                  <span className="font-normal opacity-80">toque para alterar</span>
+                </span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <Plus size={11} className="shrink-0" />
+                Registrar digestão
               </span>
             )}
           </button>
@@ -4510,9 +4952,14 @@ export default function App() {
   const [calAberto,  setCalAberto]  = useState(false);                                   // calendário dos Insights (elevado de InsightsScreen)
   const [menuInsights, setMenuInsights] = useState(null);                               // menu de opções ('periodo' | 'media' | null) dos Insights
   const [dorIntervencao, setDorIntervencao] = useState(null);                           // registro de dor sendo estendido com intervenção/alívio
+  const [digestaoRegistro, setDigestaoRegistro] = useState(null);                        // refeição sendo estendida com registro de digestão
   const [acoesAlivioCustom, setAcoesAlivioCustom] = useState(() => {
     const p = loadProfile();
     return Array.isArray(p?.acoes_alivio_custom) ? p.acoes_alivio_custom : [];
+  });
+  const [acoesDigestaoCustom, setAcoesDigestaoCustom] = useState(() => {
+    const p = loadProfile();
+    return Array.isArray(p?.acoes_digestao_custom) ? p.acoes_digestao_custom : [];
   });
   const [onboarded,  setOnboarded]  = useState(() => isOnboarded());
   const [profile,    setProfile]    = useState(() => loadProfile());
@@ -4570,20 +5017,24 @@ export default function App() {
           if (maxId > 0) idRef.current = maxId;
         }
         if (pulled.profile) {
-          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros', 'historico_familiar', 'acoes_alivio_custom'].some((k) => {
+          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros', 'historico_familiar', 'acoes_alivio_custom', 'acoes_digestao_custom'].some((k) => {
             const v = pulled.profile[k];
             return v != null && v !== '' && !(Array.isArray(v) && v.length === 0);
           });
           if (filled) {
-            // Mescla as ações personalizadas de alívio para não perder as locais
-            // que ainda não foram sincronizadas (ex.: adicionadas em outro momento).
-            const locais = Array.isArray(acoesAlivioCustom) ? acoesAlivioCustom : [];
-            const remotas = Array.isArray(pulled.profile?.acoes_alivio_custom) ? pulled.profile.acoes_alivio_custom : [];
-            const merged = [...new Set([...remotas, ...locais])];
-            const perfilFinal = { ...pulled.profile, acoes_alivio_custom: merged };
+            // Mescla as ações personalizadas de alívio e digestão para não perder
+            // as locais que ainda não foram sincronizadas (ex.: adicionadas aqui).
+            const locaisAlivio = Array.isArray(acoesAlivioCustom) ? acoesAlivioCustom : [];
+            const remotasAlivio = Array.isArray(pulled.profile?.acoes_alivio_custom) ? pulled.profile.acoes_alivio_custom : [];
+            const mergedAlivio = [...new Set([...remotasAlivio, ...locaisAlivio])];
+            const locaisDigestao = Array.isArray(acoesDigestaoCustom) ? acoesDigestaoCustom : [];
+            const remotasDigestao = Array.isArray(pulled.profile?.acoes_digestao_custom) ? pulled.profile.acoes_digestao_custom : [];
+            const mergedDigestao = [...new Set([...remotasDigestao, ...locaisDigestao])];
+            const perfilFinal = { ...pulled.profile, acoes_alivio_custom: mergedAlivio, acoes_digestao_custom: mergedDigestao };
             saveProfile(perfilFinal);
             setProfile(perfilFinal);
-            setAcoesAlivioCustom(merged);
+            setAcoesAlivioCustom(mergedAlivio);
+            setAcoesDigestaoCustom(mergedDigestao);
             if (uid) marcarOnboarded(uid);
             setOnboarded(true);
           } else if (uid) {
@@ -4867,10 +5318,11 @@ export default function App() {
       if (calAberto)        { setCalAberto(false); return true; }
       if (menuInsights)     { setMenuInsights(null); return true; }
       if (dorIntervencao)   { setDorIntervencao(null); return true; }
+      if (digestaoRegistro) { setDigestaoRegistro(null); return true; }
       if (abaAtiva !== 'diario') { mudarAba('diario'); return true; }
       return false;
     };
-  }, [pending, activeForm, sheetOpen, editing, zoom, aulaSelecionada, calAberto, menuInsights, dorIntervencao, abaAtiva, mudarAba]);
+  }, [pending, activeForm, sheetOpen, editing, zoom, aulaSelecionada, calAberto, menuInsights, dorIntervencao, digestaoRegistro, abaAtiva, mudarAba]);
 
   const lastDepthRef = useRef(0);
   const isPopStateRef = useRef(false);
@@ -4880,6 +5332,7 @@ export default function App() {
                 (calAberto ? 1 : 0) +
                 (menuInsights ? 1 : 0) +
                 (dorIntervencao ? 1 : 0) +
+                (digestaoRegistro ? 1 : 0) +
                 (aulaSelecionada ? 1 : 0) +
                 (zoom ? 1 : 0) +
                 (editing ? 1 : 0) +
@@ -5017,6 +5470,40 @@ export default function App() {
     const proxima = [...acoesAlivioCustom, texto];
     setAcoesAlivioCustom(proxima);
     const p = { ...(loadProfile() || {}), acoes_alivio_custom: proxima };
+    saveProfile(p);
+    setProfile(p);
+    if (session) syncProfileUpsert(p).catch(() => {});
+  }
+
+  // Anexa/atualiza um registro de digestão na refeição (meta.digestoes).
+  function handleRegistrarDigestao(entry, index, registro) {
+    const atuais = obterDigestoes(entry);
+    const novos = index == null ? [...atuais, registro] : atuais.map((it, i) => (i === index ? registro : it));
+    const meta = { ...(entry.meta || {}), digestoes: novos };
+    const updated = { ...entry, meta };
+    setEntries((prev) => prev.map((e) => (e.id !== entry.id ? e : updated)));
+    setDigestaoRegistro(null);
+    if (session) syncEntryUpdate(updated).catch(() => {});
+  }
+
+  // Remove o registro de digestão `index` da refeição.
+  function handleDeleteDigestao(entry, index) {
+    const novos = obterDigestoes(entry).filter((_, i) => i !== index);
+    const meta = { ...(entry.meta || {}), digestoes: novos };
+    const updated = { ...entry, meta };
+    setEntries((prev) => prev.map((e) => (e.id !== entry.id ? e : updated)));
+    setDigestaoRegistro(null);
+    if (session) syncEntryUpdate(updated).catch(() => {});
+  }
+
+  // Memoria ações personalizadas de digestão no perfil (mesmo padrão da dor).
+  function salvarAcaoDigestao(acaoFinal) {
+    const texto = String(acaoFinal || '').trim();
+    if (!texto) return;
+    if (ACOES_DIGESTAO.includes(texto) || acoesDigestaoCustom.includes(texto)) return;
+    const proxima = [...acoesDigestaoCustom, texto];
+    setAcoesDigestaoCustom(proxima);
+    const p = { ...(loadProfile() || {}), acoes_digestao_custom: proxima };
     saveProfile(p);
     setProfile(p);
     if (session) syncProfileUpsert(p).catch(() => {});
@@ -5190,7 +5677,7 @@ export default function App() {
                                   {entry.time}
                                 </span>
                               </div>
-                              <EntryCard entry={entry} onDelete={handleDelete} onZoom={setZoom} onEdit={setEditing} onToggleStatus={handleToggleStatus} onRegistrarIntervencao={(e) => setDorIntervencao({ entry: e, index: null })} onEditarIntervencao={(e, idx) => setDorIntervencao({ entry: e, index: idx })} />
+                              <EntryCard entry={entry} onDelete={handleDelete} onZoom={setZoom} onEdit={setEditing} onToggleStatus={handleToggleStatus} onRegistrarIntervencao={(e) => setDorIntervencao({ entry: e, index: null })} onEditarIntervencao={(e, idx) => setDorIntervencao({ entry: e, index: idx })} onRegistrarDigestao={(e) => setDigestaoRegistro({ entry: e, index: null })} onEditarDigestao={(e, idx) => setDigestaoRegistro({ entry: e, index: idx })} />
                             </div>
                           );
                         })}
@@ -5327,6 +5814,28 @@ export default function App() {
           </div>
         </div>
 
+        {/* Sheet: registro de digestão de uma refeição */}
+        <div className={`absolute inset-0 transition-opacity duration-300 z-40 ${digestaoRegistro ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <div className="absolute inset-0 bg-black/30" onClick={() => setDigestaoRegistro(null)} />
+          <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl flex flex-col max-h-[92%] transition-transform duration-300 ${digestaoRegistro ? 'translate-y-0' : 'translate-y-full'}`}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-[#F1ECE3] shrink-0">
+              <span className="w-5" />
+              <p className="titulo-cursivo font-sans text-base text-[#2B2A28]">{digestaoRegistro?.index != null ? 'Editar digestão' : 'Registrar digestão'}</p>
+              <button onClick={() => setDigestaoRegistro(null)} className="text-[#B6AE9F]" aria-label="Fechar"><X size={20} /></button>
+            </div>
+            <div className="px-5 py-4 overflow-y-auto flex-1">
+              {digestaoRegistro && (
+                <DigestaoSheet entry={digestaoRegistro.entry} index={digestaoRegistro.index}
+                  acoesCustom={acoesDigestaoCustom}
+                  onSalvarAcao={salvarAcaoDigestao}
+                  onSave={(i) => handleRegistrarDigestao(digestaoRegistro.entry, digestaoRegistro.index, i)}
+                  onDelete={digestaoRegistro.index != null ? () => handleDeleteDigestao(digestaoRegistro.entry, digestaoRegistro.index) : undefined}
+                  onCancel={() => setDigestaoRegistro(null)} />
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Sheet: type picker */}
         <div className={`absolute inset-0 transition-opacity duration-300 z-20 ${sheetOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
           <div className="absolute inset-0 bg-black/30" onClick={() => setSheetOpen(false)} />
@@ -5334,7 +5843,7 @@ export default function App() {
             <div className="w-10 h-1.5 bg-[#EDE7DD] rounded-full mx-auto mb-4" />
             <p className="titulo-cursivo text-center font-sans text-lg text-[#2B2A28] mb-4">O que você quer registrar?</p>
             <div className="grid grid-cols-3 gap-3">
-              {Object.entries(ENTRY_TYPES).map(([key, meta]) => {
+              {Object.entries(ENTRY_TYPES).filter(([, m]) => !m.hidden).map(([key, meta]) => {
                 const Icon = meta.icon;
                 return (
                   <button key={key}

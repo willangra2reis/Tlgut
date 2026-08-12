@@ -132,10 +132,11 @@ describe('Fonte cursiva e Evacuação (RF 4 e 5)', () => {
     expect(screen.getByRole('button', { name: 'Evacuação' })).toBeInTheDocument();
   });
 
-  it('o seletor de tipos inclui "Digestão"', () => {
+  it('o seletor de tipos não inclui mais "Digestão" avulso (virou sub-registro da Refeição)', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar registro' }));
-    expect(screen.getByRole('button', { name: 'Digestão' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Digestão' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refeição' })).toBeInTheDocument();
   });
 });
 

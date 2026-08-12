@@ -448,6 +448,21 @@ function formatMeta(e) {
       .filter(Boolean);
     if (linhas.length) partes.push(`alívio/evolução: ${linhas.join(' · ')}`);
   }
+  if (Array.isArray(m.digestoes) && m.digestoes.length > 0) {
+    const linhas = m.digestoes
+      .filter((i) => i && typeof i === 'object')
+      .map((i) => {
+        const hora = i.ts ? new Date(i.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+        const sintomas = Array.isArray(i.sintomas) && i.sintomas.length ? i.sintomas.join(', ') : '';
+        const nivel = i.nivel ? ` (${NIVEL_ALIVIO_LABEL[i.nivel] || i.nivel})` : '';
+        return `${hora} ${sintomas}${i.acao ? ` — ${i.acao}` : ''}${nivel}${i.nota ? `: ${i.nota}` : ''}`.trim();
+      })
+      .filter(Boolean);
+    if (linhas.length) partes.push(`digestão/evolução: ${linhas.join(' · ')}`);
+  }
+  if (Array.isArray(m.tags) && m.tags.length > 0) {
+    partes.push(`alimentos: ${m.tags.join(', ')}`);
+  }
 
   return partes.length > 0 ? ` (${partes.join(' · ')})` : '';
 }
