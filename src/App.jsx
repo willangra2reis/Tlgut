@@ -3376,7 +3376,10 @@ function DorIntervencaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, 
     return { dia: diaK, hora: `${pad2(d.getHours())}:${pad2(d.getMinutes())}`, agora: Math.abs(ts - Date.now()) < 120000 };
   };
   const [acao, setAcao] = useState(() => editando && ACOES_ALIVIO.includes(editando.acao) ? editando.acao : '');
-  const [outro, setOutro] = useState(() => editando && !ACOES_ALIVIO.includes(editando.acao) ? editando.acao : '');
+  const [outro, setOutro] = useState(() => {
+    const acaoEd = editando?.acao;
+    return acaoEd && !ACOES_ALIVIO.includes(acaoEd) ? acaoEd : '';
+  });
   const [agora, setAgora] = useState(() => {
     const initTs = editando?.ts != null ? camposTs(editando.ts) : null;
     return initTs ? initTs.agora : true;
@@ -3739,7 +3742,10 @@ function DigestaoSheet({ entry, index, acoesCustom, onSalvarAcao, onSave, onCanc
   };
   const [sintomas, setSintomas] = useState(() => new Set(editando && Array.isArray(editando.sintomas) ? editando.sintomas : []));
   const [acao, setAcao] = useState(() => editando && ACOES_DIGESTAO.includes(editando.acao) ? editando.acao : '');
-  const [outro, setOutro] = useState(() => editando && !ACOES_DIGESTAO.includes(editando.acao) ? editando.acao : '');
+  const [outro, setOutro] = useState(() => {
+    const acaoEd = editando?.acao;
+    return acaoEd && !ACOES_DIGESTAO.includes(acaoEd) ? acaoEd : '';
+  });
   const [agora, setAgora] = useState(() => {
     const initTs = editando?.ts != null ? camposTs(editando.ts) : null;
     return initTs ? initTs.agora : true;
