@@ -156,6 +156,9 @@ export async function syncProfileUpsert(p) {
       historico_familiar: Array.isArray(p?.historico_familiar) ? p.historico_familiar : [],
       acoes_alivio_custom: Array.isArray(p?.acoes_alivio_custom) ? p.acoes_alivio_custom : [],
       acoes_digestao_custom: Array.isArray(p?.acoes_digestao_custom) ? p.acoes_digestao_custom : [],
+      alimentos_custom: Array.isArray(p?.alimentos_custom) ? p.alimentos_custom : [],
+      medicamentos_custom: Array.isArray(p?.medicamentos_custom) ? p.medicamentos_custom : [],
+      especialidades_custom: Array.isArray(p?.especialidades_custom) ? p.especialidades_custom : [],
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'id' }
@@ -168,7 +171,7 @@ export async function syncProfilePull() {
   if (!uid) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('nome, idade, peso, altura, condicoes, outros, historico_familiar, acoes_alivio_custom, acoes_digestao_custom')
+    .select('nome, idade, peso, altura, condicoes, outros, historico_familiar, acoes_alivio_custom, acoes_digestao_custom, alimentos_custom, medicamentos_custom, especialidades_custom')
     .eq('id', uid)
     .maybeSingle();
   if (error) throw error;

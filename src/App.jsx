@@ -4976,9 +4976,18 @@ export default function App() {
   const [abaAtiva,   setAbaAtiva]   = useState('diario');                             // RF 3.2 (padrão Diário)
   const [calibrando, setCalibrando] = useState(false);                                // ferramenta dev (temporária)
   const [pending,    setPending]    = useState(null);                                 // etapa de observação antes de salvar
-  const [customFoods, setCustomFoods] = useState([]);                                 // tags de alimentos personalizadas (sessão)
-  const [customMeds, setCustomMeds]   = useState([]);                                 // tags de medicamentos personalizadas (sessão)
-  const [customSpecialties, setCustomSpecialties] = useState([]);                     // especialidades customizadas
+  const [customFoods, setCustomFoods] = useState(() => {
+    const p = loadProfile();
+    return Array.isArray(p?.alimentos_custom) ? p.alimentos_custom : [];
+  });
+  const [customMeds, setCustomMeds]   = useState(() => {
+    const p = loadProfile();
+    return Array.isArray(p?.medicamentos_custom) ? p.medicamentos_custom : [];
+  });
+  const [customSpecialties, setCustomSpecialties] = useState(() => {
+    const p = loadProfile();
+    return Array.isArray(p?.especialidades_custom) ? p.especialidades_custom : [];
+  });
   const [inkLevel,   setInkLevel]   = useState(55);                                   // intensidade (brilho) da cor do texto
   const [fontScale,  setFontScale]  = useState(100);                                  // tamanho do texto dos registros (%)
   const [zoom,       setZoom]       = useState(null);                                   // entrada com silhueta ampliada
@@ -5546,6 +5555,44 @@ export default function App() {
     if (session) syncProfileUpsert(p).catch(() => {});
   }
 
+  // Memoria tags personalizadas no perfil (alimentos, medicamentos, especialidades)
+  // — mesmo padrão das ações de alívio/digestão: local + Supabase.
+  function salvarAlimentoCustom(texto) {
+    const t = String(texto || '').trim();
+    if (!t) return;
+    if (FOOD_TAGS.includes(t) || customFoods.includes(t)) return;
+    const proxima = [...customFoods, t];
+    setCustomFoods(proxima);
+    const p = { ...(loadProfile() || {}), alimentos_custom: proxima };
+    saveProfile(p);
+    setProfile(p);
+    if (session) syncProfileUpsert(p).catch(() => {});
+  }
+
+  function salvarMedicamentoCustom(texto) {
+    const t = String(texto || '').trim();
+    if (!t) return;
+    if (MED_TAGS.includes(t) || customMeds.includes(t)) return;
+    const proxima = [...customMeds, t];
+    setCustomMeds(proxima);
+    const p = { ...(loadProfile() || {}), medicamentos_custom: proxima };
+    saveProfile(p);
+    setProfile(p);
+    if (session) syncProfileUpsert(p).catch(() => {});
+  }
+
+  function salvarEspecialidadeCustom(texto) {
+    const t = String(texto || '').trim();
+    if (!t) return;
+    if (SPECIALTY_TAGS.includes(t) || customSpecialties.includes(t)) return;
+    const proxima = [...customSpecialties, t];
+    setCustomSpecialties(proxima);
+    const p = { ...(loadProfile() || {}), especialidades_custom: proxima };
+    saveProfile(p);
+    setProfile(p);
+    if (session) syncProfileUpsert(p).catch(() => {});
+  }
+
   // Edição genérica (RF 2.6): atualiza apenas time/day/title/description/meta.note,
   // preservando os demais campos de meta (bristol, intensity, clouds, tags, inicioTs…).
   function concluirOnboarding(p) {
@@ -5922,7 +5969,7 @@ export default function App() {
                 )
               ) : (
                 <>
-                  {activeForm === 'meal'     && <MealForm     onSave={(d) => requestSave('meal', d)} customFoods={customFoods} onAddCustom={(t) => setCustomFoods((c) => [...c, t])} />}
+                  {activeForm === 'meal'     && <MealForm     onSave={(d) => requestSave('meal', d)} customFoods={customFoods} onAddCustom={salvarAlimentoCustom} />}
                   {activeForm === 'water'    && <WaterForm    onSave={(d) => requestSave('water',    d)} />}
                   {activeForm === 'sleep'    && <SleepForm    onSave={(d) => requestSave('sleep',    d)} />}
                   {activeForm === 'pain'     && <PainForm     onSave={(d) => requestSave('pain',     d)} />}
@@ -5931,13 +5978,13 @@ export default function App() {
                   {activeForm === 'evacuation' && <EvacuationForm onSave={(d) => requestSave('evacuation', d)} />}
                   {activeForm === 'gas' && <GasForm onSave={(d) => requestSave('gas', d)} />}
                   {activeForm === 'digestion' && <DigestaoForm onSave={(d) => requestSave('digestion', d)} />}
-                  {activeForm === 'medication' && <MedicationForm onSave={(d) => requestSave('medication', d)} customMeds={customMeds} onAddCustom={(t) => setCustomMeds((c) => [...c, t])} />}
+                  {activeForm === 'medication' && <MedicationForm onSave={(d) => requestSave('medication', d)} customMeds={customMeds} onAddCustom={salvarMedicamentoCustom} />}
                   {activeForm === 'cycle' && <CycleForm onSave={(d) => requestSave('cycle', d)} />}
                   {activeForm === 'weight' && <WeightForm onSave={(d) => requestSave('weight', d)} />}
                   {activeForm === 'medicalvisit' && <MedicalVisitForm
                     onSave={(d) => requestSave('medicalvisit', d)}
                     customSpecialties={customSpecialties}
-                    onAddCustom={(t) => setCustomSpecialties((c) => [...c, t])}
+                    onAddCustom={salvarEspecialidadeCustom}
                   />}
                   {activeForm === 'duvida' && <DuvidaForm onSave={(d) => requestSave('duvida', d)} />}
                 </>
