@@ -1083,6 +1083,7 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
   ].filter(Boolean).join(' - ');
   const [showAparencia, setShowAparencia] = useState(false);
   const [showDados, setShowDados] = useState(false);
+  const [showSuporte, setShowSuporte] = useState(false);
   return (
     <main className="relative z-10 flex-1 overflow-y-auto px-5 pt-3 pb-28">
       <p className="titulo-cursivo text-2xl font-sans mb-4" style={{ color: 'var(--amb-text)' }}>Perfil</p>
@@ -1222,27 +1223,45 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
                 <span className="block text-[11px] text-[#8A3B2E]/70">Apaga registros, relatórios e a conta</span>
               </span>
             </button>
+
+            <button type="button" disabled
+              className="w-full flex items-center gap-3 rounded-xl border border-[#EDE7DD] px-3 py-2.5 opacity-60 cursor-not-allowed">
+              <BookOpen size={16} style={{ color: 'var(--brand)' }} />
+              <span className="text-left min-w-0">
+                <span className="block text-sm font-medium text-[#2B2A28]">Política de Privacidade</span>
+                <span className="block text-[11px] text-[#7D766A]">Em breve — como tratamos e protegemos seus dados</span>
+              </span>
+            </button>
           </div>
         )}
       </div>
 
-      {/* Suporte e contato */}
+      {/* Suporte e contato (retrátil) */}
       <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
-        <div className="flex items-center gap-2 mb-1">
-          <Mail size={15} style={{ color: 'var(--brand)' }} />
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Suporte e contato</p>
-        </div>
-        <p className="text-xs text-[#7D766A] mb-3">Dúvidas, sugestões ou problemas com o app? Fale com a gente.</p>
-        <a href="mailto:contact@tinobem.app"
-          className="w-full flex items-center gap-3 rounded-xl border border-[#EDE7DD] px-3 py-2.5 transition-colors hover:bg-[#F7F4EC]">
-          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(31,42,40,0.08)' }}>
-            <Mail size={17} style={{ color: 'var(--brand)' }} />
-          </span>
-          <span className="text-left min-w-0">
-            <span className="block text-sm font-medium text-[#2B2A28]">Enviar e-mail</span>
-            <span className="block text-[11px] text-[#7D766A]">contact@tinobem.app</span>
-          </span>
-        </a>
+        <button type="button" onClick={() => setShowSuporte(!showSuporte)}
+          className="w-full flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Mail size={15} style={{ color: 'var(--brand)' }} />
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Suporte e contato</p>
+          </div>
+          <ChevronDown size={16} className={`transition-transform duration-200 ${showSuporte ? 'rotate-180' : ''}`}
+            style={{ color: '#B6AE9F' }} />
+        </button>
+        {showSuporte && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-[#7D766A]">Dúvidas, sugestões ou problemas com o app? Fale com a gente.</p>
+            <a href="mailto:contact@tinobem.app"
+              className="w-full flex items-center gap-3 rounded-xl border border-[#EDE7DD] px-3 py-2.5 transition-colors hover:bg-[#F7F4EC]">
+              <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(31,42,40,0.08)' }}>
+                <Mail size={17} style={{ color: 'var(--brand)' }} />
+              </span>
+              <span className="text-left min-w-0">
+                <span className="block text-sm font-medium text-[#2B2A28]">Enviar e-mail</span>
+                <span className="block text-[11px] text-[#7D766A]">contact@tinobem.app</span>
+              </span>
+            </a>
+          </div>
+        )}
       </div>
 
       {autenticado && (
