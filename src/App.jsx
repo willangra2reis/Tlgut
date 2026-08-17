@@ -8,7 +8,7 @@ import {
   BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets, Sparkles,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
   Scale, Stethoscope, HelpCircle, Download, Share2, Plus as PlusIcon, LogOut,
-  CookingPot, Mail,
+  CookingPot, Mail, KeyRound,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
@@ -42,6 +42,8 @@ import { CONDICOES_LABELS, loadProfile, saveProfile, isOnboarded, marcarOnboarde
 import { proximaConsulta, addConsulta, removeConsulta, loadConsultas, saveConsultas } from './lib/consulta.js';
 import { seedReports, loadReports } from './lib/reports.js';
 import AuthScreen from './components/AuthScreen';
+import ResetPasswordScreen from './components/ResetPasswordScreen';
+import AlterarSenhaModal from './components/AlterarSenhaModal';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
 import {
   syncEntryInsert, syncEntryUpdate, syncEntryDelete,
@@ -1073,7 +1075,7 @@ function AulasScreen({ selecionado, onSelecionado }) {
 }
 
 // ─── Tela de Perfil (configurações — hospeda a Fonte Cursiva, RF 4) ───────────
-function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick, autenticado, onLogout, onEntrar, onBaixarDados, onCarregarDemo, onExcluirDados, demoAtivo }) {
+function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont, profile, onEditarProfile, installState, onInstallClick, autenticado, onLogout, onEntrar, onBaixarDados, onCarregarDemo, onExcluirDados, onAlterarSenha, demoAtivo }) {
   const condLabels = (profile?.condicoes || []).map(id => CONDICOES_LABELS[id] || id).join(', ');
   const histFamLabels = formatarHistoricoFamiliar(profile);
   const biometria = [
@@ -1260,6 +1262,18 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
                 <span className="block text-[11px] text-[#7D766A]">contact@tinobem.app</span>
               </span>
             </a>
+            {autenticado && (
+              <button type="button" onClick={onAlterarSenha}
+                className="w-full flex items-center gap-3 rounded-xl border border-[#EDE7DD] px-3 py-2.5 transition-colors hover:bg-[#F7F4EC]">
+                <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(31,42,40,0.08)' }}>
+                  <KeyRound size={17} style={{ color: 'var(--brand)' }} />
+                </span>
+                <span className="text-left min-w-0">
+                  <span className="block text-sm font-medium text-[#2B2A28]">Alterar senha</span>
+                  <span className="block text-[11px] text-[#7D766A]">Atualize sua senha de acesso</span>
+                </span>
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -5068,6 +5082,8 @@ export default function App() {
   });
   const [deleteOpen, setDeleteOpen] = useState(false);                                     // modal de exclusão de dados
   const [baixarAberto, setBaixarAberto] = useState(false);                                // modal de download dos dados
+  const [resetandoSenha, setResetandoSenha] = useState(false);                            // fluxo de redefinição de senha (recovery)
+  const [alterarSenhaAberto, setAlterarSenhaAberto] = useState(false);                   // modal de alteração de senha (conta logada)
   const [excluindo, setExcluindo] = useState(false);                                       // exclusão em andamento
   const [dadosExcluidos, setDadosExcluidos] = useState(false);                             // banner de sucesso no login
   const [demoAtivo, setDemoAtivo] = useState(false);                                       // dados de demonstração carregados
@@ -5163,6 +5179,12 @@ export default function App() {
       .catch(() => { setAuthReady(true); setDataReady(true); });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, next) => {
+      if (_evt === 'PASSWORD_RECOVERY') {
+        setResetandoSenha(true);
+        setSession(next || null);
+        setAuthReady(true);
+        return;
+      }
       setSession(next || null);
       if (next) {
         try { localStorage.setItem('tlgut_guest_mode', '0'); } catch {}
@@ -5766,6 +5788,11 @@ export default function App() {
   if (isSupabaseConfigured() && !authReady) {
     return <SplashLoadingScreen />;
   }
+  if (isSupabaseConfigured() && resetandoSenha) {
+    return <ResetPasswordScreen
+      onConcluido={() => { setResetandoSenha(false); }}
+      onCancelar={() => { setResetandoSenha(false); supabase?.auth.signOut().catch(() => {}); }} />;
+  }
   if (isSupabaseConfigured() && !session && !guestMode) {
     return <AuthScreen onGuest={entrarConvidado}
       mensagem={dadosExcluidos ? 'Seus dados foram excluídos com sucesso. Sentiremos sua falta!' : null} />;
@@ -5832,7 +5859,7 @@ export default function App() {
         ) : abaAtiva === 'insights' ? (
           <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} menuInsights={menuInsights} onMenuInsights={setMenuInsights} entries={entries} />
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => { setEditandoHistFam(true); setEditandoProfile(true); }} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} demoAtivo={demoAtivo} />
+          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => { setEditandoHistFam(true); setEditandoProfile(true); }} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} onAlterarSenha={() => setAlterarSenhaAberto(true)} demoAtivo={demoAtivo} />
         ) : (
           <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
         )}
@@ -6073,6 +6100,8 @@ export default function App() {
 
       <BaixarDadosModal open={baixarAberto} onClose={() => setBaixarAberto(false)}
         onBaixar={handleBaixarModo} />
+
+      <AlterarSenhaModal key={alterarSenhaAberto ? 'aberto' : 'fechado'} open={alterarSenhaAberto} onClose={() => setAlterarSenhaAberto(false)} />
 
     </div>
   );

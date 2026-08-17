@@ -10,7 +10,7 @@ const INVALID_PASSWORD = /^.{0,5}$/;
 const INVALID_EMAIL = /@/;
 
 export default function AuthScreen({ onGuest, mensagem }) {
-  const [modo, setModo] = useState('entrar'); // 'entrar' | 'cadastrar'
+  const [modo, setModo] = useState('entrar'); // 'entrar' | 'cadastrar' | 'recuperar'
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [nome, setNome] = useState('');
@@ -25,6 +25,25 @@ export default function AuthScreen({ onGuest, mensagem }) {
 
     const em = email.trim().toLowerCase();
     if (!INVALID_EMAIL.test(em)) { setErro('Informe um e-mail válido.'); return; }
+
+    if (modo === 'recuperar') {
+      setLoading(true);
+      try {
+        await supabase.auth.resetPasswordForEmail(em, {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        });
+        setErro(null);
+        setAviso('Se o e-mail estiver cadastrado, enviamos um link para redefinir sua senha. Confira sua caixa de entrada.');
+      } catch (err) {
+        const msg = String(err?.message || err || '');
+        if (msg.includes('rate limit')) setErro('Muitas tentativas. Aguarde alguns instantes e tente de novo.');
+        else setErro('Não foi possível enviar o link. Tente novamente em instantes.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (INVALID_PASSWORD.test(senha)) { setErro('A senha precisa ter pelo menos 6 caracteres.'); return; }
 
     setLoading(true);
@@ -96,17 +115,32 @@ export default function AuthScreen({ onGuest, mensagem }) {
             </label>
           )}
 
+          {modo === 'recuperar' && (
+            <p className="mb-4 text-xs text-[#7D766A] leading-relaxed">
+              Informe seu e-mail de cadastro. Enviaremos um link para você redefinir sua senha.
+            </p>
+          )}
+
           <label className="block mb-3">
             <span className="block text-xs font-semibold uppercase tracking-wide text-[#7D766A] mb-1.5">E-mail</span>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@email.com"
               className={inputClass} autoComplete="email" autoCapitalize="none" />
           </label>
 
-          <label className="block mb-4">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-[#7D766A] mb-1.5">Senha</span>
-            <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"
-              className={inputClass} autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} />
-          </label>
+          {modo !== 'recuperar' && (
+            <label className="block mb-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-[#7D766A] mb-1.5">Senha</span>
+              <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder="Mínimo 6 caracteres"
+                className={inputClass} autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'} />
+            </label>
+          )}
+
+          {modo === 'entrar' && (
+            <button type="button" onClick={() => { setModo('recuperar'); setErro(null); setAviso(null); setSenha(''); }}
+              className="mb-4 -mt-2 text-xs text-[#4A8A5C] hover:underline self-start">
+              Esqueci minha senha
+            </button>
+          )}
 
           {erro && (
             <p className="mb-4 rounded-xl bg-[#F5E1DD] border border-[#E0B4A8] px-3 py-2 text-xs text-[#8A3B2E]">{erro}</p>
@@ -120,8 +154,15 @@ export default function AuthScreen({ onGuest, mensagem }) {
 
           <button type="submit" disabled={loading}
             className="w-full py-3 rounded-2xl text-white font-medium text-sm disabled:opacity-40" style={{ background: 'var(--brand)' }}>
-            {loading ? 'Aguarde…' : modo === 'entrar' ? 'Entrar' : 'Criar conta'}
+            {loading ? 'Aguarde…' : modo === 'entrar' ? 'Entrar' : modo === 'cadastrar' ? 'Criar conta' : 'Enviar link de recuperação'}
           </button>
+
+          {modo === 'recuperar' && (
+            <button type="button" onClick={() => { setModo('entrar'); setErro(null); setAviso(null); }}
+              className="mt-3 w-full p-2 text-sm text-[#7D766A]">
+              Voltar para entrar
+            </button>
+          )}
         </form>
 
         <div className="mt-6 flex items-center gap-3">
