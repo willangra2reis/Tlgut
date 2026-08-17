@@ -8,7 +8,7 @@ import {
   BookOpen, Lightbulb, GraduationCap, User, ChevronDown, ChevronRight, Calendar, Wind, Pill, Droplets, Sparkles,
   ArrowLeft, Cast, Lock, Play, Clock, BarChart3, CheckCircle2, ShoppingBag, Heart, Pencil as PencilIcon,
   Scale, Stethoscope, HelpCircle, Download, Share2, Plus as PlusIcon, LogOut,
-  CookingPot,
+  CookingPot, Mail,
 } from 'lucide-react';
 import OnboardingModal from './components/OnboardingModal';
 import {
@@ -49,9 +49,10 @@ import {
   syncConsultasReplace, syncReportsReplace, syncPullAll,
   syncDeleteAccount, readPrefsSnapshot, tsParaDia,
 } from './lib/sync.js';
-import { baixarJSON, montarExportJSON, limparDadosLocais } from './lib/exportData.js';
+import { baixarJSON, montarExportJSON, anonimizarExportJSON, montarResumoAnalitico, limparDadosLocais } from './lib/exportData.js';
 import { montarDadosDemo } from './lib/demoData.js';
 import DeleteDataModal from './components/DeleteDataModal';
+import BaixarDadosModal from './components/BaixarDadosModal';
 import HistoricoFamiliarPopup from './components/HistoricoFamiliarPopup';
 import {
   historicoFamiliarPreenchido, formatarHistoricoFamiliar,
@@ -1223,6 +1224,25 @@ function ProfileScreen({ cursiva, onCursiva, inkLevel, onInk, fontScale, onFont,
             </button>
           </div>
         )}
+      </div>
+
+      {/* Suporte e contato */}
+      <div className="mt-4 rounded-2xl bg-white border border-[#EDE7DD] p-4 shadow-[0_10px_24px_-10px_rgba(31,42,40,0.4)]">
+        <div className="flex items-center gap-2 mb-1">
+          <Mail size={15} style={{ color: 'var(--brand)' }} />
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#B6AE9F]">Suporte e contato</p>
+        </div>
+        <p className="text-xs text-[#7D766A] mb-3">Dúvidas, sugestões ou problemas com o app? Fale com a gente.</p>
+        <a href="mailto:contact@tinobem.app"
+          className="w-full flex items-center gap-3 rounded-xl border border-[#EDE7DD] px-3 py-2.5 transition-colors hover:bg-[#F7F4EC]">
+          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(31,42,40,0.08)' }}>
+            <Mail size={17} style={{ color: 'var(--brand)' }} />
+          </span>
+          <span className="text-left min-w-0">
+            <span className="block text-sm font-medium text-[#2B2A28]">Enviar e-mail</span>
+            <span className="block text-[11px] text-[#7D766A]">contact@tinobem.app</span>
+          </span>
+        </a>
       </div>
 
       {autenticado && (
@@ -5028,6 +5048,7 @@ export default function App() {
     try { return localStorage.getItem('tlgut_guest_mode') === '1'; } catch { return false; }
   });
   const [deleteOpen, setDeleteOpen] = useState(false);                                     // modal de exclusão de dados
+  const [baixarAberto, setBaixarAberto] = useState(false);                                // modal de download dos dados
   const [excluindo, setExcluindo] = useState(false);                                       // exclusão em andamento
   const [dadosExcluidos, setDadosExcluidos] = useState(false);                             // banner de sucesso no login
   const [demoAtivo, setDemoAtivo] = useState(false);                                       // dados de demonstração carregados
@@ -5160,15 +5181,32 @@ export default function App() {
 
   // ── Dados e privacidade ──────────────────────────────────────────────────────
   function handleBaixarDados() {
+    setBaixarAberto(true);
+  }
+
+  // Monta o JSON de exportação a partir do estado/cache atual e dispara o
+  // download. Quando o modo é 'anonimo', aplica anonimizarExportJSON e gera o
+  // resumo_analitico DEPOIS da anonimização (para o resumo também sair sem o
+  // nome). Os dados originais (banco/localStorage) não são alterados.
+  function handleBaixarModo(modo) {
+    const perfil = loadProfile();
     const dados = montarExportJSON({
-      profile: loadProfile(),
+      profile: perfil,
       prefs: { ...readPrefsSnapshot(), cursiva, ink_level: inkLevel, font_scale: fontScale },
       entries,
       reportsIA: loadReports('ia'),
       reportsExpress: loadReports('express'),
       consultas: loadConsultas(),
     });
-    baixarJSON(`tlgut-dados-${new Date().toISOString().slice(0, 10)}.json`, dados);
+    const finais = modo === 'anonimo'
+      ? anonimizarExportJSON(dados, perfil && perfil.nome ? String(perfil.nome) : '')
+      : dados;
+    finais.resumo_analitico = montarResumoAnalitico({
+      entries: finais.registros,
+      profile: finais.perfil,
+    });
+    const suf = modo === 'anonimo' ? '-anonimo' : '';
+    baixarJSON(`TinoBemapp-dados${suf}-${new Date().toISOString().slice(0, 10)}.json`, finais);
   }
 
   // Demonstração (toggle): aplica apenas no estado e no cache local (sem tocar no
@@ -6013,6 +6051,9 @@ export default function App() {
         onBaixarDados={handleBaixarDados}
         onConfirmar={handleConfirmarExclusao}
         excluindo={excluindo} />
+
+      <BaixarDadosModal open={baixarAberto} onClose={() => setBaixarAberto(false)}
+        onBaixar={handleBaixarModo} />
 
     </div>
   );
