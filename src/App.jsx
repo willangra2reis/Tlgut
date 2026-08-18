@@ -5186,6 +5186,9 @@ export default function App() {
         return;
       }
       setSession(next || null);
+      if (_evt === 'SIGNED_IN') {
+        setAbaAtiva('diario');
+      }
       if (next) {
         try { localStorage.setItem('tlgut_guest_mode', '0'); } catch {}
         loadUserData();

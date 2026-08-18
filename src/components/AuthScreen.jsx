@@ -1,15 +1,14 @@
 // ─── Tela de autenticação (Email + senha) ────────────────────────────────────
 // Mostrada apenas quando o Supabase está configurado E não há sessão ativa.
-// Mantém o "modo apresentação": o usuário pode entrar como convidado e usar o
-// app com dados mock/local sem conta.
 
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient.js';
+import mascoteImage from '../assets/mascote.png';
 
 const INVALID_PASSWORD = /^.{0,5}$/;
 const INVALID_EMAIL = /@/;
 
-export default function AuthScreen({ onGuest, mensagem }) {
+export default function AuthScreen({ mensagem }) {
   const [modo, setModo] = useState('entrar'); // 'entrar' | 'cadastrar' | 'recuperar'
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -85,7 +84,7 @@ export default function AuthScreen({ onGuest, mensagem }) {
         <div className="pointer-events-none absolute inset-0"
           style={{ background: 'radial-gradient(at 20% 10%, rgba(120,196,140,0.35), transparent 60%), radial-gradient(at 90% 90%, rgba(201,118,58,0.25), transparent 55%)' }} />
         <div className="relative">
-          <h1 className="titulo-cursivo font-sans text-3xl font-bold">Diário Intestinal</h1>
+          <h1 className="titulo-cursivo font-sans text-3xl font-bold">TinoBem</h1>
           <p className="mt-2 text-sm text-white/85">
             Registre seu dia, entenda padrões e chegue preparado à consulta.
           </p>
@@ -165,21 +164,12 @@ export default function AuthScreen({ onGuest, mensagem }) {
           )}
         </form>
 
-        <div className="mt-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-[#D9D2C4]" />
-          <span className="text-xs text-[#7D766A]">ou</span>
-          <div className="h-px flex-1 bg-[#D9D2C4]" />
-        </div>
-
-        <button type="button" onClick={onGuest}
-          className="mt-6 w-full py-3 rounded-2xl border border-[#D9D2C4] bg-white text-sm font-medium text-[#2B2A28]">
-          Continuar como convidado · modo demonstração
-        </button>
-
-        <p className="mt-6 text-center text-[11px] leading-relaxed text-[#9A9284]">
-          Seus registros ficam seguros e sincronizados na sua conta.
-          O modo demonstração usa dados de exemplo — nada é salvo em servidor.
-        </p>
+        {(modo === 'entrar' || modo === 'cadastrar') && (
+          <div className="mt-8 flex flex-col items-center gap-2">
+            <img src={mascoteImage} alt="Mascote" className="w-16 h-16 animate-mascote-pulse" />
+            <p className="text-sm text-[#7D766A]">Seja bem-vindo</p>
+          </div>
+        )}
       </div>
     </div>
   );
