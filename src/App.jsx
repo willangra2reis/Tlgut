@@ -5240,8 +5240,12 @@ export default function App() {
         if (data.session?.user?.user_metadata?.convidado === true) {
           setPrimeiroAcesso(true);
         }
-        if (data.session) loadUserData();
-        else setDataReady(true);
+        if (data.session) {
+          // Honra a chave por-usuário tlgut_onboarded_<uid> já no boot: quem já
+          // concluiu o onboarding não vê o modal (nem por um flash) até o loadUserData.
+          setOnboarded(isOnboarded(data.session.user.id));
+          loadUserData();
+        } else setDataReady(true);
       })
       .catch(() => { setAuthReady(true); setDataReady(true); });
 
@@ -5267,6 +5271,7 @@ export default function App() {
       }
       if (next) {
         try { localStorage.setItem('tlgut_guest_mode', '0'); } catch {}
+        setOnboarded(isOnboarded(next.user.id));
         loadUserData();
       } else {
         authLoadRef.current = false;

@@ -361,12 +361,18 @@ export async function syncPullAll() {
   if (!uid) return null;
 
   // Garante que o e-mail fique no perfil (lookup da Edge Function do webhook).
+  // O builder do supabase-js é thenable (só .then, sem .catch): .catch() direto
+  // lançaria TypeError. Trata o erro via await + try/catch (fire-and-forget).
   const user = await getUser();
   if (user?.email) {
-    supabase.from('profiles').upsert(
-      { id: uid, email: user.email, updated_at: new Date().toISOString() },
-      { onConflict: 'id' }
-    ).catch(() => {});
+    try {
+      await supabase.from('profiles').upsert(
+        { id: uid, email: user.email, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      );
+    } catch (e) {
+      console.warn('[syncPullAll] falha ao gravar e-mail no perfil:', e);
+    }
   }
 
   const [entries, profile, prefs, consultas, reportsIA, reportsExpress] = await Promise.all([

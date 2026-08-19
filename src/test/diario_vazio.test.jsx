@@ -4,7 +4,20 @@ import App from '../App.jsx';
 
 // Regressão: usuário autenticado com 0 registros no banco NUNCA deve ver o mock
 // (INITIAL_ENTRIES) no Diário — nem após o login, nem após restaurar do demo.
-const mockUser = { id: 'user-diario-vazio', email: 'vazio@example.com', user_metadata: {} };
+// vi.hoisted: vi.mock é hoisted ao topo do arquivo; o factory só pode ler
+// variáveis externas se elas forem criadas via vi.hoisted.
+const { mockUser, vazio, syncPullAllMock } = vi.hoisted(() => ({
+  mockUser: { id: 'user-diario-vazio', email: 'vazio@example.com', user_metadata: {} },
+  vazio: {
+    entries: [],
+    profile: { nome: 'Teste' },
+    prefs: {},
+    consultas: [],
+    reportsIA: [],
+    reportsExpress: [],
+  },
+  syncPullAllMock: vi.fn(async () => vazio),
+}));
 
 vi.mock('../lib/supabaseClient.js', () => {
   const supabase = {
@@ -21,29 +34,19 @@ vi.mock('../lib/supabaseClient.js', () => {
   };
 });
 
-vi.mock('../lib/sync.js', () => {
-  const vazio = {
-    entries: [],
-    profile: { nome: 'Teste' },
-    prefs: {},
-    consultas: [],
-    reportsIA: [],
-    reportsExpress: [],
-  };
-  return {
-    syncEntryInsert: async () => {},
-    syncEntryUpdate: async () => {},
-    syncEntryDelete: async () => {},
-    syncProfileUpsert: async () => {},
-    syncPrefsMerge: async () => {},
-    syncConsultasReplace: async () => {},
-    syncReportsReplace: async () => {},
-    syncDeleteAccount: async () => {},
-    readPrefsSnapshot: () => ({ cursiva: false, ink_level: 55, font_scale: 100 }),
-    tsParaDia: () => 0,
-    syncPullAll: vi.fn(async () => vazio),
-  };
-});
+vi.mock('../lib/sync.js', () => ({
+  syncEntryInsert: async () => {},
+  syncEntryUpdate: async () => {},
+  syncEntryDelete: async () => {},
+  syncProfileUpsert: async () => {},
+  syncPrefsMerge: async () => {},
+  syncConsultasReplace: async () => {},
+  syncReportsReplace: async () => {},
+  syncDeleteAccount: async () => {},
+  readPrefsSnapshot: () => ({ cursiva: false, ink_level: 55, font_scale: 100 }),
+  tsParaDia: () => 0,
+  syncPullAll: syncPullAllMock,
+}));
 
 vi.mock('../lib/compras.js', () => ({
   listarCompras: async () => [],
@@ -56,6 +59,8 @@ vi.mock('../lib/compras.js', () => ({
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem(`tlgut_onboarded_${mockUser.id}`, '1');
+  syncPullAllMock.mockReset();
+  syncPullAllMock.mockImplementation(async () => vazio);
 });
 
 describe('Diário vazio para usuário autenticado (regressão fictício)', () => {
@@ -67,6 +72,15 @@ describe('Diário vazio para usuário autenticado (regressão fictício)', () =>
     expect(screen.queryByText('Café da manhã')).not.toBeInTheDocument();
     expect(screen.queryByText('07:43')).not.toBeInTheDocument();
     expect(screen.queryByText('Cólica · intensidade 7')).not.toBeInTheDocument();
+  });
+
+  it('usuário que já concluiu o onboarding não vê o modal nem quando o pull falha', async () => {
+    // Reproduz o cenário reportado: pull que falhava sempre (builder sem .catch).
+    // Mesmo assim, a chave tlgut_onboarded_<uid> deve evitar o modal no boot.
+    syncPullAllMock.mockRejectedValue(new Error('simula upsert(...).catch is not a function'));
+    render(<App />);
+    expect(await screen.findByText('Nenhum registro hoje ainda.')).toBeInTheDocument();
+    expect(screen.queryByText('Olá! 👋')).not.toBeInTheDocument();
   });
 
   it('demo mostra dados fictícios e restaurar volta ao diário vazio real', async () => {
