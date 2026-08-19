@@ -43,8 +43,10 @@ import { proximaConsulta, addConsulta, removeConsulta, loadConsultas, saveConsul
 import { seedReports, loadReports } from './lib/reports.js';
 import AuthScreen from './components/AuthScreen';
 import ResetPasswordScreen from './components/ResetPasswordScreen';
+import PrimeiroAcessoScreen from './components/PrimeiroAcessoScreen';
 import AlterarSenhaModal from './components/AlterarSenhaModal';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
+import { listarCompras, temAcesso } from './lib/compras.js';
 import {
   syncEntryInsert, syncEntryUpdate, syncEntryDelete,
   syncProfileUpsert, syncPrefsMerge,
@@ -988,7 +990,7 @@ function AulaDetalhe({ aula, indice, onVoltar }) {
 
 // Tela principal da aba Aulas (catálogo + detalhe). Sem data-noswipe: o swipe
 // horizontal continua navegando entre abas; a rolagem do catálogo é vertical.
-function AulasScreen({ selecionado, onSelecionado }) {
+function AulasScreen({ selecionado, onSelecionado, aprovado }) {
   const [comprados, setComprados] = useState(() => new Set());
 
   const liberar = useCallback((ids) => {
@@ -1022,7 +1024,22 @@ function AulasScreen({ selecionado, onSelecionado }) {
         </button>
       </header>
 
-      {aulaSel ? (
+      {!aprovado ? (
+        <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center text-center px-8"
+          style={{ color: 'rgba(242,236,227,0.85)' }}>
+          <Lock size={40} style={{ color: '#F6D2B8' }} className="mb-4" />
+          <p className="text-2xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
+            Compra não ativa
+          </p>
+          <p className="text-sm mt-2 leading-relaxed">
+            Este conteúdo é liberado após a confirmação da sua compra.
+            Assim que o pagamento for aprovado, ele aparece aqui automaticamente.
+          </p>
+          <p className="text-[11px] mt-4" style={{ color: 'rgba(242,236,227,0.55)' }}>
+            Precisa de ajuda? Fale com a gente em contact@tinobem.app
+          </p>
+        </div>
+      ) : aulaSel ? (
         <AulaDetalhe
           aula={aulaSel}
           indice={indiceSel}
@@ -5083,6 +5100,8 @@ export default function App() {
   const [deleteOpen, setDeleteOpen] = useState(false);                                     // modal de exclusão de dados
   const [baixarAberto, setBaixarAberto] = useState(false);                                // modal de download dos dados
   const [resetandoSenha, setResetandoSenha] = useState(false);                            // fluxo de redefinição de senha (recovery)
+  const [primeiroAcesso, setPrimeiroAcesso] = useState(false);                          // primeiro acesso via convite (define senha)
+  const [compras, setCompras] = useState([]);                                          // compras do usuário logado (status por produto)
   const [alterarSenhaAberto, setAlterarSenhaAberto] = useState(false);                   // modal de alteração de senha (conta logada)
   const [excluindo, setExcluindo] = useState(false);                                       // exclusão em andamento
   const [dadosExcluidos, setDadosExcluidos] = useState(false);                             // banner de sucesso no login
@@ -5119,7 +5138,9 @@ export default function App() {
           if (maxId > 0) idRef.current = maxId;
         }
         if (pulled.profile) {
-          const filled = ['nome', 'idade', 'peso', 'altura', 'condicoes', 'outros', 'historico_familiar', 'acoes_alivio_custom', 'acoes_digestao_custom'].some((k) => {
+          // 'nome' (e email/telefone) são preenchidos pelo webhook da Hotmart na
+          // criação do usuário; sozinhos não indicam que o onboarding foi feito.
+          const filled = ['idade', 'peso', 'altura', 'condicoes', 'outros', 'historico_familiar', 'acoes_alivio_custom', 'acoes_digestao_custom'].some((k) => {
             const v = pulled.profile[k];
             return v != null && v !== '' && !(Array.isArray(v) && v.length === 0);
           });
@@ -5159,6 +5180,8 @@ export default function App() {
         // deixados no cache local durante o modo apresentação.
         seedReports(reportsAll);
       }
+      // Status das compras (Hotmart) para o gate de conteúdo da aba Aulas.
+      setCompras(await listarCompras());
     } catch {}
     setDataReady(true);
   }
@@ -5173,6 +5196,11 @@ export default function App() {
         if (!mounted) return;
         setSession(data.session || null);
         setAuthReady(true);
+        // Chega pelo link de convite (invite/PKCE): o evento pode vir como
+        // INITIAL_SESSION e não SIGNED_IN. Detecta o flag direto na sessão.
+        if (data.session?.user?.user_metadata?.convidado === true) {
+          setPrimeiroAcesso(true);
+        }
         if (data.session) loadUserData();
         else setDataReady(true);
       })
@@ -5181,6 +5209,7 @@ export default function App() {
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, next) => {
       if (_evt === 'PASSWORD_RECOVERY') {
         setResetandoSenha(true);
+        setPrimeiroAcesso(false);
         setSession(next || null);
         setAuthReady(true);
         return;
@@ -5188,6 +5217,14 @@ export default function App() {
       setSession(next || null);
       if (_evt === 'SIGNED_IN') {
         setAbaAtiva('diario');
+      }
+      // Primeiro acesso via convite (comprou na Hotmart): sem senha ainda.
+      // Verifica em qualquer evento de sessão (SIGNED_IN, INITIAL_SESSION,
+      // TOKEN_REFRESHED, USER_UPDATED) para não deixar o convidado usar o app
+      // sem criar senha. No USER_UPDATED da própria tela (convidado:false)
+      // o check === true é false e não re-exibe.
+      if (next?.user?.user_metadata?.convidado === true) {
+        setPrimeiroAcesso(true);
       }
       if (next) {
         try { localStorage.setItem('tlgut_guest_mode', '0'); } catch {}
@@ -5219,6 +5256,8 @@ export default function App() {
     authLoadRef.current = false;
     try { await supabase?.auth.signOut(); } catch {}
     setSession(null);
+    setResetandoSenha(false);
+    setPrimeiroAcesso(false);
     setEntries(INITIAL_ENTRIES);
     setDataReady(true);
   }
@@ -5295,6 +5334,8 @@ export default function App() {
       setDadosExcluidos(true);
       try { await supabase?.auth.signOut(); } catch {}
       setSession(null);
+      setResetandoSenha(false);
+      setPrimeiroAcesso(false);
       setDeleteOpen(false);
     } finally {
       setExcluindo(false);
@@ -5796,6 +5837,11 @@ export default function App() {
       onConcluido={() => { setResetandoSenha(false); }}
       onCancelar={() => { setResetandoSenha(false); supabase?.auth.signOut().catch(() => {}); }} />;
   }
+  if (isSupabaseConfigured() && primeiroAcesso) {
+    return <PrimeiroAcessoScreen
+      nome={session?.user?.user_metadata?.nome || ''}
+      onConcluido={() => { setPrimeiroAcesso(false); }} />;
+  }
   if (isSupabaseConfigured() && !session && !guestMode) {
     return <AuthScreen onGuest={entrarConvidado}
       mensagem={dadosExcluidos ? 'Seus dados foram excluídos com sucesso. Sentiremos sua falta!' : null} />;
@@ -5864,7 +5910,7 @@ export default function App() {
         ) : abaAtiva === 'perfil' ? (
           <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => { setEditandoHistFam(true); setEditandoProfile(true); }} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} onAlterarSenha={() => setAlterarSenhaAberto(true)} demoAtivo={demoAtivo} />
         ) : (
-          <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
+          <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} aprovado={!isSupabaseConfigured() || temAcesso(compras, 'tinobem')} />
         )}
         </div>
 

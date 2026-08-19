@@ -141,6 +141,12 @@ export default function AuthScreen({ mensagem }) {
             </button>
           )}
 
+          {modo === 'entrar' && (
+            <p className="mb-4 rounded-xl bg-[#EFEBE2] border border-[#D9D2C4] px-3 py-2 text-[11px] leading-relaxed text-[#7D766A]">
+              Recebeu um convite por e-mail? Clique no link do e-mail para definir sua senha pela primeira vez.
+            </p>
+          )}
+
           {erro && (
             <p className="mb-4 rounded-xl bg-[#F5E1DD] border border-[#E0B4A8] px-3 py-2 text-xs text-[#8A3B2E]">{erro}</p>
           )}

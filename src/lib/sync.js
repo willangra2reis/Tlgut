@@ -63,9 +63,15 @@ export function dayToRelative(day, _ts) {
 // ── Guards ───────────────────────────────────────────────────────────────────
 
 async function isAuthed() {
+  const user = await getUser();
+  return user?.id ?? null;
+}
+
+/** Retorna o usuário autenticado (com email) ou null. */
+async function getUser() {
   if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
-  return data?.user?.id ?? null;
+  return data?.user ?? null;
 }
 
 // ── Entries ──────────────────────────────────────────────────────────────────
@@ -142,11 +148,12 @@ export async function syncEntriesPull() {
 // ── Profile ──────────────────────────────────────────────────────────────────
 
 export async function syncProfileUpsert(p) {
-  const uid = await isAuthed();
-  if (!uid) return;
+  const user = await getUser();
+  if (!user) return;
   const { error } = await supabase.from('profiles').upsert(
     {
-      id: uid,
+      id: user.id,
+      email: user.email ?? null,
       nome: p?.nome ?? null,
       idade: Number.isFinite(p?.idade) ? p.idade : null,
       peso: Number.isFinite(p?.peso) ? p.peso : null,
@@ -167,12 +174,12 @@ export async function syncProfileUpsert(p) {
 }
 
 export async function syncProfilePull() {
-  const uid = await isAuthed();
-  if (!uid) return null;
+  const user = await getUser();
+  if (!user) return null;
   const { data, error } = await supabase
     .from('profiles')
     .select('nome, idade, peso, altura, condicoes, outros, historico_familiar, acoes_alivio_custom, acoes_digestao_custom, alimentos_custom, medicamentos_custom, especialidades_custom')
-    .eq('id', uid)
+    .eq('id', user.id)
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -352,6 +359,16 @@ export async function syncDeleteAccount() {
 export async function syncPullAll() {
   const uid = await isAuthed();
   if (!uid) return null;
+
+  // Garante que o e-mail fique no perfil (lookup da Edge Function do webhook).
+  const user = await getUser();
+  if (user?.email) {
+    supabase.from('profiles').upsert(
+      { id: uid, email: user.email, updated_at: new Date().toISOString() },
+      { onConflict: 'id' }
+    ).catch(() => {});
+  }
+
   const [entries, profile, prefs, consultas, reportsIA, reportsExpress] = await Promise.all([
     syncEntriesPull(),
     syncProfilePull(),
