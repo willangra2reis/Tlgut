@@ -5038,7 +5038,13 @@ function SplashLoadingScreen() {
 
 // ─── App root ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [entries,    setEntries]    = useState(INITIAL_ENTRIES);
+  // Diário começa vazio para usuário autenticado; o mock (INITIAL_ENTRIES) só
+  // entra em modo apresentação (sem Supabase configurado — testes/dev — ou
+  // convidado persistido), nunca para usuário autenticado.
+  const [entries,    setEntries]    = useState(() => {
+    if (!isSupabaseConfigured()) return INITIAL_ENTRIES;
+    try { return localStorage.getItem('tlgut_guest_mode') === '1' ? INITIAL_ENTRIES : []; } catch { return []; }
+  });
   const [sheetOpen,  setSheetOpen]  = useState(false);
   const [activeForm, setActiveForm] = useState(null);
   const [tema]                      = useState(() => periodoDoDia(horaLocalAtual())); // RF 1.1/1.2
@@ -5118,18 +5124,29 @@ export default function App() {
   // ── Supabase: carrega os dados da conta (Supabase → estado + cache local) ────
   // Preserva o modo apresentação: sem registros reais, mantém o mock populado.
   const authLoadRef = useRef(false);
+  const retryLoadRef = useRef({ timer: null, tentativas: 0 });
+  const loadUserDataRef = useRef(null);
   async function loadUserData() {
-    if (authLoadRef.current) return;
+    if (authLoadRef.current) return false;
     authLoadRef.current = true;
     setDataReady(false);
+    let ok = false;
     try {
       let uid = null;
       try {
         const { data: authData } = await supabase.auth.getUser();
         uid = authData?.user?.id ?? null;
-      } catch {}
+      } catch (e) {
+        console.error('[loadUserData] getUser falhou:', e);
+      }
+      // Usuário autenticado nunca deve ver o mock (INITIAL_ENTRIES): mesmo que o
+      // pull falhe, o diário fica vazio até a próxima tentativa (nunca fictício).
+      if (uid && entries === INITIAL_ENTRIES) {
+        setEntries([]);
+      }
       const pulled = await syncPullAll();
       if (pulled) {
+        ok = true;
         if (Array.isArray(pulled.entries)) {
           // Conta sem registros mostra o diário vazio (nada de mock). O mock
           // (INITIAL_ENTRIES) fica reservado ao modo apresentação (convidado).
@@ -5182,9 +5199,31 @@ export default function App() {
       }
       // Status das compras (Hotmart) para o gate de conteúdo da aba Aulas.
       setCompras(await listarCompras());
-    } catch {}
+    } catch (e) {
+      console.error('[loadUserData] falhou ao carregar dados da conta:', e);
+    }
+    if (ok) {
+      retryLoadRef.current.tentativas = 0;
+    } else {
+      // Falha (rede/auth transitória, ex.: troca de código PKCE ainda em curso):
+      // libera o guard para permitir nova tentativa e agenda um retry curto e
+      // limitado para o diário não ficar sem os dados reais.
+      authLoadRef.current = false;
+      if (retryLoadRef.current.tentativas < 2) {
+        retryLoadRef.current.tentativas += 1;
+        clearTimeout(retryLoadRef.current.timer);
+        retryLoadRef.current.timer = setTimeout(() => {
+          loadUserDataRef.current?.();
+        }, 3000);
+      }
+    }
     setDataReady(true);
+    return ok;
   }
+
+  // Mantém a versão mais recente de loadUserData acessível ao retry automático
+  // (evita closures obsoletos capturados no setTimeout).
+  loadUserDataRef.current = loadUserData;
 
   // Inicializa o auth: sessão persistida + listener de mudanças.
   useEffect(() => {
@@ -5236,12 +5275,13 @@ export default function App() {
       }
     });
 
-    return () => { mounted = false; sub.subscription.unsubscribe(); };
+    return () => { mounted = false; clearTimeout(retryLoadRef.current.timer); sub.subscription.unsubscribe(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function entrarConvidado() {
     setGuestMode(true);
+    setEntries(INITIAL_ENTRIES);
     try { localStorage.setItem('tlgut_guest_mode', '1'); } catch {}
     setDataReady(true);
   }
@@ -5300,7 +5340,14 @@ export default function App() {
     if (demoAtivo) {
       if (session && supabase) {
         authLoadRef.current = false;
-        await loadUserData();
+        const ok = await loadUserData();
+        // Se o pull falhar (rede/auth), garante que os dados fictícios do demo
+        // não fiquem visíveis; o retry automático re-sincroniza em seguida.
+        if (!ok) {
+          setEntries([]);
+          seedReports([]);
+          saveConsultas([]);
+        }
       } else {
         setEntries(INITIAL_ENTRIES);
         seedReports([]);
@@ -5775,13 +5822,6 @@ export default function App() {
     }
   }, [onboarded, editandoProfile, profile]);
 
-  function pularOnboarding() {
-    marcarOnboarded(session?.user?.id ?? null);
-    setOnboarded(true);
-    setEditandoProfile(false);
-    setEditandoHistFam(false);
-  }
-
   const [showBubble, setShowBubble] = useState(false);
 
   useEffect(() => {
@@ -6130,8 +6170,7 @@ export default function App() {
       {(!onboarded || editandoProfile) && (
         <OnboardingModal initialProfile={editandoProfile ? profile : undefined}
           initialStep={editandoHistFam ? 3 : 0}
-          onConcluir={concluirOnboarding}
-          onPularTudo={!onboarded ? pularOnboarding : undefined} />
+          onConcluir={concluirOnboarding} />
       )}
 
       {histFamPopup && (

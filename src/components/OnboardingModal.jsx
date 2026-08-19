@@ -16,7 +16,7 @@ const MESH = 'day-summary-mesh relative z-10 rounded-2xl border border-[#EDE7DD]
 const INPUT_CLASS = 'w-full px-4 py-3 rounded-xl text-base outline-none';
 const INPUT_STYLE = { background: '#FBF9F4', border: '1px solid rgba(150,140,120,0.25)', color: '#2B2A28' };
 
-export default function OnboardingModal({ initialProfile, onConcluir, onPularTudo, initialStep = 0 }) {
+export default function OnboardingModal({ initialProfile, onConcluir, initialStep = 0 }) {
   const [step, setStep] = useState(initialStep);
   const [nome, setNome] = useState('');
   const [condicoes, setCondicoes] = useState([]);
@@ -379,15 +379,6 @@ export default function OnboardingModal({ initialProfile, onConcluir, onPularTud
             )}
           </div>
         </div>
-
-        {onPularTudo && (
-          <div className="text-center mt-3">
-            <button type="button" onClick={onPularTudo}
-              className="text-xs text-white/70 underline hover:text-white">
-              Pular tudo por agora
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
