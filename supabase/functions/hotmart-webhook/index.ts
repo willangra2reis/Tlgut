@@ -5,7 +5,7 @@
 //   PURCHASE_APPROVED          → cria o usuário (sem senha, via convite) e grava
 //                                compras.status = PURCHASE_APPROVED. O Supabase
 //                                Auth envia o e-mail de convite (SMTP Brevo).
-//   PURCHASE_CANCELED/REFUNDED/PROTEST/BILLET_PRINTED/SUBSCRIPTION_CANCELLATION
+//   PURCHASE_CANCELED/REFUNDED/PROTEST/BILLET_PRINTED/CHARGEBACK/SUBSCRIPTION_CANCELLATION
 //                              → atualiza compras.status (bloqueia conteúdo no app).
 //
 // Segurança:
@@ -31,6 +31,7 @@ const ALLOWED_EVENTS = [
   'PURCHASE_REFUNDED',
   'PURCHASE_PROTEST',
   'PURCHASE_BILLET_PRINTED',
+  'PURCHASE_CHARGEBACK',
   'SUBSCRIPTION_CANCELLATION',
 ] as const
 

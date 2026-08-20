@@ -19,6 +19,7 @@ describe('compras — status e acesso', () => {
   });
 
   it('temAcesso false para qualquer status de bloqueio', () => {
+    expect(STATUS_BLOQUEIO).toContain('PURCHASE_CHARGEBACK');
     for (const status of STATUS_BLOQUEIO) {
       expect(temAcesso([{ produto: 'tinobem', status }], 'tinobem')).toBe(false);
     }
