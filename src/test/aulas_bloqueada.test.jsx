@@ -39,10 +39,11 @@ beforeEach(() => {
 });
 
 describe('Aba Aulas — compra bloqueada', () => {
-  it('mostra "Compra não ativa" em vez do catálogo quando o status é de bloqueio', async () => {
+  it('mostra a tela de bloqueio (com CTA) em vez do catálogo quando o status é de bloqueio', async () => {
     render(<App />);
     fireEvent.click(await screen.findByRole('button', { name: 'Aulas' }));
-    expect(screen.getByText('Compra não ativa')).toBeInTheDocument();
+    expect(screen.getByText(/sentimos sua falta por aqui/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reativar meu acesso' })).toBeInTheDocument();
     expect(screen.queryByText('Leve tudo')).not.toBeInTheDocument();
   });
 });

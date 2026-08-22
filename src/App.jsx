@@ -47,6 +47,8 @@ import PrimeiroAcessoScreen from './components/PrimeiroAcessoScreen';
 import AlterarSenhaModal from './components/AlterarSenhaModal';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient.js';
 import { listarCompras, temAcesso } from './lib/compras.js';
+import { carregarConfigApp } from './lib/config.js';
+import AcessoBloqueadoScreen from './components/AcessoBloqueadoScreen';
 import {
   syncEntryInsert, syncEntryUpdate, syncEntryDelete,
   syncProfileUpsert, syncPrefsMerge,
@@ -114,6 +116,39 @@ const NAV_ITEMS = [
 
 // Ordem das abas para navegação por gesto (swipe horizontal entre abas).
 const ABAS = NAV_ITEMS.map((i) => i.key);
+
+// Ícones por aba (usados também na tela de bloqueio de compra).
+const ICONES_ABA = { diario: BookOpen, insights: Lightbulb, aulas: GraduationCap, perfil: User };
+
+// Mensagens da tela "Compra não ativa" por aba (RF: acesso inativo até
+// PURCHASE_APPROVED). {nome} é substituído pelo primeiro nome do perfil.
+const MSG_BLOQUEIO = {
+  diario: [
+    '{nome}, seu diário continua aqui.',
+    'Você já registrou parte da sua jornada no TinoBem, e seus registros continuam guardados.',
+    'Seu acesso está atualmente inativo. Para voltar a registrar novos acontecimentos e acompanhar sua linha do tempo, reative seu acesso.',
+    'Se você já realizou uma nova compra, feche e abra o aplicativo novamente para atualizar seu acesso.',
+  ],
+  insights: [
+    '{nome}, sua história já tem muitos registros.',
+    'Suas informações continuam aqui, mas as análises estão disponíveis enquanto seu acesso estiver ativo.',
+    'Se você já realizou uma nova compra, feche e abra o aplicativo novamente para atualizar seu acesso.',
+  ],
+  aulas: [
+    '{nome}, sentimos sua falta por aqui.',
+    'Seu acesso às aulas está pausado no momento.',
+    'Quando quiser continuar sua jornada, você pode reativar seu acesso e voltar de onde parou.',
+  ],
+  perfil: [
+    '{nome}, sua conta está com o acesso inativo no momento.',
+    'Seus dados e preferências continuam guardados. Quando reativar seu acesso, você volta a usar todos os recursos do TinoBem.',
+    'Se você já realizou uma nova compra, feche e abra o aplicativo novamente para atualizar seu acesso.',
+  ],
+  adicionar: [
+    'Vamos continuar seu diário, {nome}?',
+    'Seu histórico continua salvo, mas novos registros estão disponíveis somente com o acesso ativo.',
+  ],
+};
 
 // Alimentos predefinidos (tags) — inclui gatilhos comuns. O usuário pode adicionar
 // os seus (persistidos na sessão; Supabase em fase futura).
@@ -990,7 +1025,7 @@ function AulaDetalhe({ aula, indice, onVoltar }) {
 
 // Tela principal da aba Aulas (catálogo + detalhe). Sem data-noswipe: o swipe
 // horizontal continua navegando entre abas; a rolagem do catálogo é vertical.
-function AulasScreen({ selecionado, onSelecionado, aprovado }) {
+function AulasScreen({ selecionado, onSelecionado }) {
   const [comprados, setComprados] = useState(() => new Set());
 
   const liberar = useCallback((ids) => {
@@ -1024,22 +1059,7 @@ function AulasScreen({ selecionado, onSelecionado, aprovado }) {
         </button>
       </header>
 
-      {!aprovado ? (
-        <div className="flex-1 min-h-[60vh] flex flex-col items-center justify-center text-center px-8"
-          style={{ color: 'rgba(242,236,227,0.85)' }}>
-          <Lock size={40} style={{ color: '#F6D2B8' }} className="mb-4" />
-          <p className="text-2xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
-            Compra não ativa
-          </p>
-          <p className="text-sm mt-2 leading-relaxed">
-            Este conteúdo é liberado após a confirmação da sua compra.
-            Assim que o pagamento for aprovado, ele aparece aqui automaticamente.
-          </p>
-          <p className="text-[11px] mt-4" style={{ color: 'rgba(242,236,227,0.55)' }}>
-            Precisa de ajuda? Fale com a gente em contact@tinobem.app
-          </p>
-        </div>
-      ) : aulaSel ? (
+      {aulaSel ? (
         <AulaDetalhe
           aula={aulaSel}
           indice={indiceSel}
@@ -5046,6 +5066,7 @@ export default function App() {
     try { return localStorage.getItem('tlgut_guest_mode') === '1' ? INITIAL_ENTRIES : []; } catch { return []; }
   });
   const [sheetOpen,  setSheetOpen]  = useState(false);
+  const [lockAddOpen, setLockAddOpen] = useState(false);                              // modal "Adicionar evento" quando compra inativa
   const [activeForm, setActiveForm] = useState(null);
   const [tema]                      = useState(() => periodoDoDia(horaLocalAtual())); // RF 1.1/1.2
   const [cursiva,    setCursiva]    = useState(false);                                // RF 4.1 (padrão desligado)
@@ -5108,6 +5129,7 @@ export default function App() {
   const [resetandoSenha, setResetandoSenha] = useState(false);                            // fluxo de redefinição de senha (recovery)
   const [primeiroAcesso, setPrimeiroAcesso] = useState(false);                          // primeiro acesso via convite (define senha)
   const [compras, setCompras] = useState([]);                                          // compras do usuário logado (status por produto)
+  const [configApp, setConfigApp] = useState({});                                      // app_config (Supabase): links/flags editáveis no dashboard
   const [alterarSenhaAberto, setAlterarSenhaAberto] = useState(false);                   // modal de alteração de senha (conta logada)
   const [excluindo, setExcluindo] = useState(false);                                       // exclusão em andamento
   const [dadosExcluidos, setDadosExcluidos] = useState(false);                             // banner de sucesso no login
@@ -5199,6 +5221,8 @@ export default function App() {
       }
       // Status das compras (Hotmart) para o gate de conteúdo da aba Aulas.
       setCompras(await listarCompras());
+      // Configuração pública do app (ex.: link "Reativar meu acesso") — não fatal.
+      setConfigApp(await carregarConfigApp());
     } catch (e) {
       console.error('[loadUserData] falhou ao carregar dados da conta:', e);
     }
@@ -5872,6 +5896,21 @@ export default function App() {
   const inkColor = `hsl(30, 8%, ${inkL}%)`;
   const inkSoftColor = `hsl(30, 7%, ${inkL + 10}%)`;
 
+  // ── Gate de compra (Hotmart) ─────────────────────────────────────────────────
+  // Sem Supabase configurado (demo/testes) e no modo convidado o acesso nunca é
+  // bloqueado. Logado e sem compra aprovada → abas e "Adicionar evento" ficam
+  // bloqueados (até o status voltar a PURCHASE_APPROVED).
+  const compraAtiva = !isSupabaseConfigured() || guestMode || temAcesso(compras, 'tinobem');
+  const bloqueado = !compraAtiva;
+  const primeiroNome = (profile?.nome || '').trim().split(/\s+/)[0] || 'Olá';
+  const hrefReativar = configApp?.reativar_acesso_url || '';
+
+  // Botão "+": com compra inativa abre o modal de bloqueio em vez do sheet.
+  const abrirAdicionar = () => {
+    if (bloqueado) setLockAddOpen(true);
+    else setSheetOpen(true);
+  };
+
   // ── Gate de autenticação ─────────────────────────────────────────────────────
   // Sem Supabase configurado (ex: testes), o app renderiza direto (modo demo).
   if (isSupabaseConfigured() && !authReady) {
@@ -5910,6 +5949,10 @@ export default function App() {
         {/* Conteúdo da aba ativa — wrapper com key para transição suave ao trocar de aba */}
         <div key={abaAtiva} className="tg-aba-anim relative z-10 flex-1 flex flex-col min-h-0">
         {abaAtiva === 'diario' ? (
+          bloqueado ? (
+            <AcessoBloqueadoScreen modo="pagina" aba="diario" icone={ICONES_ABA.diario} tituloAba="Diário"
+              nome={primeiroNome} mensagem={MSG_BLOQUEIO.diario} hrefReativar={hrefReativar} />
+          ) : (
           <>
             <HeroHeader colapsado={heroColapsado} />
             {/* Card de Resumo do Dia (RF 2.2, 2.3) — elevado e com sombra sobre os eventos */}
@@ -5950,17 +5993,40 @@ export default function App() {
               ))}
             </main>
           </>
+          )
         ) : abaAtiva === 'insights' ? (
-          <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} menuInsights={menuInsights} onMenuInsights={setMenuInsights} entries={entries} />
+          bloqueado ? (
+            <AcessoBloqueadoScreen modo="pagina" aba="insights" icone={ICONES_ABA.insights} tituloAba="Análises"
+              nome={primeiroNome} mensagem={MSG_BLOQUEIO.insights} hrefReativar={hrefReativar} />
+          ) : (
+            <InsightsScreen calAberto={calAberto} onCalAberto={setCalAberto} menuInsights={menuInsights} onMenuInsights={setMenuInsights} entries={entries} />
+          )
         ) : abaAtiva === 'perfil' ? (
-          <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => { setEditandoHistFam(true); setEditandoProfile(true); }} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} onAlterarSenha={() => setAlterarSenhaAberto(true)} demoAtivo={demoAtivo} />
+          bloqueado ? (
+            <AcessoBloqueadoScreen modo="pagina" aba="perfil" icone={ICONES_ABA.perfil} tituloAba="Perfil"
+              nome={primeiroNome} mensagem={MSG_BLOQUEIO.perfil} hrefReativar={hrefReativar} onLogout={handleLogout} />
+          ) : (
+            <ProfileScreen cursiva={cursiva} onCursiva={setCursiva} inkLevel={inkLevel} onInk={setInkLevel} fontScale={fontScale} onFont={setFontScale} profile={profile} onEditarProfile={() => { setEditandoHistFam(true); setEditandoProfile(true); }} installState={installState} onInstallClick={onInstallClick} autenticado={Boolean(session)} onLogout={handleLogout} onEntrar={isSupabaseConfigured() ? entrarNaConta : undefined} onBaixarDados={handleBaixarDados} onCarregarDemo={handleCarregarDemo} onExcluirDados={() => setDeleteOpen(true)} onAlterarSenha={() => setAlterarSenhaAberto(true)} demoAtivo={demoAtivo} />
+          )
         ) : (
-          <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} aprovado={!isSupabaseConfigured() || temAcesso(compras, 'tinobem')} />
+          bloqueado ? (
+            <AcessoBloqueadoScreen modo="pagina" aba="aulas" icone={ICONES_ABA.aulas} tituloAba="Aulas"
+              nome={primeiroNome} mensagem={MSG_BLOQUEIO.aulas} hrefReativar={hrefReativar} />
+          ) : (
+            <AulasScreen selecionado={aulaSelecionada} onSelecionado={setAulaSelecionada} />
+          )
         )}
         </div>
 
         {/* Menu de Navegação Inferior (RF 3) */}
-        <BottomNav abaAtiva={abaAtiva} onChangeAba={mudarAba} onAdd={() => setSheetOpen(true)} />
+        <BottomNav abaAtiva={abaAtiva} onChangeAba={mudarAba} onAdd={abrirAdicionar} />
+
+        {/* Modal "Adicionar evento" bloqueado (compra inativa) */}
+        {lockAddOpen && (
+          <AcessoBloqueadoScreen modo="modal" aba="diario" icone={ICONES_ABA.diario} tituloAba="Adicionar evento"
+            nome={primeiroNome} mensagem={MSG_BLOQUEIO.adicionar} hrefReativar={hrefReativar}
+            onFechar={() => setLockAddOpen(false)} />
+        )}
 
         {/* Banner de instalação PWA */}
         {mostrarInstall && (
@@ -6011,7 +6077,7 @@ export default function App() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-[#2B2A28] font-medium leading-snug">Esqueceu de registrar algo?</p>
                   <div className="flex gap-2 mt-2">
-                    <button type="button" onClick={() => { dismissBubble(false); setSheetOpen(true); }}
+                    <button type="button" onClick={() => { dismissBubble(false); abrirAdicionar(); }}
                       className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold text-white"
                       style={{ background: 'var(--brand)' }}>
                       Registrar agora
