@@ -103,11 +103,13 @@ describe('Menu de navegação inferior (RF 3)', () => {
     expect(screen.getByRole('button', { name: 'Adicionar registro' })).toBeInTheDocument();
   });
 
-  it('aba Aulas mostra o catálogo e não altera os registros', () => {
+  it('aba Aulas mostra o catálogo (Acessar conteúdo) e não altera os registros', () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'Aulas' }));
-    // O catálogo de Aulas aparece (banner do combo) e os registros do Diário somem
-    expect(screen.getByText('Leve tudo')).toBeInTheDocument();
+    // O catálogo de Aulas aparece (cards com "Acessar conteúdo") e o Diário some
+    expect(screen.getByText('Super café da manhã/tarde')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Acessar conteúdo/ }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('Leve tudo')).not.toBeInTheDocument();
     expect(screen.queryAllByText('Café da manhã')).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Diário' }));
     expect(screen.getAllByText('Café da manhã').length).toBeGreaterThanOrEqual(1);

@@ -378,20 +378,6 @@ const AULAS = [
 ];
 
 // Pacotes/ofertas. O combo "Tudo" reúne os 4 primeiros cursos. "conversas" é avulso.
-const AULAS_COMBO = {
-  id: 'combo-tudo',
-  titulo: 'Leve tudo',
-  subtitulo: 'Os 4 cursos essenciais num só pacote',
-  itens: ['cafe', 'almoco', 'rotina', 'kefir'],
-  precoDe: 57.0, // soma dos avulsos (10 + 10 + 10 + 27)
-  preco: 37.0,   // preço promocional do combo
-};
-
-// Formata um número para moeda pt-BR (vírgula decimal): 10 → "R$ 10,00".
-function formatarPreco(valor) {
-  return `R$ ${Number(valor).toFixed(2).replace('.', ',')}`;
-}
-
 // Detecta o tipo de vídeo a partir da URL para escolher o player adequado.
 // 'mp4' → player nativo <video>; 'iframe' → embed (YouTube, Panda, Wistia, etc.).
 // Reconhece arquivos diretos (.mp4/.webm/.ogg) e o padrão .bin?...filename=...mp4
@@ -796,11 +782,11 @@ function BottomNav({ abaAtiva, onChangeAba, onAdd }) {
   );
 }
 
-// ─── Aulas (vídeo-aulas pagas) — FASE 1 (somente front-end) ───────────────────
+// ─── Aulas (vídeo-aulas pagas) ────────────────────────────────────────────────
 // Tela cheia com cabeçalho próprio (não usa o HeroHeader do Diário). Catálogo
-// estilo "Netflix" com cards grandes; ao tocar abre a sub-view de detalhe.
-// Compras são SIMULADAS (Set local) — sem backend/pagamento real. A estrutura
-// de dados (AULAS/AULAS_COMBO) já prevê os campos para vir do Supabase depois.
+// estilo "Netflix" com cards grandes; ao tocar abre a sub-view de detalhe. O
+// acesso é controlado no nível do app (compras/status no Supabase); cada card
+// leva ao conteúdo via "Acessar conteúdo".
 
 // Placeholder visual de prévia: gradiente da marca + ícone Play central. Usado
 // enquanto capa/preview/links forem null (ainda sem vídeo/imagem).
@@ -852,9 +838,10 @@ function VideoPlayer({ url, titulo }) {
   );
 }
 
-// Card de curso no catálogo: vídeo de prévia embutido + botão de compra ou
-// acesso. Não é um <button> único pois contém player de vídeo e botões.
-function AulaCard({ aula, liberado, onComprar, onAcessar }) {
+// Card de curso no catálogo: vídeo de prévia embutido + botão de acesso. Não é
+// um <button> único pois contém player de vídeo e botão. Todo o conteúdo fica
+// acessível via "Acessar conteúdo" (a compra é controlada no nível do app).
+function AulaCard({ aula, onAcessar }) {
   const temPreview = !!aula.preview;
 
   return (
@@ -876,21 +863,6 @@ function AulaCard({ aula, liberado, onComprar, onAcessar }) {
         </PreviewPlaceholder>
       )}
 
-      {/* Selo de status (canto superior esquerdo) */}
-      <div className="absolute top-3 left-3 z-10">
-        {liberado ? (
-          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-            style={{ background: 'rgba(120,196,140,0.92)', color: '#11241A' }}>
-            <CheckCircle2 size={13} /> Liberado
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
-            style={{ background: 'rgba(12,18,16,0.7)', color: '#F2ECE3' }}>
-            <Lock size={13} /> Bloqueado
-          </span>
-        )}
-      </div>
-
       {/* Badge categoria (canto superior direito) */}
       {aula.badge && (
         <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full text-[11px] font-semibold"
@@ -906,19 +878,11 @@ function AulaCard({ aula, liberado, onComprar, onAcessar }) {
           {aula.titulo}
         </p>
         <p className="text-xs mt-0.5" style={{ color: 'rgba(242,236,227,0.82)' }}>{aula.subtitulo}</p>
-        {liberado ? (
-          <button type="button" onClick={onAcessar}
-            className="w-full mt-3 py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2"
-            style={{ background: '#F6D2B8', color: '#3A2E25' }}>
-            <Play size={16} fill="#3A2E25" /> Acessar conteúdo
-          </button>
-        ) : (
-          <button type="button" onClick={onComprar}
-            className="w-full mt-3 py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2"
-            style={{ background: '#F6D2B8', color: '#3A2E25' }}>
-            <Lock size={16} /> Comprar agora {formatarPreco(aula.preco)}
-          </button>
-        )}
+        <button type="button" onClick={onAcessar}
+          className="w-full mt-3 py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2"
+          style={{ background: '#F6D2B8', color: '#3A2E25' }}>
+          <Play size={16} fill="#3A2E25" /> Acessar conteúdo
+        </button>
       </div>
     </div>
   );
@@ -1026,19 +990,8 @@ function AulaDetalhe({ aula, indice, onVoltar }) {
 // Tela principal da aba Aulas (catálogo + detalhe). Sem data-noswipe: o swipe
 // horizontal continua navegando entre abas; a rolagem do catálogo é vertical.
 function AulasScreen({ selecionado, onSelecionado }) {
-  const [comprados, setComprados] = useState(() => new Set());
-
-  const liberar = useCallback((ids) => {
-    setComprados((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => next.add(id));
-      return next;
-    });
-  }, []);
-
   const aulaSel = selecionado ? AULAS.find((a) => a.id === selecionado) : null;
   const indiceSel = selecionado ? AULAS.findIndex((a) => a.id === selecionado) : -1;
-  const comboLiberado = AULAS_COMBO.itens.every((id) => comprados.has(id));
 
   return (
     <main
@@ -1067,40 +1020,12 @@ function AulasScreen({ selecionado, onSelecionado }) {
         />
       ) : (
         <div className="px-4 pt-1">
-          {!comboLiberado && (
-          <div className="rounded-3xl p-5 shadow-[0_18px_36px_-16px_rgba(0,0,0,0.6)]"
-            style={{ background: 'linear-gradient(150deg, #34543F 0%, #1E3328 100%)', border: '1px solid rgba(159,216,174,0.25)' }}>
-            <p className="text-3xl leading-tight" style={{ fontFamily: CURSIVE_STACK, color: '#FFFFFF' }}>
-              {AULAS_COMBO.titulo}
-            </p>
-            <p className="text-sm mt-1" style={{ color: 'rgba(242,236,227,0.82)' }}>{AULAS_COMBO.subtitulo}</p>
-            <div className="flex items-center gap-2 mt-3">
-              <span className="text-sm line-through" style={{ color: 'rgba(242,236,227,0.6)' }}>
-                de {formatarPreco(AULAS_COMBO.precoDe)}
-              </span>
-              <span className="text-2xl font-bold" style={{ color: '#F6D2B8' }}>
-                por {formatarPreco(AULAS_COMBO.preco)}
-              </span>
-            </div>
-            <button type="button" onClick={() => liberar(AULAS_COMBO.itens)}
-              className="w-full mt-4 py-3 rounded-2xl text-base font-semibold"
-              style={{ background: '#F6D2B8', color: '#3A2E25' }}>
-              Adquirir combo {formatarPreco(AULAS_COMBO.preco)}
-            </button>
-            <p className="text-[11px] text-center mt-2" style={{ color: 'rgba(242,236,227,0.6)' }}>
-              Demonstração — compra simulada (pagamento em breve)
-            </p>
-          </div>
-          )}
-
           {/* Catálogo vertical */}
           <div className="mt-5 space-y-5">
             {AULAS.map((aula) => (
               <AulaCard
                 key={aula.id}
                 aula={aula}
-                liberado={comprados.has(aula.id)}
-                onComprar={() => liberar([aula.id])}
                 onAcessar={() => onSelecionado(aula.id)}
               />
             ))}
